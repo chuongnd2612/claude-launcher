@@ -1,0 +1,176 @@
+using ClaudeLauncher.Tui;
+
+namespace ClaudeLauncher;
+
+public enum ActionKind
+{
+    None,
+    Push,
+    Replace,
+    Pop,
+    Quit,
+    Finish
+}
+
+public sealed class ScreenAction
+{
+    public ActionKind Kind { get; private init; } = ActionKind.None;
+    public ScreenBase? Next { get; private init; }
+    public string? Mode { get; private init; }
+
+    public static ScreenAction None { get; } = new();
+    public static ScreenAction Back { get; } = new() { Kind = ActionKind.Pop };
+    public static ScreenAction Exit { get; } = new() { Kind = ActionKind.Quit };
+
+    public static ScreenAction Push(ScreenBase next) => new() { Kind = ActionKind.Push, Next = next };
+
+    public static ScreenAction Replace(ScreenBase next) => new() { Kind = ActionKind.Replace, Next = next };
+
+    public static ScreenAction Finish(string mode) => new() { Kind = ActionKind.Finish, Mode = mode };
+}
+
+public abstract class ScreenBase
+{
+    protected ScreenBase(App app) => App = app;
+
+    protected App App { get; }
+
+    public abstract void Render(ScreenBuffer buffer);
+
+    public abstract ScreenAction HandleKey(ConsoleKeyInfo key);
+}
+
+public sealed class App
+{
+    private readonly List<ScreenBase> _stack = new();
+    private readonly ScreenBuffer _buffer = new();
+
+    public App(LauncherState state, UiSettings settings)
+    {
+        State = state;
+        Settings = settings;
+    }
+
+    public LauncherState State { get; }
+
+    public UiSettings Settings { get; }
+
+    public ProfileEntry? Profile { get; set; }
+
+    public ProjectEntry? Project { get; set; }
+
+    /// <summary>Set once a launch mode has been chosen.</summary>
+    public string? LaunchMode { get; private set; }
+
+    public ScreenBuffer Buffer => _buffer;
+
+    private ScreenBase Current => _stack[_stack.Count - 1];
+
+    /// <summary>Runs the wizard. Several screens can be pre-stacked so Esc walks back naturally.</summary>
+    public void Run(params ScreenBase[] initial)
+    {
+        _stack.Clear();
+        _stack.AddRange(initial);
+        if (_stack.Count == 0) return;
+
+        Term.Setup("⚡ CLAUDE LAUNCHER");
+        Console.CancelKeyPress += OnCancel;
+
+        try
+        {
+            Loop();
+        }
+        finally
+        {
+            Console.CancelKeyPress -= OnCancel;
+            Term.Restore();
+        }
+    }
+
+    /// <summary>Renders one screen and returns the frame as plain text (used by --selftest).</summary>
+    public string RenderToText(ScreenBase screen, int width, int height)
+    {
+        _buffer.Resize(width, height);
+        _buffer.Clear();
+        screen.Render(_buffer);
+        return _buffer.ToPlainText();
+    }
+
+    private void OnCancel(object? sender, ConsoleCancelEventArgs e)
+    {
+        Term.Restore();
+    }
+
+    private void Loop()
+    {
+        var width = 0;
+        var height = 0;
+
+        while (_stack.Count > 0)
+        {
+            if (Term.Width != width || Term.Height != height)
+            {
+                width = Term.Width;
+                height = Term.Height;
+                _buffer.Resize(width, height);
+            }
+
+            _buffer.PaintBackground = Settings.PaintBackground;
+            _buffer.Clear();
+            Current.Render(_buffer);
+            _buffer.Flush();
+
+            var key = WaitForKey(width, height);
+            if (key is null) continue; // window resized, redraw
+
+            Apply(Current.HandleKey(key.Value));
+        }
+    }
+
+    private static ConsoleKeyInfo? WaitForKey(int width, int height)
+    {
+        while (true)
+        {
+            try
+            {
+                if (Console.KeyAvailable) return Console.ReadKey(intercept: true);
+            }
+            catch (InvalidOperationException)
+            {
+                return Console.ReadKey(intercept: true);
+            }
+
+            if (Term.Width != width || Term.Height != height) return null;
+            Thread.Sleep(35);
+        }
+    }
+
+    private void Apply(ScreenAction action)
+    {
+        switch (action.Kind)
+        {
+            case ActionKind.Push:
+                if (action.Next is not null) _stack.Add(action.Next);
+                break;
+            case ActionKind.Replace:
+                if (action.Next is not null) _stack[_stack.Count - 1] = action.Next;
+                break;
+            case ActionKind.Pop:
+                if (_stack.Count > 1) _stack.RemoveAt(_stack.Count - 1);
+                else _stack.Clear();
+                break;
+            case ActionKind.Quit:
+                _stack.Clear();
+                break;
+            case ActionKind.Finish:
+                if (Profile is not null && Project is not null)
+                {
+                    LaunchMode = action.Mode ?? "new";
+                    StateStore.WriteResult(Profile, Project, LaunchMode);
+                }
+
+                _stack.Clear();
+                break;
+        }
+    }
+}

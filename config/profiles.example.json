@@ -1,0 +1,18 @@
+{
+  "profiles": [
+    {
+      "name": "work",
+      "label": "Work",
+      "icon": "W",
+      "configDir": "$HOME/.claude-work",
+      "description": "Default profile for work projects"
+    },
+    {
+      "name": "personal",
+      "label": "Personal",
+      "icon": "P",
+      "configDir": "$HOME/.claude-personal",
+      "description": "Personal profile"
+    }
+  ]
+}

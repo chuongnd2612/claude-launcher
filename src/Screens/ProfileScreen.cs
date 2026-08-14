@@ -1,0 +1,206 @@
+using ClaudeLauncher.Tui;
+
+namespace ClaudeLauncher.Screens;
+
+/// <summary>Step 1 - pick a Claude profile (config dir).</summary>
+public sealed class ProfileScreen : ScreenBase
+{
+    private const int CardHeight = 5;
+    private const int CompactCardHeight = 4;
+    private const int Gap = 3;
+
+    private int _index;
+    private int _scrollRow;
+
+    public ProfileScreen(App app, int index = 0) : base(app) => _index = index;
+
+    private int TileCount => App.State.Profiles.Count + 1; // + "add new profile"
+
+    private int AddTileIndex => App.State.Profiles.Count;
+
+    public override void Render(ScreenBuffer buffer)
+    {
+        var y = Widgets.Chrome(buffer, 0);
+        var margin = Widgets.Margin(buffer);
+
+        Widgets.SectionTitle(buffer, y, "Select a Claude profile");
+
+        var inner = buffer.Width - margin * 2;
+        var columns = inner >= 84 ? 2 : 1;
+        var cardWidth = columns == 2 ? (inner - Gap) / 2 : inner;
+        var compact = buffer.Height < 30;
+        var cardHeight = compact ? CompactCardHeight : CardHeight;
+
+        var gridTop = y + 2;
+        var footerTop = buffer.Height - 3;
+        var rowStride = cardHeight + 1;
+        var totalRows = (TileCount + columns - 1) / columns;
+        var rowsFit = Math.Max(1, (footerTop - 1 - gridTop) / rowStride);
+
+        // Keep the highlighted tile inside the viewport on short windows.
+        var selectedRow = _index / columns;
+        if (selectedRow < _scrollRow) _scrollRow = selectedRow;
+        if (selectedRow >= _scrollRow + rowsFit) _scrollRow = selectedRow - rowsFit + 1;
+        _scrollRow = Math.Clamp(_scrollRow, 0, Math.Max(0, totalRows - rowsFit));
+
+        if (totalRows > rowsFit)
+        {
+            var indicator = $"{selectedRow + 1}/{totalRows}  {(_scrollRow > 0 ? "▴" : " ")}{(_scrollRow + rowsFit < totalRows ? "▾" : " ")}";
+            buffer.WriteRight(margin + inner - 1, y, indicator, new Sty(Theme.Dim, Theme.Bg));
+        }
+
+        for (var i = 0; i < TileCount; i++)
+        {
+            var row = i / columns;
+            if (row < _scrollRow || row >= _scrollRow + rowsFit) continue;
+
+            var column = i % columns;
+            var x = margin + column * (cardWidth + Gap);
+            var cardY = gridTop + (row - _scrollRow) * rowStride;
+
+            if (i == AddTileIndex) DrawAddTile(buffer, x, cardY, cardWidth, cardHeight, i == _index);
+            else DrawProfileTile(buffer, x, cardY, cardWidth, cardHeight, App.State.Profiles[i], i, i == _index);
+        }
+
+        var afterCards = gridTop + Math.Min(totalRows - _scrollRow, rowsFit) * rowStride;
+
+        if (App.Settings.ShowTips)
+        {
+            // Keep the tips box pinned above the footer so tall windows do not
+            // leave a hole in the middle of the layout.
+            var tipsY = Math.Max(afterCards, buffer.Height - 4 - 5);
+            Widgets.Tips(buffer, tipsY, new[]
+            {
+                "Profiles keep work and personal Claude sessions apart (CLAUDE_CONFIG_DIR)",
+                "Each profile has its own settings, history and MCP servers",
+                "Projects come from your existing QuickPaths registry"
+            });
+        }
+
+        Widgets.Footer(buffer, new[]
+        {
+            new KeyHint("↑↓←→", "Navigate"),
+            new KeyHint("↵", "Select"),
+            new KeyHint("a", "Add profile"),
+            new KeyHint("s", "Settings"),
+            new KeyHint("q", "Quit")
+        });
+    }
+
+    private static void DrawProfileTile(ScreenBuffer buffer, int x, int y, int width, int height, ProfileEntry profile, int index, bool selected)
+    {
+        Widgets.Panel(buffer, x, y, width, height, selected);
+
+        var bg = selected ? Theme.PanelSelected : Theme.Panel;
+        var full = height >= CardHeight;
+        var textX = x + (full ? 9 : 5);
+        var textWidth = width - (textX - x) - 4;
+
+        if (full)
+            Widgets.IconBadge(buffer, x + 2, y + 1, profile.DisplayIcon, selected ? Theme.BlueDeep : Theme.Muted, bg, selected);
+        else
+            buffer.Write(x + 2, y + 1, profile.DisplayIcon, new Sty(selected ? Theme.Blue : Theme.Muted, bg, bold: true));
+
+        buffer.WriteClipped(textX, y + 1, profile.DisplayLabel, textWidth,
+            new Sty(selected ? Theme.Blue : Theme.Text, bg, bold: true));
+
+        buffer.WriteClipped(textX, y + 2, StateStore.ExpandHome(profile.ConfigDir), textWidth,
+            new Sty(Theme.TextSoft, bg));
+
+        if (full)
+            buffer.WriteClipped(textX, y + 3, profile.DescriptionOr(index == 0), textWidth,
+                new Sty(Theme.Muted, bg, italic: true));
+
+        if (selected) buffer.Write(x + width - 3, y + 1, "✓", new Sty(Theme.Blue, bg, bold: true));
+    }
+
+    private static void DrawAddTile(ScreenBuffer buffer, int x, int y, int width, int height, bool selected)
+    {
+        var bg = selected ? Theme.PanelSelected : Theme.Panel;
+        var border = selected ? Theme.BorderAccent : Theme.Border;
+        buffer.Box(x, y, width, height, new Sty(border, bg), BoxStyle.Dashed, bg);
+
+        var full = height >= CardHeight;
+        var textX = x + (full ? 9 : 5);
+        var textWidth = width - (textX - x) - 4;
+
+        if (full)
+            Widgets.IconBadge(buffer, x + 2, y + 1, "+", selected ? Theme.VioletSoft : Theme.Muted, bg, false);
+        else
+            buffer.Write(x + 2, y + 1, "+", new Sty(selected ? Theme.VioletSoft : Theme.Muted, bg, bold: true));
+
+        buffer.WriteClipped(textX, y + 1, "Add new profile", textWidth,
+            new Sty(selected ? Theme.VioletSoft : Theme.TextSoft, bg, bold: true));
+        buffer.WriteClipped(textX, y + 2, "Create a new Claude profile", textWidth, new Sty(Theme.Muted, bg, italic: true));
+
+        if (full)
+            buffer.WriteClipped(textX, y + 3, $"Saved to {StateStore.CollapseHome(StateStore.ProfilesFilePath)}", textWidth,
+                new Sty(Theme.Dim, bg));
+    }
+
+    public override ScreenAction HandleKey(ConsoleKeyInfo key)
+    {
+        var columns = App.Buffer.Width - Widgets.Margin(App.Buffer) * 2 >= 84 ? 2 : 1;
+
+        switch (key.Key)
+        {
+            case ConsoleKey.UpArrow:
+                Move(-columns);
+                return ScreenAction.None;
+            case ConsoleKey.DownArrow:
+                Move(columns);
+                return ScreenAction.None;
+            case ConsoleKey.LeftArrow:
+                Move(-1);
+                return ScreenAction.None;
+            case ConsoleKey.RightArrow:
+            case ConsoleKey.Tab:
+                Move(1);
+                return ScreenAction.None;
+            case ConsoleKey.Home:
+                _index = 0;
+                return ScreenAction.None;
+            case ConsoleKey.End:
+                _index = TileCount - 1;
+                return ScreenAction.None;
+            case ConsoleKey.Enter:
+            case ConsoleKey.Spacebar:
+                return Choose();
+            case ConsoleKey.Escape:
+                return ScreenAction.Exit;
+        }
+
+        var ch = char.ToLowerInvariant(key.KeyChar);
+        if (ch == 'q') return ScreenAction.Exit;
+        if (ch == 'a') return ScreenAction.Push(new AddProfileScreen(App));
+        if (ch == 's') return ScreenAction.Push(new SettingsScreen(App));
+
+        if (ch >= '1' && ch <= '9')
+        {
+            var target = ch - '1';
+            if (target < App.State.Profiles.Count)
+            {
+                _index = target;
+                return Choose();
+            }
+        }
+
+        return ScreenAction.None;
+    }
+
+    private ScreenAction Choose()
+    {
+        if (_index == AddTileIndex) return ScreenAction.Push(new AddProfileScreen(App));
+
+        App.Profile = App.State.Profiles[_index];
+        App.Project = null;
+        return ScreenAction.Push(new ProjectScreen(App));
+    }
+
+    private void Move(int delta)
+    {
+        var next = _index + delta;
+        if (next < 0 || next >= TileCount) return;
+        _index = next;
+    }
+}

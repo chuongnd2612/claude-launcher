@@ -1,0 +1,99 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build
+        shell: pwsh
+        # No --source override needed: the project has zero NuGet dependencies,
+        # so the framework-dependent build restores entirely offline.
+        run: dotnet build src/ClaudeLauncher.csproj -c Release --nologo -warnaserror
+
+      - name: Render every screen (layout smoke test)
+        shell: pwsh
+        run: |
+          $stateDir = Join-Path $env:RUNNER_TEMP 'launcher'
+          New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
+          $state = Join-Path $stateDir 'state.json'
+          @'
+          {
+            "profiles": [
+              { "name": "work", "label": "Work", "icon": "W", "configDir": "$HOME/.claude-work" },
+              { "name": "personal", "label": "Personal", "icon": "P", "configDir": "$HOME/.claude-personal" }
+            ],
+            "projects": [
+              { "name": "demo", "path": "C:\\demo" },
+              { "name": "other", "path": "C:\\other" }
+            ]
+          }
+          '@ | Set-Content $state -Encoding UTF8
+
+          $env:CLAUDE_LAUNCHER_STATE = $state
+          $dll = 'src/bin/Release/net8.0/ClaudeLauncher.dll'
+
+          # Present at every size.
+          $always = @('Select a Claude profile', 'Your intelligent CLI companion', 'Projects', 'New profile', 'Appearance')
+          # The launch summary and the tips box are intentionally dropped when the
+          # window is too short, so only require them on roomy terminals.
+          $tall = @('Launch summary', 'Tips')
+
+          foreach ($size in @(@(80, 24), @(100, 30), @(132, 44), @(200, 60))) {
+            $out = dotnet $dll --selftest $size[0] $size[1]
+            if ($LASTEXITCODE -ne 0) { throw "selftest exited with $LASTEXITCODE at $($size[0])x$($size[1])" }
+
+            $expected = $always
+            if ($size[1] -ge 40) { $expected += $tall }
+
+            foreach ($needle in $expected) {
+              if ($out -notmatch [regex]::Escape($needle)) {
+                throw "selftest at $($size[0])x$($size[1]) is missing: $needle"
+              }
+            }
+          }
+
+          Write-Host 'All screens rendered at every size.'
+
+      - name: Verify the wrapper parses and keeps its UTF-8 BOM
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $path = 'scripts/claude-launcher.ps1'
+
+          $bytes = [System.IO.File]::ReadAllBytes($path)
+          if ($bytes[0] -ne 0xEF -or $bytes[1] -ne 0xBB -or $bytes[2] -ne 0xBF) {
+            throw "$path lost its UTF-8 BOM; PowerShell 5.1 would mangle the box-drawing characters."
+          }
+
+          # Parse under Windows PowerShell 5.1 specifically - that is the oldest
+          # host we support, and it rejects PS7-only syntax.
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$null, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Host $_.Message -ForegroundColor Red }
+            throw "$path has $($errors.Count) parse error(s)."
+          }
+
+          foreach ($script in @('install.ps1', 'install-online.ps1', 'scripts/publish-standalone.ps1')) {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($script, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Host $_.Message -ForegroundColor Red }
+              throw "$script has $($errors.Count) parse error(s)."
+            }
+          }
+
+          Write-Host 'PowerShell scripts parse cleanly on 5.1.'

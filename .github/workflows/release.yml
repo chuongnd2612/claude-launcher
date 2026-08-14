@@ -1,0 +1,155 @@
+name: release
+
+# Tag and push to cut a release:
+#   git tag v1.5.0 && git push origin v1.5.0
+# Or run manually from the Actions tab with a version.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build, e.g. 1.5.0 (no release is published for manual runs)'
+        required: true
+        default: '1.5.0'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/*') {
+            $version = $env:GITHUB_REF -replace '^refs/tags/v?', ''
+          } else {
+            $version = '${{ github.event.inputs.version }}'
+          }
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Building version $version"
+
+      - name: Publish standalone exe
+        shell: pwsh
+        run: ./scripts/publish-standalone.ps1 -Version ${{ steps.version.outputs.version }}
+
+      - name: Smoke test the binary
+        shell: pwsh
+        run: |
+          $exe = 'dist/win-x64/ClaudeLauncher.exe'
+          $stateDir = Join-Path $env:RUNNER_TEMP 'launcher'
+          New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
+          $state = Join-Path $stateDir 'state.json'
+          @'
+          {
+            "profiles": [
+              { "name": "work", "label": "Work", "icon": "W", "configDir": "$HOME/.claude-work" },
+              { "name": "personal", "label": "Personal", "icon": "P", "configDir": "$HOME/.claude-personal" }
+            ],
+            "projects": [ { "name": "demo", "path": "C:\\demo" } ]
+          }
+          '@ | Set-Content $state -Encoding UTF8
+
+          $env:CLAUDE_LAUNCHER_STATE = $state
+          # --selftest renders every screen to plain text: catches layout and
+          # null-reference regressions without needing an interactive terminal.
+          # The launch summary is intentionally dropped on short windows, so it is
+          # only asserted at the larger size.
+          foreach ($size in @(@(80, 24), @(132, 44))) {
+            $out = & $exe --selftest $size[0] $size[1]
+            if ($LASTEXITCODE -ne 0) { throw "selftest exited with $LASTEXITCODE at $($size[0])x$($size[1])" }
+
+            $expected = @('Select a Claude profile', 'Your intelligent CLI companion', 'New profile')
+            if ($size[1] -ge 40) { $expected += 'Launch summary' }
+
+            foreach ($needle in $expected) {
+              if ($out -notmatch [regex]::Escape($needle)) {
+                throw "selftest output at $($size[0])x$($size[1]) is missing: $needle"
+              }
+            }
+          }
+          Write-Host 'Smoke test passed.'
+
+      - name: Assemble release assets
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $staging = 'dist/package'
+          New-Item -ItemType Directory -Path $staging -Force | Out-Null
+
+          Copy-Item 'dist/win-x64/ClaudeLauncher.exe' $staging
+          Copy-Item 'scripts/claude-launcher.ps1' $staging
+          Copy-Item 'install-online.ps1' $staging
+          Copy-Item 'README.md' $staging
+          New-Item -ItemType Directory -Path (Join-Path $staging 'config') -Force | Out-Null
+          Copy-Item 'config/profiles.example.json' (Join-Path $staging 'config')
+
+          # Offline installer for the zip: no build, no SDK, just copy into place.
+          @'
+          $ErrorActionPreference = "Stop"
+          $root = Split-Path -Parent $MyInvocation.MyCommand.Path
+          $launcherDir = Join-Path $HOME ".claude-launcher"
+          $functionsDir = Join-Path $HOME "Documents\WindowsPowerShell\functions"
+          New-Item -ItemType Directory -Path $launcherDir -Force | Out-Null
+          New-Item -ItemType Directory -Path $functionsDir -Force | Out-Null
+          Get-ChildItem -Path $root -Recurse -File | Unblock-File -ErrorAction SilentlyContinue
+          foreach ($stale in @("Terminal.Gui.dll","NStack.dll","ClaudeLauncher.dll","ClaudeLauncher.deps.json","ClaudeLauncher.runtimeconfig.json","state.json","result.json")) {
+              Remove-Item (Join-Path $launcherDir $stale) -Force -ErrorAction SilentlyContinue
+          }
+          Copy-Item (Join-Path $root "ClaudeLauncher.exe") $launcherDir -Force
+          Copy-Item (Join-Path $root "claude-launcher.ps1") (Join-Path $functionsDir "claude-launcher.ps1") -Force
+          if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force | Out-Null }
+          $line = ". `"`$HOME\Documents\WindowsPowerShell\functions\claude-launcher.ps1`""
+          if (@(Get-Content $PROFILE -ErrorAction SilentlyContinue) -notcontains $line) { Add-Content $PROFILE "`r`n$line" }
+          Write-Host ""
+          Write-Host "$(& (Join-Path $launcherDir 'ClaudeLauncher.exe') --version) installed." -ForegroundColor Green
+          Write-Host "Run: . `$PROFILE   then   claude-launcher" -ForegroundColor Cyan
+          Write-Host ""
+          '@ | Set-Content (Join-Path $staging 'install.ps1') -Encoding UTF8
+
+          @'
+          @echo off
+          powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"
+          pause
+          '@ | Set-Content (Join-Path $staging 'install.cmd') -Encoding ASCII
+
+          $zip = "dist/claude-launcher-$version-win-x64.zip"
+          Compress-Archive -Path "$staging/*" -DestinationPath $zip -Force
+
+          (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() + "  $(Split-Path $zip -Leaf)" |
+            Set-Content "$zip.sha256" -Encoding ASCII
+
+          Get-ChildItem dist -File | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: claude-launcher-${{ steps.version.outputs.version }}-win-x64
+          path: |
+            dist/*.zip
+            dist/*.sha256
+            dist/win-x64/ClaudeLauncher.exe
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Claude Launcher ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            dist/win-x64/ClaudeLauncher.exe
+            dist/win-x64/ClaudeLauncher.exe.sha256
+            scripts/claude-launcher.ps1
+            dist/claude-launcher-${{ steps.version.outputs.version }}-win-x64.zip
+            dist/claude-launcher-${{ steps.version.outputs.version }}-win-x64.zip.sha256
