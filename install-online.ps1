@@ -1,9 +1,15 @@
-﻿# Claude Launcher online installer - no .NET required on this machine.
+# Claude Launcher online installer - no .NET required on this machine.
 #
 #   irm https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/install-online.ps1 | iex
 #
 # Or pin a version / fork:
 #   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/install-online.ps1))) -Version v1.5.0
+#
+# This file must stay UTF-8 *without* a BOM, unlike the wrapper. `irm` hands the
+# BOM to `iex` as a literal U+FEFF character, which stops param() from being the
+# first statement and fails the one-liner with "Unexpected attribute
+# 'CmdletBinding'". Keep the body ASCII-only so no BOM is ever needed. ci.yml
+# enforces this.
 [CmdletBinding()]
 param(
     [string]$Repo = 'chuongnd2612/claude-launcher',
