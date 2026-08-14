@@ -325,7 +325,7 @@ $env:CLAUDE_LAUNCHER_STATE="$HOME\.claude-launcher\state.json"
 ```
 
 **`irm ... | iex` fails with `Unexpected attribute 'CmdletBinding'`** — you are running a cached copy
-of the installer from before 1.6.1, when the file still carried a UTF-8 BOM. `irm` passes the BOM to
+of the installer from when the file still carried a UTF-8 BOM. `irm` passes the BOM to
 `iex` as a literal character, so `param()` is no longer the first statement. Strip it yourself:
 
 ```powershell
