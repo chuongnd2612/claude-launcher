@@ -9,6 +9,8 @@ Version **1.5.0** — redesigned TUI, no NuGet dependencies.
 - Interactive terminal UI: 24-bit colors, gradient banner, rounded profile cards, step badges.
 - Claude profiles: `work`, `personal`, and any profile you add via `profiles.json` — or from the
   built-in **Add profile** screen (`a`).
+- Edit (`e`) and remove (`d`) profiles straight from the profile screen; removal asks for
+  confirmation and leaves the profile's config directory on disk.
 - Settings screen (`s`) with preferences persisted to `ui.json`.
 - Projects are sourced from the existing `$QuickPaths` registry; no hardcoded project root.
 - Project list with live filter (`/`), scrolling, and a "Current directory" entry.
@@ -97,10 +99,11 @@ directly without showing the selection screens.
 
 | Screen  | Keys |
 | ------- | ---- |
-| Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add profile · `s` settings · `q` quit |
+| Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
 | Session | `↑↓` navigate · `Enter` launch · `n` new · `c` continue · `r` resume · `Esc` back |
-| Add profile | `Tab` / `↑↓` next field · `Enter` save · `Esc` cancel |
+| Add / Edit profile | `Tab` / `↑↓` next field · `Enter` save · `Esc` cancel |
+| Remove profile | `←→` / `Tab` choose · `Enter` confirm · `y` remove · `n` / `Esc` cancel |
 | Settings | `↑↓` navigate · `Enter` / `←→` change · `Esc` back |
 
 The window can be resized at any time; the UI redraws itself.
@@ -139,7 +142,10 @@ Example:
 `description` is new in 1.5.0 and optional — it is the italic line on the profile card. `icon` should
 stay a single, single-width character (a letter or a symbol such as `◆`); wide emoji break the grid
 alignment. Profiles created from the **Add profile** screen are appended to this same file, with the
-path stored back as `$HOME/...` when it sits under your user profile.
+path stored back as `$HOME/...` when it sits under your user profile. **Edit profile** rewrites the
+matching entry in place (renaming the key is allowed), and **Remove profile** deletes the entry only —
+the `configDir` folder and its Claude history are left untouched. The last remaining profile cannot
+be removed.
 
 ## Settings
 
@@ -264,14 +270,14 @@ src/
     ScreenBuffer.cs   cell grid + single-write flush
     BlockFont.cs      5x5 block font for the banner
     Widgets.cs        chrome, step badges, cards, tips, footer
-  Screens/            Profile, Project, Session, AddProfile, Settings
+  Screens/            Profile, Project, Session, AddProfile, DeleteProfile, Settings
 ```
 
 ## Runtime state
 
 The PowerShell wrapper writes state/result files under `$HOME\.claude-launcher` and passes their
 paths to the native TUI via `CLAUDE_LAUNCHER_STATE` and `CLAUDE_LAUNCHER_RESULT`. Since 1.5.0 it also
-passes `CLAUDE_LAUNCHER_PROFILES` so the TUI can append new profiles. The native app falls back to
+passes `CLAUDE_LAUNCHER_PROFILES` so the TUI can add, edit and remove profiles. The native app falls back to
 the same directory, so it never relies on the Windows Temp directory for launcher state.
 
 Environment variables read by the executable:

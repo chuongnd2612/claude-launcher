@@ -12,7 +12,8 @@ public sealed class ProfileScreen : ScreenBase
     private int _index;
     private int _scrollRow;
 
-    public ProfileScreen(App app, int index = 0) : base(app) => _index = index;
+    public ProfileScreen(App app, int index = 0) : base(app) =>
+        _index = Math.Clamp(index, 0, Math.Max(0, app.State.Profiles.Count));
 
     private int TileCount => App.State.Profiles.Count + 1; // + "add new profile"
 
@@ -68,11 +69,12 @@ public sealed class ProfileScreen : ScreenBase
         {
             // Keep the tips box pinned above the footer so tall windows do not
             // leave a hole in the middle of the layout.
-            var tipsY = Math.Max(afterCards, buffer.Height - 4 - 5);
+            var tipsY = Math.Max(afterCards, buffer.Height - 4 - 6);
             Widgets.Tips(buffer, tipsY, new[]
             {
                 "Profiles keep work and personal Claude sessions apart (CLAUDE_CONFIG_DIR)",
                 "Each profile has its own settings, history and MCP servers",
+                "Press e to edit or d to remove the highlighted profile",
                 "Projects come from your existing QuickPaths registry"
             });
         }
@@ -81,7 +83,9 @@ public sealed class ProfileScreen : ScreenBase
         {
             new KeyHint("↑↓←→", "Navigate"),
             new KeyHint("↵", "Select"),
-            new KeyHint("a", "Add profile"),
+            new KeyHint("a", "Add"),
+            new KeyHint("e", "Edit"),
+            new KeyHint("d", "Remove"),
             new KeyHint("s", "Settings"),
             new KeyHint("q", "Quit")
         });
@@ -166,6 +170,8 @@ public sealed class ProfileScreen : ScreenBase
             case ConsoleKey.Enter:
             case ConsoleKey.Spacebar:
                 return Choose();
+            case ConsoleKey.Delete:
+                return Remove();
             case ConsoleKey.Escape:
                 return ScreenAction.Exit;
         }
@@ -173,6 +179,8 @@ public sealed class ProfileScreen : ScreenBase
         var ch = char.ToLowerInvariant(key.KeyChar);
         if (ch == 'q') return ScreenAction.Exit;
         if (ch == 'a') return ScreenAction.Push(new AddProfileScreen(App));
+        if (ch == 'e') return Edit();
+        if (ch == 'd') return Remove();
         if (ch == 's') return ScreenAction.Push(new SettingsScreen(App));
 
         if (ch >= '1' && ch <= '9')
@@ -195,6 +203,19 @@ public sealed class ProfileScreen : ScreenBase
         App.Profile = App.State.Profiles[_index];
         App.Project = null;
         return ScreenAction.Push(new ProjectScreen(App));
+    }
+
+    /// <summary>Edit and remove only apply to real profiles, never the "add" tile.</summary>
+    private ScreenAction Edit()
+    {
+        if (_index == AddTileIndex) return ScreenAction.None;
+        return ScreenAction.Push(new AddProfileScreen(App, App.State.Profiles[_index]));
+    }
+
+    private ScreenAction Remove()
+    {
+        if (_index == AddTileIndex) return ScreenAction.None;
+        return ScreenAction.Push(new DeleteProfileScreen(App, App.State.Profiles[_index]));
     }
 
     private void Move(int delta)

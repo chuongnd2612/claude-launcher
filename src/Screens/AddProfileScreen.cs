@@ -3,10 +3,13 @@ using ClaudeLauncher.Tui;
 
 namespace ClaudeLauncher.Screens;
 
-/// <summary>Creates a new profile and appends it to profiles.json.</summary>
+/// <summary>Creates a new profile, or edits an existing one, in profiles.json.</summary>
 public sealed class AddProfileScreen : ScreenBase
 {
     private const int FieldCount = 4;
+
+    private readonly ProfileEntry? _existing;
+    private readonly string _originalName;
 
     private string _label = string.Empty;
     private string _directory = string.Empty;
@@ -20,7 +23,23 @@ public sealed class AddProfileScreen : ScreenBase
 
     public AddProfileScreen(App app) : base(app)
     {
+        _originalName = string.Empty;
     }
+
+    /// <summary>Edit mode: fields start from the profile and nothing is auto-derived.</summary>
+    public AddProfileScreen(App app, ProfileEntry existing) : base(app)
+    {
+        _existing = existing;
+        _originalName = existing.Name;
+        _label = existing.DisplayLabel;
+        _directory = existing.ConfigDir;
+        _icon = existing.DisplayIcon;
+        _description = existing.Description ?? string.Empty;
+        _directoryTouched = true;
+        _iconTouched = true;
+    }
+
+    private bool IsEdit => _existing is not null;
 
     private string Slug => Slugify(_label);
 
@@ -29,14 +48,15 @@ public sealed class AddProfileScreen : ScreenBase
         var y = Widgets.Chrome(buffer, 0);
         var margin = Widgets.Margin(buffer);
 
-        Widgets.SectionTitle(buffer, y, "Add profile", "Create a new Claude profile");
+        if (IsEdit) Widgets.SectionTitle(buffer, y, "Edit profile", $"Update '{_existing!.DisplayLabel}'");
+        else Widgets.SectionTitle(buffer, y, "Add profile", "Create a new Claude profile");
         y += 2;
 
         var width = buffer.Width - margin * 2;
         var formWidth = Math.Min(width, Math.Max(52, width * 3 / 4));
 
         const int formHeight = 14;
-        Widgets.TitledBox(buffer, margin, y, formWidth, formHeight, "New profile", Theme.VioletSoft);
+        Widgets.TitledBox(buffer, margin, y, formWidth, formHeight, IsEdit ? "Edit profile" : "New profile", Theme.VioletSoft);
 
         Field(buffer, margin + 3, y + 1, formWidth - 6, "Label", _label, "e.g. Client A", 0);
         Field(buffer, margin + 3, y + 4, formWidth - 6, "Config directory", _directory, "$HOME/.claude-client-a", 1);
@@ -152,7 +172,8 @@ public sealed class AddProfileScreen : ScreenBase
             return ScreenAction.None;
         }
 
-        if (App.State.Profiles.Any(p => string.Equals(p.Name, slug, StringComparison.OrdinalIgnoreCase)))
+        if (App.State.Profiles.Any(p => !ReferenceEquals(p, _existing) &&
+                                        string.Equals(p.Name, slug, StringComparison.OrdinalIgnoreCase)))
         {
             _error = $"A profile with key '{slug}' already exists.";
             _field = 0;
@@ -167,18 +188,24 @@ public sealed class AddProfileScreen : ScreenBase
             return ScreenAction.None;
         }
 
-        var profile = new ProfileEntry
-        {
-            Name = slug,
-            Label = label,
-            Icon = _icon.Trim().Length > 0 ? _icon.Trim().Substring(0, 1) : label.Substring(0, 1).ToUpperInvariant(),
-            ConfigDir = StateStore.CollapseHome(directory),
-            Description = _description.Trim().Length > 0 ? _description.Trim() : null
-        };
+        var icon = _icon.Trim().Length > 0 ? _icon.Trim().Substring(0, 1) : label.Substring(0, 1).ToUpperInvariant();
+        var configDir = StateStore.CollapseHome(directory);
+        var description = _description.Trim().Length > 0 ? _description.Trim() : null;
+
+        // Edit mode mutates the entry in place so anything already holding a
+        // reference to it (App.Profile) keeps pointing at the same profile.
+        var profile = _existing ?? new ProfileEntry();
+        profile.Name = slug;
+        profile.Label = label;
+        profile.Icon = icon;
+        profile.ConfigDir = configDir;
+        profile.Description = description;
 
         try
         {
-            StateStore.AppendProfile(profile);
+            if (IsEdit) StateStore.UpdateProfile(_originalName, profile);
+            else StateStore.AppendProfile(profile);
+
             Directory.CreateDirectory(StateStore.ExpandHome(profile.ConfigDir));
         }
         catch (Exception ex)
@@ -186,6 +213,8 @@ public sealed class AddProfileScreen : ScreenBase
             _error = "Could not save: " + ex.Message;
             return ScreenAction.None;
         }
+
+        if (IsEdit) return ScreenAction.Replace(new ProfileScreen(App, App.State.Profiles.IndexOf(profile)));
 
         App.State.Profiles.Add(profile);
         return ScreenAction.Replace(new ProfileScreen(App, App.State.Profiles.Count - 1));
