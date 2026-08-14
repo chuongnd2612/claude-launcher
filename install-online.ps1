@@ -19,6 +19,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Invoke-WebRequest's own progress banner is the blue "Writing request stream..."
+# block, and on 5.1 it also throttles the transfer badly. Silence it; this script
+# draws its own bar instead.
+$ProgressPreference = 'SilentlyContinue'
+
 # Windows PowerShell 5.1 still defaults to TLS 1.0 against github.com.
 try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
@@ -46,23 +51,105 @@ Write-Host ''
 Write-Host "Installing Claude Launcher ($tagLabel) from $Repo" -ForegroundColor Cyan
 Write-Host ''
 
+# A bar is only useful on a real console; keep piped or redirected output plain.
+$script:showBar = $true
+try { if ([Console]::IsOutputRedirected) { $script:showBar = $false } } catch { $script:showBar = $false }
+
+$script:barWidth = 24
+
+function Format-Size {
+    param([double]$Bytes)
+
+    if ($Bytes -ge 1MB) { return '{0:0.0} MB' -f ($Bytes / 1MB) }
+    return '{0:0} KB' -f ($Bytes / 1KB)
+}
+
+function Write-DownloadBar {
+    param([string]$Label, [long]$Current, [long]$Total, [switch]$Done)
+
+    if (-not $script:showBar) { return }
+
+    # Not $current for a local: PowerShell variable names are case-insensitive,
+    # so that would overwrite the $Current parameter and every percentage would
+    # read 0.
+    $copiedText = Format-Size $Current
+
+    if ($Total -gt 0) {
+        $percent = [int][math]::Floor($Current * 100 / $Total)
+        if ($percent -gt 100) { $percent = 100 }
+        $filled = [int][math]::Floor($script:barWidth * $percent / 100)
+        $suffix = '{0,3}%  {1,9} / {2}' -f $percent, $copiedText, (Format-Size $Total)
+    }
+    else {
+        # No Content-Length: show what has arrived and fill the bar at the end.
+        $filled = if ($Done) { $script:barWidth } else { 0 }
+        $suffix = '{0,9}' -f $copiedText
+    }
+
+    Write-Host ("`r  {0} " -f $Label.PadRight(20)) -NoNewline -ForegroundColor DarkGray
+    Write-Host '[' -NoNewline -ForegroundColor DarkGray
+    Write-Host ('#' * $filled) -NoNewline -ForegroundColor Cyan
+    Write-Host ('-' * ($script:barWidth - $filled)) -NoNewline -ForegroundColor DarkGray
+    Write-Host ("] {0}   " -f $suffix) -NoNewline -ForegroundColor DarkGray
+    if ($Done) { Write-Host '' }
+}
+
 function Get-ReleaseFile {
-    param([string]$Name, [string]$Destination)
+    param([string]$Name, [string]$Destination, [string]$Label)
 
     $url = "$base/$Name"
+    $response = $null
+    $stream = $null
+    $file = $null
+
     try {
-        Invoke-WebRequest -Uri $url -OutFile $Destination -UseBasicParsing
+        # Streamed by hand rather than via Invoke-WebRequest, so the byte count
+        # is available to draw progress with.
+        $request = [Net.WebRequest]::Create($url)
+        $request.UserAgent = 'claude-launcher-installer'
+        $request.Timeout = 30000
+        $request.ReadWriteTimeout = 120000
+
+        $response = $request.GetResponse()
+        $total = $response.ContentLength
+        $stream = $response.GetResponseStream()
+        $file = [IO.File]::Create($Destination)
+
+        $buffer = New-Object byte[] 131072
+        $copied = [long]0
+        $clock = [Diagnostics.Stopwatch]::StartNew()
+
+        if ($Label) { Write-DownloadBar -Label $Label -Current 0 -Total $total }
+
+        while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            $file.Write($buffer, 0, $read)
+            $copied += $read
+
+            # Repainting on every chunk costs more than the download does.
+            if ($Label -and $clock.ElapsedMilliseconds -ge 80) {
+                Write-DownloadBar -Label $Label -Current $copied -Total $total
+                $clock.Restart()
+            }
+        }
+
+        if ($Label) { Write-DownloadBar -Label $Label -Current $copied -Total $total -Done }
     }
     catch {
+        if ($Label -and $script:showBar) { Write-Host '' }
         throw "Could not download $Name from $url : $($_.Exception.Message)"
+    }
+    finally {
+        if ($file) { $file.Dispose() }
+        if ($stream) { $stream.Dispose() }
+        if ($response) { $response.Close() }
     }
 }
 
 # Download to a temporary name first: the running exe may be locked.
 $pending = "$exePath.new"
 Remove-Item $pending -Force -ErrorAction SilentlyContinue
-Write-Host '  downloading ClaudeLauncher.exe' -ForegroundColor DarkGray
-Get-ReleaseFile -Name 'ClaudeLauncher.exe' -Destination $pending
+if (-not $script:showBar) { Write-Host '  downloading ClaudeLauncher.exe' -ForegroundColor DarkGray }
+Get-ReleaseFile -Name 'ClaudeLauncher.exe' -Destination $pending -Label 'ClaudeLauncher.exe'
 
 # Verify the checksum when the release publishes one.
 $checksumFile = "$pending.sha256"
@@ -103,8 +190,8 @@ for ($attempt = 1; $attempt -le 5; $attempt++) {
     }
 }
 
-Write-Host '  downloading claude-launcher.ps1' -ForegroundColor DarkGray
-Get-ReleaseFile -Name 'claude-launcher.ps1' -Destination $wrapperPath
+if (-not $script:showBar) { Write-Host '  downloading claude-launcher.ps1' -ForegroundColor DarkGray }
+Get-ReleaseFile -Name 'claude-launcher.ps1' -Destination $wrapperPath -Label 'claude-launcher.ps1'
 
 # Clear Mark-of-the-Web so PowerShell and SmartScreen do not block the files.
 Unblock-File $exePath -ErrorAction SilentlyContinue
