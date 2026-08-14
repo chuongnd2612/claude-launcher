@@ -225,6 +225,12 @@ up each profile it edits to `<profile>.claude-launcher.bak`.
 | `-Force` | Skip the confirmation prompts |
 | `-WhatIf` | Print what would happen and change nothing |
 
+Switches need a local copy or the scriptblock form — `irm ... | iex` has nowhere to put them:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/uninstall.ps1))) -WhatIf
+```
+
 Your Claude Code data is **not** removed unless you pass `-IncludeClaudeConfigDirs`. Folders like
 `$HOME\.claude-work` hold conversation history, settings and MCP servers; the launcher only points
 `CLAUDE_CONFIG_DIR` at them, it does not own them.

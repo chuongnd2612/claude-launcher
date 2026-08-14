@@ -80,27 +80,36 @@ jobs:
             throw "$path lost its UTF-8 BOM; PowerShell 5.1 would mangle the box-drawing characters."
           }
 
-          # The opposite rule for the online installer: it is consumed as
-          # `irm ... | iex`, and irm passes a BOM through as a literal U+FEFF
-          # character, which stops param() from being the first statement.
-          $online = 'install-online.ps1'
-          $bytes = [System.IO.File]::ReadAllBytes($online)
-          if ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
-            throw "$online must be UTF-8 without a BOM, or 'irm | iex' fails with Unexpected attribute 'CmdletBinding'."
-          }
+          # The opposite rule for the scripts users pipe into iex: irm passes a
+          # BOM through as a literal U+FEFF character, which stops param() from
+          # being the first statement.
+          foreach ($remote in @('install-online.ps1', 'uninstall.ps1')) {
+            $bytes = [System.IO.File]::ReadAllBytes($remote)
+            if ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+              throw "$remote must be UTF-8 without a BOM, or 'irm | iex' fails with Unexpected attribute 'CmdletBinding'."
+            }
 
-          $nonAscii = @($bytes | Where-Object { $_ -gt 127 })
-          if ($nonAscii.Count -gt 0) {
-            throw "$online has $($nonAscii.Count) non-ASCII byte(s); it must stay ASCII so it never needs a BOM."
-          }
+            $nonAscii = @($bytes | Where-Object { $_ -gt 127 })
+            if ($nonAscii.Count -gt 0) {
+              throw "$remote has $($nonAscii.Count) non-ASCII byte(s); it must stay ASCII so it never needs a BOM."
+            }
 
-          # Parse it the way `irm | iex` does: as a string, not a file.
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseInput(
-            [System.Text.Encoding]::UTF8.GetString($bytes), [ref]$null, [ref]$errors) | Out-Null
-          if ($errors.Count -gt 0) {
-            $errors | ForEach-Object { Write-Host $_.Message -ForegroundColor Red }
-            throw "$online does not parse as a string; 'irm | iex' would fail."
+            # Parse it the way `irm | iex` does: as a string, not a file.
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseInput(
+              [System.Text.Encoding]::UTF8.GetString($bytes), [ref]$null, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Host $_.Message -ForegroundColor Red }
+              throw "$remote does not parse as a string; 'irm | iex' would fail."
+            }
+
+            # $PSCmdlet is null when the body runs as a bare script block, so a
+            # direct call silently aborts the script on its first use.
+            $direct = Select-String -Path $remote -Pattern '\$PSCmdlet\.' -AllMatches
+            if ($direct) {
+              $direct | ForEach-Object { Write-Host "$remote line $($_.LineNumber): $($_.Line.Trim())" -ForegroundColor Red }
+              throw "$remote calls `$PSCmdlet directly; it is null under 'irm | iex'. Route it through a helper that falls back."
+            }
           }
 
           # Parse under Windows PowerShell 5.1 specifically - that is the oldest
@@ -112,7 +121,7 @@ jobs:
             throw "$path has $($errors.Count) parse error(s)."
           }
 
-          foreach ($script in @('install.ps1', 'install-online.ps1', 'scripts/publish-standalone.ps1', 'packaging/install.ps1')) {
+          foreach ($script in @('install.ps1', 'install-online.ps1', 'uninstall.ps1', 'scripts/publish-standalone.ps1', 'packaging/install.ps1')) {
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile($script, [ref]$null, [ref]$errors) | Out-Null
             if ($errors.Count -gt 0) {
