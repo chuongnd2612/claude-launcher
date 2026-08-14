@@ -1,12 +1,12 @@
 ﻿# Claude Launcher online installer - no .NET required on this machine.
 #
-#   irm https://raw.githubusercontent.com/chuongduong2810/claude-launcher/main/install-online.ps1 | iex
+#   irm https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/install-online.ps1 | iex
 #
 # Or pin a version / fork:
-#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/chuongduong2810/claude-launcher/main/install-online.ps1))) -Version v1.5.0
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/install-online.ps1))) -Version v1.5.0
 [CmdletBinding()]
 param(
-    [string]$Repo = 'chuongduong2810/claude-launcher',
+    [string]$Repo = 'chuongnd2612/claude-launcher',
     [string]$Version = 'latest',
     [switch]$SkipProfile
 )

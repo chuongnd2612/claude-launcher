@@ -68,7 +68,9 @@ jobs:
           # The launch summary is intentionally dropped on short windows, so it is
           # only asserted at the larger size.
           foreach ($size in @(@(80, 24), @(132, 44))) {
-            $out = & $exe --selftest $size[0] $size[1]
+            # -join matters: with an array on the left, -notmatch filters instead
+            # of returning a boolean, so every check would "fail".
+            $out = (& $exe --selftest $size[0] $size[1]) -join "`n"
             if ($LASTEXITCODE -ne 0) { throw "selftest exited with $LASTEXITCODE at $($size[0])x$($size[1])" }
 
             $expected = @('Select a Claude profile', 'Your intelligent CLI companion', 'New profile')
@@ -97,33 +99,10 @@ jobs:
           Copy-Item 'config/profiles.example.json' (Join-Path $staging 'config')
 
           # Offline installer for the zip: no build, no SDK, just copy into place.
-          @'
-          $ErrorActionPreference = "Stop"
-          $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-          $launcherDir = Join-Path $HOME ".claude-launcher"
-          $functionsDir = Join-Path $HOME "Documents\WindowsPowerShell\functions"
-          New-Item -ItemType Directory -Path $launcherDir -Force | Out-Null
-          New-Item -ItemType Directory -Path $functionsDir -Force | Out-Null
-          Get-ChildItem -Path $root -Recurse -File | Unblock-File -ErrorAction SilentlyContinue
-          foreach ($stale in @("Terminal.Gui.dll","NStack.dll","ClaudeLauncher.dll","ClaudeLauncher.deps.json","ClaudeLauncher.runtimeconfig.json","state.json","result.json")) {
-              Remove-Item (Join-Path $launcherDir $stale) -Force -ErrorAction SilentlyContinue
-          }
-          Copy-Item (Join-Path $root "ClaudeLauncher.exe") $launcherDir -Force
-          Copy-Item (Join-Path $root "claude-launcher.ps1") (Join-Path $functionsDir "claude-launcher.ps1") -Force
-          if (-not (Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force | Out-Null }
-          $line = ". `"`$HOME\Documents\WindowsPowerShell\functions\claude-launcher.ps1`""
-          if (@(Get-Content $PROFILE -ErrorAction SilentlyContinue) -notcontains $line) { Add-Content $PROFILE "`r`n$line" }
-          Write-Host ""
-          Write-Host "$(& (Join-Path $launcherDir 'ClaudeLauncher.exe') --version) installed." -ForegroundColor Green
-          Write-Host "Run: . `$PROFILE   then   claude-launcher" -ForegroundColor Cyan
-          Write-Host ""
-          '@ | Set-Content (Join-Path $staging 'install.ps1') -Encoding UTF8
-
-          @'
-          @echo off
-          powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0install.ps1"
-          pause
-          '@ | Set-Content (Join-Path $staging 'install.cmd') -Encoding ASCII
+          # Kept as real files under packaging/ so they are linted by ci.yml
+          # instead of being embedded as a here-string in this workflow.
+          Copy-Item 'packaging/install.ps1' $staging
+          Copy-Item 'packaging/install.cmd' $staging
 
           $zip = "dist/claude-launcher-$version-win-x64.zip"
           Compress-Archive -Path "$staging/*" -DestinationPath $zip -Force

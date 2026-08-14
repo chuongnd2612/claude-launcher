@@ -52,7 +52,9 @@ jobs:
           $tall = @('Launch summary', 'Tips')
 
           foreach ($size in @(@(80, 24), @(100, 30), @(132, 44), @(200, 60))) {
-            $out = dotnet $dll --selftest $size[0] $size[1]
+            # -join matters: with an array on the left, -notmatch filters instead
+            # of returning a boolean, so every check would "fail".
+            $out = (dotnet $dll --selftest $size[0] $size[1]) -join "`n"
             if ($LASTEXITCODE -ne 0) { throw "selftest exited with $LASTEXITCODE at $($size[0])x$($size[1])" }
 
             $expected = $always
@@ -87,7 +89,7 @@ jobs:
             throw "$path has $($errors.Count) parse error(s)."
           }
 
-          foreach ($script in @('install.ps1', 'install-online.ps1', 'scripts/publish-standalone.ps1')) {
+          foreach ($script in @('install.ps1', 'install-online.ps1', 'scripts/publish-standalone.ps1', 'packaging/install.ps1')) {
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile($script, [ref]$null, [ref]$errors) | Out-Null
             if ($errors.Count -gt 0) {

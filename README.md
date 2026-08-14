@@ -39,7 +39,7 @@ Contributors (building from source):
 `ClaudeLauncher.exe`, so nothing has to be installed beyond the launcher itself:
 
 ```powershell
-irm https://raw.githubusercontent.com/chuongduong2810/claude-launcher/main/install-online.ps1 | iex
+irm https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/install-online.ps1 | iex
 ```
 
 Pin a version, or install from a fork:
@@ -51,7 +51,7 @@ Pin a version, or install from a fork:
 The installer downloads the exe and the wrapper, verifies the published SHA256, unblocks both files,
 removes leftovers from older versions, and registers the wrapper in your `$PROFILE`.
 
-**Or download the zip** from the [Releases page](https://github.com/chuongduong2810/claude-launcher/releases),
+**Or download the zip** from the [Releases page](https://github.com/chuongnd2612/claude-launcher/releases),
 extract it, and run `install.cmd`. Same result, no network calls during install.
 
 **From source (contributors).** Run `install.cmd` in a clone. It uses a process-scoped ExecutionPolicy
