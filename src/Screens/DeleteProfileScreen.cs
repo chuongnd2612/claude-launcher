@@ -98,6 +98,7 @@ public sealed class DeleteProfileScreen : ScreenBase
         App.State.Profiles.Remove(_profile);
         if (ReferenceEquals(App.Profile, _profile)) App.Profile = null;
 
-        return ScreenAction.Replace(new ProfileScreen(App, index));
+        // Land on a real profile rather than the "add" tile when the last one goes.
+        return ScreenAction.Replace(new ProfileScreen(App, Math.Min(index, App.State.Profiles.Count - 1)));
     }
 }
