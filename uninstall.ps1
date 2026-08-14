@@ -1,4 +1,9 @@
-﻿# Claude Launcher uninstaller.
+# Claude Launcher uninstaller.
+#
+#   irm https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/uninstall.ps1 | iex
+#
+# Or, to pass switches (-WhatIf, -Purge, -Force, ...):
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/uninstall.ps1))) -WhatIf
 #
 #   .\uninstall.ps1                       remove the launcher, back up profiles.json + ui.json
 #   .\uninstall.ps1 -KeepConfig           leave profiles.json + ui.json in place for a reinstall
@@ -11,6 +16,10 @@
 #     CLAUDE_CONFIG_DIR folders: conversation history, settings, MCP servers. The
 #     launcher only points at them, it does not own them.
 #   - Claude Code itself.
+#
+# This file must stay UTF-8 *without* a BOM and ASCII-only, like the online
+# installer: `irm` hands a BOM to `iex` as a literal U+FEFF character, which
+# stops param() from being the first statement. ci.yml enforces this.
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [switch]$KeepConfig,
@@ -40,6 +49,22 @@ $wrapperScripts = @(
 
 $removed = New-Object System.Collections.Generic.List[string]
 $warnings = New-Object System.Collections.Generic.List[string]
+
+# Captured here because inside a function $PSCmdlet would be that function's
+# own (null for a simple function), not the script's.
+$script:cmdlet = $PSCmdlet
+
+function Test-ShouldProcess {
+    param([string]$Target, [string]$Action)
+
+    # Run through `irm | iex` there is no $PSCmdlet at all: the body is a bare
+    # script block, not a command, so ShouldProcess would fail on a null call
+    # and - with $ErrorActionPreference = 'Stop' - abort the uninstall halfway.
+    # Nothing can pass -WhatIf down that path either, so proceeding is correct.
+    if ($null -eq $script:cmdlet) { return $true }
+
+    return $script:cmdlet.ShouldProcess($Target, $Action)
+}
 
 function Write-Step {
     param([string]$Message)
@@ -78,7 +103,7 @@ if (-not $Purge -and -not $KeepConfig) {
     $keepFiles = @($profilesFile, $settingsFile) | Where-Object { Test-Path $_ }
     if ($keepFiles.Count -gt 0) {
         $backupDir = Join-Path $HOME ("claude-launcher-backup-" + (Get-Date -Format 'yyyyMMdd-HHmmss'))
-        if ($PSCmdlet.ShouldProcess($backupDir, 'Back up profiles.json and ui.json')) {
+        if (Test-ShouldProcess $backupDir 'Back up profiles.json and ui.json') {
             New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
             foreach ($file in $keepFiles) {
                 Copy-Item $file $backupDir -Force
@@ -122,7 +147,7 @@ if ($IncludeClaudeConfigDirs) {
 
         if (Confirm-Destructive -Question '  Deleting these is irreversible.' -Expected 'delete') {
             foreach ($dir in $configDirs) {
-                if ($PSCmdlet.ShouldProcess($dir, 'Remove Claude config dir')) {
+                if (Test-ShouldProcess $dir 'Remove Claude config dir') {
                     Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
                     $removed.Add($dir)
                 }
@@ -141,7 +166,7 @@ if (Test-Path $launcherDir) {
         $keepNames = @('profiles.json', 'ui.json')
         foreach ($item in Get-ChildItem $launcherDir -Force) {
             if ($keepNames -contains $item.Name) { continue }
-            if ($PSCmdlet.ShouldProcess($item.FullName, 'Remove')) {
+            if (Test-ShouldProcess $item.FullName 'Remove') {
                 try {
                     Remove-Item $item.FullName -Recurse -Force
                     $removed.Add($item.FullName)
@@ -159,7 +184,7 @@ if (Test-Path $launcherDir) {
         if (Test-Path $exePath) {
             for ($attempt = 1; $attempt -le 3; $attempt++) {
                 try {
-                    if ($PSCmdlet.ShouldProcess($exePath, 'Remove')) { Remove-Item $exePath -Force }
+                    if (Test-ShouldProcess $exePath 'Remove') { Remove-Item $exePath -Force }
                     break
                 }
                 catch {
@@ -174,7 +199,7 @@ if (Test-Path $launcherDir) {
             }
         }
 
-        if ($PSCmdlet.ShouldProcess($launcherDir, 'Remove directory')) {
+        if (Test-ShouldProcess $launcherDir 'Remove directory') {
             Remove-Item $launcherDir -Recurse -Force -ErrorAction SilentlyContinue
             if (Test-Path $launcherDir) {
                 $warnings.Add("$launcherDir could not be fully removed. Close any running launcher and delete it manually.")
@@ -188,7 +213,7 @@ if (Test-Path $launcherDir) {
 
 foreach ($wrapper in $wrapperScripts) {
     if (-not (Test-Path $wrapper)) { continue }
-    if ($PSCmdlet.ShouldProcess($wrapper, 'Remove')) {
+    if (Test-ShouldProcess $wrapper 'Remove') {
         Remove-Item $wrapper -Force -ErrorAction SilentlyContinue
         $removed.Add($wrapper)
     }
@@ -202,7 +227,7 @@ foreach ($profileScript in $profileScripts) {
     $kept = $lines | Where-Object { $_ -notmatch 'functions\\claude-launcher\.ps1' }
 
     if ($kept.Count -ne $lines.Count) {
-        if ($PSCmdlet.ShouldProcess($profileScript, 'Remove the dot-source line')) {
+        if (Test-ShouldProcess $profileScript 'Remove the dot-source line') {
             $backupPath = "$profileScript.claude-launcher.bak"
             Copy-Item $profileScript $backupPath -Force
             Set-Content -Path $profileScript -Value $kept -Encoding UTF8
@@ -227,7 +252,7 @@ if (-not [string]::IsNullOrWhiteSpace($userConfigDir)) {
     Write-Host '  It still affects plain `claude` runs after uninstalling.' -ForegroundColor DarkGray
 
     if (Confirm-Destructive -Question '  Clear it?' -Expected 'yes') {
-        if ($PSCmdlet.ShouldProcess('CLAUDE_CONFIG_DIR (User scope)', 'Clear')) {
+        if (Test-ShouldProcess 'CLAUDE_CONFIG_DIR (User scope)' 'Clear') {
             [Environment]::SetEnvironmentVariable('CLAUDE_CONFIG_DIR', $null, 'User')
             $removed.Add('CLAUDE_CONFIG_DIR (User environment variable)')
         }
