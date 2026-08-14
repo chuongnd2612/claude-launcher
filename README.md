@@ -193,6 +193,44 @@ source-generated `JsonSerializerContext` first.
 Before the first public release, remember to add a `LICENSE` file — GitHub shows the repository as
 "all rights reserved" without one, which discourages the colleagues you want to share it with.
 
+## Uninstall
+
+If you installed from the zip or a clone, run it from that folder:
+
+```powershell
+.\uninstall.ps1
+```
+
+If you used the one-line installer and have no local copy:
+
+```powershell
+irm https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/uninstall.ps1 | iex
+```
+
+By default it removes the binary, the wrapper and the dot-source line from every PowerShell profile,
+after copying `profiles.json` and `ui.json` to `$HOME\claude-launcher-backup-<timestamp>` and backing
+up each profile it edits to `<profile>.claude-launcher.bak`.
+
+| Switch | Effect |
+| ------ | ------ |
+| `-KeepConfig` | Leave `profiles.json` and `ui.json` in place, ready for a reinstall |
+| `-Purge` | Delete `$HOME\.claude-launcher` entirely, no backup |
+| `-IncludeClaudeConfigDirs` | Also delete the folders listed as `configDir`, after showing their size and asking for confirmation |
+| `-Force` | Skip the confirmation prompts |
+| `-WhatIf` | Print what would happen and change nothing |
+
+Your Claude Code data is **not** removed unless you pass `-IncludeClaudeConfigDirs`. Folders like
+`$HOME\.claude-work` hold conversation history, settings and MCP servers; the launcher only points
+`CLAUDE_CONFIG_DIR` at them, it does not own them.
+
+The uninstaller also flags two things older manual installs left behind: a `CLAUDE_CONFIG_DIR`
+variable set at User scope (v1.5.x only ever sets it per-process and restores it afterwards), and
+wrapper functions pasted directly into a profile instead of dot-sourced — it reports the file and line
+number rather than guessing where the block ends.
+
+The `claude-launcher`, `claude-work` and `claude-personal` functions stay defined in the current
+session until you open a new terminal.
+
 ## Architecture
 
 ```text
@@ -298,4 +336,6 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 - Optional `description` field on profiles.
 - Redesigned post-launch banner in the PowerShell wrapper, with a fallback for non-VT hosts.
 - `Invoke-ClaudeLauncher -Profile` is now `-ProfileName`, with `-Profile` kept as an alias.
+- `uninstall.ps1` with `-KeepConfig` / `-Purge` / `-IncludeClaudeConfigDirs` / `-WhatIf`, shipped as a
+  release asset so it can be run straight from a URL.
 - Mouse selection was dropped along with Terminal.Gui; the flow is keyboard-driven.
