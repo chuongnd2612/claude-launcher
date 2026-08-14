@@ -24,6 +24,10 @@ public static class Widgets
 {
     public const string LogoMark = "✦";
 
+    public const string Author = "Andrew Nguyen";
+
+    public const string AuthorHandle = "chuongnd2612";
+
     public static int Margin(ScreenBuffer buffer) => buffer.Width >= 110 ? 4 : 2;
 
     /// <summary>
@@ -65,7 +69,11 @@ public static class Widgets
         }
 
         buffer.WriteCentered(y, subtitle, new Sty(Theme.Muted, Theme.Bg));
-        y += 2;
+
+        // The row under the subtitle was blank filler, so the byline is free.
+        // Tall windows can spare one more row to keep it off the step badges.
+        Credit(buffer, y + 1);
+        y += buffer.Height >= 32 ? 3 : 2;
 
         y = Steps(buffer, y, activeStep);
         y += 1;
@@ -73,6 +81,21 @@ public static class Widgets
         var margin = Margin(buffer);
         buffer.HLine(margin, y, Math.Max(0, buffer.Width - margin * 2), '─', new Sty(Theme.BorderMuted, Theme.Bg));
         return y + 2;
+    }
+
+    /// <summary>Author byline, centered under the subtitle.</summary>
+    private static void Credit(ScreenBuffer buffer, int y)
+    {
+        const string separator = " - ";
+        var width = Author.Length + separator.Length + AuthorHandle.Length;
+
+        // Dropped rather than wrapped when the window is too narrow for it.
+        if (width + 2 > buffer.Width) return;
+
+        var x = Math.Max(0, (buffer.Width - width) / 2);
+        x = buffer.Write(x, y, Author, new Sty(Theme.Muted, Theme.Bg));
+        x = buffer.Write(x, y, separator, new Sty(Theme.Dim, Theme.Bg));
+        buffer.Write(x, y, AuthorHandle, new Sty(Theme.Dim, Theme.Bg));
     }
 
     /// <summary>Renders the wizard progress. Returns the row after the block.</summary>
