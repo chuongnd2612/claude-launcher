@@ -191,7 +191,13 @@ for ($attempt = 1; $attempt -le 5; $attempt++) {
 }
 
 if (-not $script:showBar) { Write-Host '  downloading claude-launcher.ps1' -ForegroundColor DarkGray }
-Get-ReleaseFile -Name 'claude-launcher.ps1' -Destination $wrapperPath -Label 'claude-launcher.ps1'
+
+# Via a temporary file: a half-written wrapper would break every new shell,
+# since $PROFILE dot-sources it.
+$pendingWrapper = "$wrapperPath.new"
+Remove-Item $pendingWrapper -Force -ErrorAction SilentlyContinue
+Get-ReleaseFile -Name 'claude-launcher.ps1' -Destination $pendingWrapper -Label 'claude-launcher.ps1'
+Move-Item $pendingWrapper $wrapperPath -Force
 
 # Clear Mark-of-the-Web so PowerShell and SmartScreen do not block the files.
 Unblock-File $exePath -ErrorAction SilentlyContinue
