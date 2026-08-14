@@ -136,6 +136,8 @@ public static class Program
             ("project", new ProjectScreen(app)),
             ("session", new SessionScreen(app)),
             ("add-profile", new AddProfileScreen(app)),
+            ("edit-profile", new AddProfileScreen(app, app.State.Profiles[0])),
+            ("delete-profile", new DeleteProfileScreen(app, app.State.Profiles[0])),
             ("settings", new SettingsScreen(app))
         };
 

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ClaudeLauncher;
 
 public sealed class ProfileEntry
@@ -8,10 +10,12 @@ public sealed class ProfileEntry
     public string ConfigDir { get; set; } = string.Empty;
     public string? Description { get; set; }
 
+    [JsonIgnore]
     public string DisplayIcon => string.IsNullOrWhiteSpace(Icon)
         ? (string.IsNullOrEmpty(Label) ? "?" : Label.Substring(0, 1).ToUpperInvariant())
         : Icon.Trim();
 
+    [JsonIgnore]
     public string DisplayLabel => string.IsNullOrWhiteSpace(Label) ? Name : Label;
 
     public string DescriptionOr(bool isFirst) =>

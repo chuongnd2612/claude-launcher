@@ -237,12 +237,21 @@ public static class Widgets
 
         buffer.Box(margin, y, width, 3, new Sty(Theme.BorderMuted, Theme.BgSoft), BoxStyle.Rounded, Theme.BgSoft);
 
-        const int spacing = 4;
-        var total = hints.Sum(h => h.Key.Length + 1 + h.Label.Length) + spacing * Math.Max(0, hints.Count - 1);
+        // Tighten the gaps before letting a long hint row spill out of the bar.
+        var text = hints.Sum(h => h.Key.Length + 1 + h.Label.Length);
+        var gaps = Math.Max(0, hints.Count - 1);
+        var room = width - 4;
+        var spacing = 4;
+        while (spacing > 1 && gaps > 0 && text + spacing * gaps > room) spacing--;
+
+        var total = text + spacing * gaps;
         var x = margin + Math.Max(2, (width - total) / 2);
+        var limit = margin + width - 2;
 
         foreach (var hint in hints)
         {
+            if (x + hint.Key.Length + 1 + hint.Label.Length > limit) break;
+
             x = buffer.Write(x, y + 1, hint.Key, new Sty(Theme.Blue, Theme.BgSoft, bold: true));
             x = buffer.Write(x, y + 1, " ", new Sty(Theme.Muted, Theme.BgSoft));
             x = buffer.Write(x, y + 1, hint.Label, new Sty(Theme.Muted, Theme.BgSoft));

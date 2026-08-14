@@ -141,29 +141,61 @@ public static class StateStore
     /// <summary>Appends a profile to profiles.json, creating the file when needed.</summary>
     public static void AppendProfile(ProfileEntry profile)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(ProfilesFilePath)!);
+        var file = ReadProfilesFile();
+        file.Profiles.Add(profile);
+        WriteProfilesFile(file);
+    }
 
+    /// <summary>
+    /// Replaces the stored profile whose key matches <paramref name="originalName"/>.
+    /// Falls back to appending when the file does not know about it yet.
+    /// </summary>
+    public static void UpdateProfile(string originalName, ProfileEntry profile)
+    {
+        var file = ReadProfilesFile();
+        var index = file.Profiles.FindIndex(p => string.Equals(p.Name, originalName, StringComparison.OrdinalIgnoreCase));
+
+        if (index >= 0) file.Profiles[index] = profile;
+        else file.Profiles.Add(profile);
+
+        WriteProfilesFile(file);
+    }
+
+    /// <summary>Removes a profile from profiles.json. The config directory is left untouched.</summary>
+    public static void RemoveProfile(string name)
+    {
+        var file = ReadProfilesFile();
+        file.Profiles.RemoveAll(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+        WriteProfilesFile(file);
+    }
+
+    /// <summary>Reads profiles.json, backing up and starting fresh when it is not valid JSON.</summary>
+    private static ProfilesFile ReadProfilesFile()
+    {
         var file = new ProfilesFile();
-        if (File.Exists(ProfilesFilePath))
+        if (!File.Exists(ProfilesFilePath)) return file;
+
+        try
         {
-            try
+            using var document = JsonDocument.Parse(File.ReadAllText(ProfilesFilePath), new JsonDocumentOptions
             {
-                using var document = JsonDocument.Parse(File.ReadAllText(ProfilesFilePath), new JsonDocumentOptions
-                {
-                    AllowTrailingCommas = true,
-                    CommentHandling = JsonCommentHandling.Skip
-                });
-                file.Profiles = ReadList<ProfileEntry>(document.RootElement, "profiles");
-            }
-            catch (JsonException)
-            {
-                var backup = ProfilesFilePath + ".bak";
-                File.Copy(ProfilesFilePath, backup, overwrite: true);
-                file.Profiles = new List<ProfileEntry>();
-            }
+                AllowTrailingCommas = true,
+                CommentHandling = JsonCommentHandling.Skip
+            });
+            file.Profiles = ReadList<ProfileEntry>(document.RootElement, "profiles");
+        }
+        catch (JsonException)
+        {
+            File.Copy(ProfilesFilePath, ProfilesFilePath + ".bak", overwrite: true);
+            file.Profiles = new List<ProfileEntry>();
         }
 
-        file.Profiles.Add(profile);
+        return file;
+    }
+
+    private static void WriteProfilesFile(ProfilesFile file)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(ProfilesFilePath)!);
         File.WriteAllText(ProfilesFilePath, JsonSerializer.Serialize(file, WriteOptions));
     }
 
