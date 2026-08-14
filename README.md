@@ -45,7 +45,7 @@ irm https://raw.githubusercontent.com/chuongduong2810/claude-launcher/main/insta
 Pin a version, or install from a fork:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/chuongduong2810/claude-launcher/main/install-online.ps1))) -Version v1.5.0
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/install-online.ps1))) -Version v1.5.0
 ```
 
 The installer downloads the exe and the wrapper, verifies the published SHA256, unblocks both files,
