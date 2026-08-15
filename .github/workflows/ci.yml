@@ -46,7 +46,7 @@ jobs:
           $dll = 'src/bin/Release/net8.0/ClaudeLauncher.dll'
 
           # Present at every size.
-          $always = @('Select a Claude profile', 'Your intelligent CLI companion', 'Andrew Nguyen - chuongnd2612', 'Projects', 'New profile', 'Appearance')
+          $always = @('Select a Claude profile', 'Your intelligent CLI companion', 'Andrew Nguyen - chuongnd2612', 'Projects', 'New profile', 'Appearance', 'Running sessions', 'Stop session')
           # The launch summary and the tips box are intentionally dropped when the
           # window is too short, so only require them on roomy terminals.
           $tall = @('Launch summary', 'Tips', 'Opens in')

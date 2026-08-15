@@ -1,5 +1,6 @@
 using System.Reflection;
 using ClaudeLauncher.Screens;
+using ClaudeLauncher.Sessions;
 using ClaudeLauncher.Tui;
 
 namespace ClaudeLauncher;
@@ -53,7 +54,14 @@ public static class Program
 
             if (profile is null)
             {
-                app.Run(new ProfileScreen(app));
+                // Land on Home only when there is something to come home to;
+                // with nothing running the wizard is still the fastest path.
+                var service = new SessionService(state);
+                var snapshot = service.Build();
+
+                if (snapshot.Sessions.Count > 0) app.Run(new HomeScreen(app, service));
+                else app.Run(new ProfileScreen(app));
+
                 return 0;
             }
 
@@ -136,6 +144,8 @@ public static class Program
 
         var screens = new (string Name, ScreenBase Screen)[]
         {
+            ("home", new HomeScreen(app, DemoSnapshot())),
+            ("kill-session", new KillSessionScreen(app, DemoSnapshot().Sessions[0], () => { })),
             ("profile", new ProfileScreen(app)),
             ("project", new ProjectScreen(app)),
             ("session", new SessionScreen(app)),
@@ -152,4 +162,41 @@ public static class Program
             Console.WriteLine();
         }
     }
+
+    /// <summary>
+    /// Fixed sessions for --selftest. Real ones would make the rendered output
+    /// depend on whatever happens to be running, which CI cannot assert against.
+    /// </summary>
+    private static SessionSnapshot DemoSnapshot() => new()
+    {
+        Sessions = new[]
+        {
+            Row("qagent", "Refactor runner into stages", SessionState.Running, 12, 4, 184_000, 1),
+            Row("api-gateway", "Add rate limiting", SessionState.Waiting, 0, 46, 97_000, 2),
+            Row("web-dash", "Fix chart tooltips", SessionState.Idle, 4, 0, 41_000, 3),
+            Row("notes-cli", "Write test suite", SessionState.Running, 2, 0, 63_000, 4)
+        },
+        Recent = new[]
+        {
+            new RecentProject { Name = "nauxoi", Path = @"D:\demo\nauxoi", LastUsedUtc = DateTime.UtcNow.AddHours(-2) },
+            new RecentProject { Name = "qagent", Path = @"D:\demo\q-agent", LastUsedUtc = DateTime.UtcNow }
+        },
+        SessionsToday = 11
+    };
+
+    private static SessionRow Row(string project, string task, SessionState state,
+        int minutes, int seconds, long tokens, int pane) => new()
+    {
+        SessionId = $"{project}-0000-0000",
+        ProfileName = "Work",
+        ProfileIcon = "W",
+        ProjectName = project,
+        ProjectPath = @"D:\demo\" + project,
+        Task = task,
+        State = state,
+        StateAge = new TimeSpan(0, 0, minutes, seconds),
+        ContextTokens = tokens,
+        Model = pane == 3 ? "haiku-4.5" : "sonnet-4.5",
+        Pid = 1000 + pane
+    };
 }

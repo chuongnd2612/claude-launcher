@@ -41,6 +41,15 @@ public abstract class ScreenBase
     public abstract void Render(ScreenBuffer buffer);
 
     public abstract ScreenAction HandleKey(ConsoleKeyInfo key);
+
+    /// <summary>
+    /// Non-null for screens whose content changes on its own. Screens that only
+    /// react to keys leave this null and the loop stays event driven, as before.
+    /// </summary>
+    public virtual TimeSpan? RefreshInterval => null;
+
+    /// <summary>Called on each interval; true repaints the frame.</summary>
+    public virtual bool NeedsRedraw() => false;
 }
 
 public sealed class App
@@ -126,15 +135,18 @@ public sealed class App
             Current.Render(_buffer);
             _buffer.Flush();
 
-            var key = WaitForKey(width, height);
-            if (key is null) continue; // window resized, redraw
+            var key = WaitForKey(width, height, Current);
+            if (key is null) continue; // resized, or the screen asked for a repaint
 
             Apply(Current.HandleKey(key.Value));
         }
     }
 
-    private static ConsoleKeyInfo? WaitForKey(int width, int height)
+    private static ConsoleKeyInfo? WaitForKey(int width, int height, ScreenBase screen)
     {
+        var interval = screen.RefreshInterval;
+        var next = interval is null ? DateTime.MaxValue : DateTime.UtcNow + interval.Value;
+
         while (true)
         {
             try
@@ -147,6 +159,14 @@ public sealed class App
             }
 
             if (Term.Width != width || Term.Height != height) return null;
+
+            if (DateTime.UtcNow >= next)
+            {
+                // null already means "redraw" to the caller, same as a resize.
+                if (screen.NeedsRedraw()) return null;
+                next = DateTime.UtcNow + interval!.Value;
+            }
+
             Thread.Sleep(35);
         }
     }
