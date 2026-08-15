@@ -343,6 +343,199 @@ public static class SessionReader
     private static long Long(JsonElement parent, string name) =>
         parent.TryGetProperty(name, out var value) && value.TryGetInt64(out var result) ? result : 0;
 
+    /// <summary>
+    /// Past sessions of one project, newest first. Only file metadata is read
+    /// here: a project can hold dozens of transcripts and most are never drawn.
+    /// </summary>
+    public static List<PastSession> ListProjectSessions(string configDir, string projectPath)
+    {
+        var results = new List<PastSession>();
+        var dir = Path.Combine(ClaudePaths.ProjectsDir(configDir), ClaudePaths.EncodeProjectDir(projectPath));
+
+        string[] files;
+        try { files = Directory.GetFiles(dir, "*.jsonl", SearchOption.TopDirectoryOnly); }
+        catch { return results; }
+
+        foreach (var file in files)
+        {
+            try
+            {
+                var info = new FileInfo(file);
+                results.Add(new PastSession
+                {
+                    SessionId = Path.GetFileNameWithoutExtension(file),
+                    Path = file,
+                    LastActivityUtc = info.LastWriteTimeUtc,
+                    SizeBytes = info.Length
+                });
+            }
+            catch (IOException)
+            {
+            }
+        }
+
+        return results.OrderByDescending(s => s.LastActivityUtc).ToList();
+    }
+
+    /// <summary>Fills the fields the picker draws. Tail for the title, head for the opening prompt.</summary>
+    public static void Load(PastSession session)
+    {
+        if (session.Loaded) return;
+        session.Loaded = true;
+
+        var facts = ReadTranscriptTail(session.Path);
+        session.Title = facts.Title;
+        session.Model = facts.Model;
+        session.Branch = facts.Branch;
+        session.ContextTokens = facts.ContextTokens;
+        session.FirstPrompt = ReadFirstPrompt(session.Path);
+    }
+
+    /// <summary>
+    /// The prompt that started a session, from the first 32 KB. Bounded on
+    /// purpose: a first message carrying a pasted image can run to megabytes,
+    /// and no prompt is worth reading that far for.
+    /// </summary>
+    public static string? ReadFirstPrompt(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete, 32 * 1024, FileOptions.SequentialScan);
+            using var reader = new StreamReader(stream);
+
+            var budget = 32 * 1024;
+            string? line;
+
+            while (budget > 0 && (line = reader.ReadLine()) is not null)
+            {
+                budget -= line.Length;
+                if (line.Length < 2) continue;
+
+                try
+                {
+                    using var document = JsonDocument.Parse(line);
+                    var root = document.RootElement;
+
+                    if (!root.TryGetProperty("type", out var type)) continue;
+
+                    if (type.GetString() == "last-prompt" &&
+                        root.TryGetProperty("lastPrompt", out var last))
+                    {
+                        return Prose(last.GetString());
+                    }
+
+                    if (type.GetString() != "user") continue;
+                    if (root.TryGetProperty("isSidechain", out var side) &&
+                        side.ValueKind == JsonValueKind.True) continue;
+
+                    var facts = new TranscriptFacts();
+                    FoldUser(root, facts);
+                    if (facts.Entries.Count > 0) return facts.Entries[0].Text;
+                }
+                catch (JsonException)
+                {
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// A full pass over one transcript, for the detail screen only. Counting
+    /// turns and tool calls is the whole point, and those cannot come from a
+    /// tail - but this runs for a single session the user asked to open.
+    /// </summary>
+    public static SessionDetail ScanSession(string path)
+    {
+        var detail = new SessionDetail();
+
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete, 128 * 1024, FileOptions.SequentialScan);
+            using var reader = new StreamReader(stream);
+
+            string? line;
+            while ((line = reader.ReadLine()) is not null)
+            {
+                if (line.Length < 2) continue;
+
+                // Cheap reject before any JSON work: the format is compact, so
+                // these substrings are exact.
+                var isUser = line.Contains("\"type\":\"user\"", StringComparison.Ordinal);
+                var isAssistant = line.Contains("\"type\":\"assistant\"", StringComparison.Ordinal);
+                if (!isUser && !isAssistant) continue;
+
+                try
+                {
+                    using var document = JsonDocument.Parse(line);
+                    var root = document.RootElement;
+
+                    var when = root.TryGetProperty("timestamp", out var ts) &&
+                               ts.ValueKind == JsonValueKind.String &&
+                               DateTime.TryParse(ts.GetString(), out var parsed)
+                        ? parsed.ToUniversalTime()
+                        : (DateTime?)null;
+
+                    if (when is not null)
+                    {
+                        detail.StartedUtc ??= when;
+                        detail.LastActivityUtc = when;
+                    }
+
+                    var facts = new TranscriptFacts();
+
+                    if (isUser)
+                    {
+                        if (root.TryGetProperty("isSidechain", out var side) &&
+                            side.ValueKind == JsonValueKind.True) continue;
+
+                        FoldUser(root, facts);
+                        if (facts.Entries.Count > 0) detail.Turns++;
+                    }
+                    else
+                    {
+                        FoldAssistant(root, facts);
+                    }
+
+                    foreach (var entry in facts.Entries)
+                    {
+                        if (entry.Kind == EntryKind.ToolCall)
+                        {
+                            detail.ToolCalls++;
+                            if (entry.Target is not null && IsFileTool(entry.Text))
+                                detail.Files[entry.Target] = detail.Files.GetValueOrDefault(entry.Target) + 1;
+                        }
+
+                        detail.Entries.Add(entry);
+                    }
+                }
+                catch (JsonException)
+                {
+                    detail.MalformedLines++;
+                }
+            }
+        }
+        catch
+        {
+            // Whatever was gathered before the failure is still worth showing.
+        }
+
+        // The screen only ever draws the end of the conversation.
+        const int keep = 400;
+        if (detail.Entries.Count > keep) detail.Entries.RemoveRange(0, detail.Entries.Count - keep);
+
+        return detail;
+    }
+
+    private static bool IsFileTool(string verb) =>
+        verb is "Read" or "Edit" or "Write" or "NotebookEdit" or "MultiEdit";
+
     /// <summary>Recent projects, newest first, from history.jsonl.</summary>
     public static List<RecentProject> ReadRecentProjects(string configDir, int limit)
     {

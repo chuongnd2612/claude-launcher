@@ -105,6 +105,9 @@ directly without showing the selection screens.
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
 | Session | `↑↓` navigate · `Enter` launch · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `Esc` back |
+| Resume | `↑↓` navigate · `Enter` resume · `/` filter · `l` logs · `d` delete · `Esc` back |
+| Session detail | `↑↓` scroll · `PgUp/PgDn` page · `Home/End` jump · `Esc` back |
+| Delete session | `←→` / `Tab` choose · `Enter` confirm · `y` delete · `n` / `Esc` cancel |
 | Add / Edit profile | `Tab` / `↑↓` next field · `Enter` save · `Esc` cancel |
 | Remove profile | `←→` / `Tab` choose · `Enter` confirm · `y` remove · `n` / `Esc` cancel |
 | Settings | `↑↓` navigate · `Enter` / `←→` change · `Esc` back |
@@ -202,6 +205,39 @@ to an unrelated pane.
 `k` stops a session, always behind a confirmation — it kills the process tree, so anything Claude has
 not written out is lost. Background agents (`entrypoint: sdk-cli`) are left off the list; they are not
 terminals you can return to.
+
+## Resuming a specific conversation
+
+Choosing **Resume** on step 3 now lists that project's earlier sessions instead of handing Claude a
+bare `--resume` and letting it ask:
+
+```text
+╭─ Sessions · 6 ──────────────────────────────────────────────────────────────╮
+│ ⌕ press / to filter by prompt or id                                         │
+│ ▸ 8f31c2ab  Refactor QAgent runner into stages          2h ago       184k   │
+│   a7d90144  Add golden tests for QAgent                 1d ago        76k   │
+╰─────────────────────────────────────────────────────────────────────────────╯
+╭─ Opening prompt ────────────────────────────────────────────────────────────╮
+│ split the runner into plan/execute/verify stages and keep the CLI stable     │
+╰─────────────────────────────────────────────────────────────────────────────╯
+```
+
+Titles are Claude's own generated session titles; the panel underneath shows the prompt that started
+the highlighted one, which is usually what tells similar sessions apart. `Enter` resumes it directly
+(`claude --resume <id>`), honouring the **Opens in** target, so you can resume an old conversation
+straight into a split pane. With no transcripts for the project, `r` falls through to plain
+`--resume` as before.
+
+Rows load lazily — only the ones on screen are read — so a project with dozens of sessions still
+opens instantly.
+
+`l` opens **session detail**: turns, tool calls, files touched, and a scrollable transcript. That one
+is a full pass over the file, which is why it is behind an explicit keypress; a 35 MB transcript
+takes about a quarter of a second. `d` deletes a transcript, behind a confirmation — the conversation
+cannot be resumed afterwards.
+
+**No cost column.** Pricing a session needs a per-model rate table that would go stale silently, and a
+wrong dollar figure is worse than none. Tokens are shown instead, and those are measured.
 
 ## The terminal wall
 
@@ -388,8 +424,9 @@ src/
     ScreenBuffer.cs   cell grid + single-write flush
     BlockFont.cs      5x5 block font for the banner
     Widgets.cs        chrome, step badges, cards, tips, footer
-  Screens/            Home, Terminals, Profile, Project, Session, AddProfile,
-                      DeleteProfile, KillSession, Settings
+  Screens/            Home, Terminals, Resume, SessionDetail, Profile, Project,
+                      Session, AddProfile, DeleteProfile, KillSession,
+                      DeleteSession, Settings
   Sessions/           reads Claude's own session registry and transcripts
 ```
 

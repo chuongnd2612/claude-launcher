@@ -134,7 +134,13 @@ function New-ClaudeLauncherPaneScript {
 
     $claudeArgs = @()
     switch ($Result.mode) {
-        'resume' { $claudeArgs += '--resume' }
+        'resume' {
+            $claudeArgs += '--resume'
+            # A session id turns Claude's own picker into a direct resume.
+            if ($Result.PSObject.Properties['sessionId'] -and $Result.sessionId) {
+                $claudeArgs += [string]$Result.sessionId
+            }
+        }
         'continue' { $claudeArgs += '--continue' }
     }
     if ($ExtraArgs) { $claudeArgs += $ExtraArgs }
@@ -323,7 +329,12 @@ function Invoke-ClaudeLauncher {
 
                 $claudeArgs = @()
                 switch ($result.mode) {
-                    'resume' { $claudeArgs += '--resume' }
+                    'resume' {
+                        $claudeArgs += '--resume'
+                        if ($result.PSObject.Properties['sessionId'] -and $result.sessionId) {
+                            $claudeArgs += [string]$result.sessionId
+                        }
+                    }
                     'continue' { $claudeArgs += '--continue' }
                 }
                 if ($ClaudeArgs) { $claudeArgs += $ClaudeArgs }

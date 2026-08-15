@@ -48,10 +48,10 @@ jobs:
           # Present at every size.
           # ASCII-only needles: the workflow file is asserted as ASCII, and the
           # box-drawing and bullet glyphs the screens use would break that.
-          $always = @('Select a Claude profile', 'Your intelligent CLI companion', 'Andrew Nguyen - chuongnd2612', 'Projects', 'New profile', 'Appearance', 'Running sessions', 'Stop session', 'Terminals', 'Focus', 'Zoom', 'Layout')
+          $always = @('Select a Claude profile', 'Your intelligent CLI companion', 'Andrew Nguyen - chuongnd2612', 'Projects', 'New profile', 'Appearance', 'Running sessions', 'Stop session', 'Terminals', 'Focus', 'Zoom', 'Layout', 'Which session?', 'Transcript', 'Delete session')
           # The launch summary and the tips box are intentionally dropped when the
           # window is too short, so only require them on roomy terminals.
-          $tall = @('Launch summary', 'Tips', 'Opens in')
+          $tall = @('Launch summary', 'Tips', 'Opens in', 'Opening prompt', 'Counters')
 
           foreach ($size in @(@(80, 24), @(100, 30), @(132, 44), @(200, 60))) {
             # -join matters: with an array on the left, -notmatch filters instead

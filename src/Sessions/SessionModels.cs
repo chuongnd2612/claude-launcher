@@ -84,6 +84,46 @@ public sealed class SessionRow
     public IReadOnlyList<TranscriptEntry> Entries { get; set; } = Array.Empty<TranscriptEntry>();
 }
 
+/// <summary>A past session of one project, for the resume picker.</summary>
+public sealed class PastSession
+{
+    public string SessionId { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public DateTime LastActivityUtc { get; set; }
+    public long SizeBytes { get; set; }
+
+    /// <summary>Filled lazily: the list only reads what it is about to draw.</summary>
+    public bool Loaded { get; set; }
+
+    public string? Title { get; set; }
+    public string? FirstPrompt { get; set; }
+    public string? Model { get; set; }
+    public string Branch { get; set; } = string.Empty;
+    public long ContextTokens { get; set; }
+
+    public string ShortId => SessionId.Length >= 8 ? SessionId.Substring(0, 8) : SessionId;
+
+    public string DisplayTitle =>
+        !string.IsNullOrWhiteSpace(Title) ? Title!
+        : !string.IsNullOrWhiteSpace(FirstPrompt) ? FirstPrompt!
+        : ShortId;
+}
+
+/// <summary>Counted by a full pass over one transcript, for the detail screen.</summary>
+public sealed class SessionDetail
+{
+    public int Turns { get; set; }
+    public int ToolCalls { get; set; }
+    public DateTime? StartedUtc { get; set; }
+    public DateTime? LastActivityUtc { get; set; }
+
+    /// <summary>File path to the number of times a tool touched it.</summary>
+    public Dictionary<string, int> Files { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public List<TranscriptEntry> Entries { get; } = new();
+    public int MalformedLines { get; set; }
+}
+
 /// <summary>A row of the "Recent projects" panel, from history.jsonl.</summary>
 public sealed class RecentProject
 {

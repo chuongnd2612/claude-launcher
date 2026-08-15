@@ -19,6 +19,9 @@ public sealed class ScreenAction
     public string? Mode { get; private init; }
     public string? OpenIn { get; private init; }
 
+    /// <summary>Set when resuming a specific conversation rather than letting Claude ask.</summary>
+    public string? SessionId { get; private init; }
+
     public static ScreenAction None { get; } = new();
     public static ScreenAction Back { get; } = new() { Kind = ActionKind.Pop };
     public static ScreenAction Exit { get; } = new() { Kind = ActionKind.Quit };
@@ -30,6 +33,10 @@ public sealed class ScreenAction
     /// <summary>The default keeps existing call sites launching in the current console.</summary>
     public static ScreenAction Finish(string mode, string openIn = LaunchTarget.Current) =>
         new() { Kind = ActionKind.Finish, Mode = mode, OpenIn = openIn };
+
+    /// <summary>Finish, resuming one specific conversation.</summary>
+    public static ScreenAction Resume(string sessionId, string openIn) =>
+        new() { Kind = ActionKind.Finish, Mode = "resume", OpenIn = openIn, SessionId = sessionId };
 }
 
 public abstract class ScreenBase
@@ -193,7 +200,7 @@ public sealed class App
                 {
                     LaunchMode = action.Mode ?? "new";
                     LaunchOpenIn = LaunchTarget.Normalize(action.OpenIn ?? Settings.DefaultOpenIn);
-                    StateStore.WriteResult(Profile, Project, LaunchMode, LaunchOpenIn);
+                    StateStore.WriteResult(Profile, Project, LaunchMode, LaunchOpenIn, action.SessionId);
                 }
 
                 _stack.Clear();
