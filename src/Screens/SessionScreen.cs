@@ -15,11 +15,13 @@ public sealed class SessionScreen : ScreenBase
     };
 
     private int _index;
+    private string _openIn;
 
     public SessionScreen(App app) : base(app)
     {
         var preferred = Array.FindIndex(Options, o => o.Mode == app.Settings.DefaultMode);
         _index = preferred >= 0 ? preferred : 0;
+        _openIn = LaunchTarget.Normalize(app.Settings.DefaultOpenIn);
     }
 
     public override void Render(ScreenBuffer buffer)
@@ -60,19 +62,21 @@ public sealed class SessionScreen : ScreenBase
         }
 
         var summaryY = y + Options.Length * 4;
-        if (summaryY + 6 <= buffer.Height - 4)
+        if (summaryY + 7 <= buffer.Height - 4)
         {
-            Widgets.TitledBox(buffer, margin, summaryY, width, 6, "Launch summary", Theme.VioletSoft);
+            Widgets.TitledBox(buffer, margin, summaryY, width, 7, "Launch summary", Theme.VioletSoft);
             Row(buffer, margin + 3, summaryY + 1, "Profile", profile.DisplayLabel, width);
             Row(buffer, margin + 3, summaryY + 2, "Config", StateStore.ExpandHome(profile.ConfigDir), width);
             Row(buffer, margin + 3, summaryY + 3, "Project", project.Name, width);
             Row(buffer, margin + 3, summaryY + 4, "Path", project.Path, width);
+            Row(buffer, margin + 3, summaryY + 5, "Opens in", LaunchTarget.Describe(_openIn), width);
         }
 
         Widgets.Footer(buffer, new[]
         {
             new KeyHint("↑↓", "Navigate"),
             new KeyHint("↵", "Launch"),
+            new KeyHint("o", "Open in"),
             new KeyHint("n/c/r", "Quick mode"),
             new KeyHint("esc", "Back"),
             new KeyHint("q", "Quit")
@@ -98,7 +102,13 @@ public sealed class SessionScreen : ScreenBase
                 return ScreenAction.None;
             case ConsoleKey.Enter:
             case ConsoleKey.Spacebar:
-                return ScreenAction.Finish(Options[_index].Mode);
+                return ScreenAction.Finish(Options[_index].Mode, _openIn);
+            case ConsoleKey.LeftArrow:
+                _openIn = LaunchTarget.Next(_openIn, -1);
+                return ScreenAction.None;
+            case ConsoleKey.RightArrow:
+                _openIn = LaunchTarget.Next(_openIn);
+                return ScreenAction.None;
             case ConsoleKey.Escape:
             case ConsoleKey.Backspace:
                 return ScreenAction.Back;
@@ -106,9 +116,10 @@ public sealed class SessionScreen : ScreenBase
 
         switch (char.ToLowerInvariant(key.KeyChar))
         {
-            case 'n': return ScreenAction.Finish("new");
-            case 'c': return ScreenAction.Finish("continue");
-            case 'r': return ScreenAction.Finish("resume");
+            case 'o': _openIn = LaunchTarget.Next(_openIn); return ScreenAction.None;
+            case 'n': return ScreenAction.Finish("new", _openIn);
+            case 'c': return ScreenAction.Finish("continue", _openIn);
+            case 'r': return ScreenAction.Finish("resume", _openIn);
             case 'q': return ScreenAction.Exit;
         }
 

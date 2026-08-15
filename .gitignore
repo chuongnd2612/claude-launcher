@@ -1,0 +1,12 @@
+# Build output
+src/bin/
+src/obj/
+dist/
+
+# Local design assets (exported from the design tool, not part of the build)
+Claude Launcher TUI Design/
+Claude Launcher TUI Design.zip
+
+# Launcher state, if anyone points it at the repo
+panes/
+*.bak

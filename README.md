@@ -101,7 +101,7 @@ directly without showing the selection screens.
 | ------- | ---- |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
-| Session | `↑↓` navigate · `Enter` launch · `n` new · `c` continue · `r` resume · `Esc` back |
+| Session | `↑↓` navigate · `Enter` launch · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `Esc` back |
 | Add / Edit profile | `Tab` / `↑↓` next field · `Enter` save · `Esc` cancel |
 | Remove profile | `←→` / `Tab` choose · `Enter` confirm · `y` remove · `n` / `Esc` cancel |
 | Settings | `↑↓` navigate · `Enter` / `←→` change · `Esc` back |
@@ -156,6 +156,37 @@ be removed.
 | Paint background | Use the launcher canvas color instead of your terminal's background |
 | Show tips | Show or hide the tips box |
 | Default session mode | Which option is preselected on step 3 (`new` / `continue` / `resume`) |
+| Default open in | Where `Enter` launches Claude (`current` / `new tab` / `split right` / `split down`) |
+
+## Tabs and split panes
+
+Step 3 has an **Opens in** row. Press `o` (or `←→`) to cycle where Claude starts:
+
+| Value | Effect |
+| ----- | ------ |
+| `current` | This console, exactly as before — Claude replaces the launcher in the same window |
+| `tab` | A new Windows Terminal tab |
+| `right` | Splits the current pane, new pane to the right |
+| `down` | Splits the current pane, new pane below |
+
+Anything other than `current` needs [Windows Terminal](https://aka.ms/terminal). If `wt.exe` is
+missing, the launcher says so and falls back to this console rather than failing the launch.
+
+Each pane gets its own `CLAUDE_CONFIG_DIR`, so you can run a **Work** session beside a **Personal**
+one — that is the point of the feature. The launcher does this by writing a small startup script per
+pane under `$HOME\.claude-launcher\panes`; they are disposable and pruned after two days.
+
+Two things worth knowing:
+
+- The pane keeps its shell open after Claude exits (`-NoExit`), so an error stays readable instead of
+  the window vanishing. Close it with `exit`.
+- Splitting targets the window you are already in. Run the launcher from outside Windows Terminal
+  (the VS Code terminal, plain conhost) and there is no window to split, so it opens a new one and
+  tells you.
+
+Set `CLAUDE_LAUNCHER_OPEN_IN` to script it. Note that a fully specified, non-interactive launch
+defaults to `current` regardless of your saved preference, so automation never starts opening windows
+by surprise.
 
 ## Releasing
 
@@ -296,6 +327,7 @@ Environment variables read by the executable:
 | `CLAUDE_LAUNCHER_PROFILE` | preselect a profile (name or label) |
 | `CLAUDE_LAUNCHER_PROJECT` | preselect a project |
 | `CLAUDE_LAUNCHER_MODE` | `new` \| `continue` \| `resume` |
+| `CLAUDE_LAUNCHER_OPEN_IN` | `current` \| `tab` \| `right` \| `down` |
 
 The `result.json` contract is unchanged from 1.4.x: `profile`, `label`, `icon`, `configDir`,
 `project`, `path`, `mode`.

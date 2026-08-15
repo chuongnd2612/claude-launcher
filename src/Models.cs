@@ -43,12 +43,57 @@ public sealed class ProfilesFile
     public List<ProfileEntry> Profiles { get; set; } = new();
 }
 
+/// <summary>Where a launch lands: this console, or a Windows Terminal tab / pane.</summary>
+public static class LaunchTarget
+{
+    public const string Current = "current";
+    public const string Tab = "tab";
+    public const string Right = "right";
+    public const string Down = "down";
+
+    /// <summary>Cycle order for the "o" key on the session screen.</summary>
+    public static readonly string[] All = { Current, Tab, Right, Down };
+
+    public static string Normalize(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return Current;
+        var trimmed = value.Trim().ToLowerInvariant();
+        return Array.IndexOf(All, trimmed) >= 0 ? trimmed : Current;
+    }
+
+    public static string Next(string current, int direction = 1)
+    {
+        var index = Array.IndexOf(All, Normalize(current));
+        if (index < 0) index = 0;
+        return All[(index + direction + All.Length) % All.Length];
+    }
+
+    /// <summary>Short label for the settings screen; its value column is 12 cells.</summary>
+    public static string Label(string target) => Normalize(target) switch
+    {
+        Tab => "new tab",
+        Right => "split right",
+        Down => "split down",
+        _ => "current"
+    };
+
+    /// <summary>The "Opens in" row on the launch summary.</summary>
+    public static string Describe(string target) => Normalize(target) switch
+    {
+        Tab => "New tab in this Windows Terminal window · press o to change",
+        Right => "New pane · split right · press o to change",
+        Down => "New pane · split down · press o to change",
+        _ => "This terminal · press o to change"
+    };
+}
+
 /// <summary>Persisted UI preferences (~/.claude-launcher/ui.json).</summary>
 public sealed class UiSettings
 {
     public bool PaintBackground { get; set; } = true;
     public bool ShowTips { get; set; } = true;
     public string DefaultMode { get; set; } = "new";
+    public string DefaultOpenIn { get; set; } = LaunchTarget.Current;
 
     public static readonly string[] Modes = { "new", "continue", "resume" };
 }

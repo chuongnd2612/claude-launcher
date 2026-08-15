@@ -17,6 +17,7 @@ public sealed class ScreenAction
     public ActionKind Kind { get; private init; } = ActionKind.None;
     public ScreenBase? Next { get; private init; }
     public string? Mode { get; private init; }
+    public string? OpenIn { get; private init; }
 
     public static ScreenAction None { get; } = new();
     public static ScreenAction Back { get; } = new() { Kind = ActionKind.Pop };
@@ -26,7 +27,9 @@ public sealed class ScreenAction
 
     public static ScreenAction Replace(ScreenBase next) => new() { Kind = ActionKind.Replace, Next = next };
 
-    public static ScreenAction Finish(string mode) => new() { Kind = ActionKind.Finish, Mode = mode };
+    /// <summary>The default keeps existing call sites launching in the current console.</summary>
+    public static ScreenAction Finish(string mode, string openIn = LaunchTarget.Current) =>
+        new() { Kind = ActionKind.Finish, Mode = mode, OpenIn = openIn };
 }
 
 public abstract class ScreenBase
@@ -61,6 +64,9 @@ public sealed class App
 
     /// <summary>Set once a launch mode has been chosen.</summary>
     public string? LaunchMode { get; private set; }
+
+    /// <summary>Where the launch was sent: current console, tab, or a split pane.</summary>
+    public string? LaunchOpenIn { get; private set; }
 
     public ScreenBuffer Buffer => _buffer;
 
@@ -166,7 +172,8 @@ public sealed class App
                 if (Profile is not null && Project is not null)
                 {
                     LaunchMode = action.Mode ?? "new";
-                    StateStore.WriteResult(Profile, Project, LaunchMode);
+                    LaunchOpenIn = LaunchTarget.Normalize(action.OpenIn ?? Settings.DefaultOpenIn);
+                    StateStore.WriteResult(Profile, Project, LaunchMode, LaunchOpenIn);
                 }
 
                 _stack.Clear();

@@ -49,7 +49,7 @@ jobs:
           $always = @('Select a Claude profile', 'Your intelligent CLI companion', 'Andrew Nguyen - chuongnd2612', 'Projects', 'New profile', 'Appearance')
           # The launch summary and the tips box are intentionally dropped when the
           # window is too short, so only require them on roomy terminals.
-          $tall = @('Launch summary', 'Tips')
+          $tall = @('Launch summary', 'Tips', 'Opens in')
 
           foreach ($size in @(@(80, 24), @(100, 30), @(132, 44), @(200, 60))) {
             # -join matters: with an array on the left, -notmatch filters instead
@@ -131,3 +131,46 @@ jobs:
           }
 
           Write-Host 'PowerShell scripts parse cleanly on 5.1.'
+
+      - name: Verify the Windows Terminal command lines
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # Dot-sourcing only defines functions; nothing launches.
+          . .\scripts\claude-launcher.ps1
+
+          if ((ConvertTo-ClaudeLauncherPSLiteral "it's") -ne "'it''s'") { throw 'PS literal escaping is wrong' }
+          if ((ConvertTo-ClaudeLauncherWtPath 'C:\demo\') -ne 'C:\demo') { throw 'trailing backslash must be trimmed' }
+          if ((ConvertTo-ClaudeLauncherWtPath 'C:\') -ne 'C:\') { throw 'a drive root keeps its backslash' }
+
+          $env:CLAUDE_LAUNCHER_WT_DRYRUN = '1'
+          $result = [pscustomobject]@{
+            profile = 'work'; label = 'Work'; icon = 'W'
+            configDir = 'C:\Users\test\.claude-work'
+            project = 'demo'; path = 'C:\My Projects\app'; mode = 'resume'
+          }
+
+          $stub = New-ClaudeLauncherPaneScript -Result $result -ExtraArgs @()
+          $body = Get-Content $stub -Raw
+          foreach ($needle in @("CLAUDE_CONFIG_DIR = 'C:\Users\test\.claude-work'",
+                                "Set-Location -LiteralPath 'C:\My Projects\app'",
+                                '--resume')) {
+            if ($body -notmatch [regex]::Escape($needle)) { throw "pane stub is missing: $needle" }
+          }
+
+          # A path with spaces has to stay ONE argument, which is why these are
+          # built as an array and splatted rather than joined into a string.
+          foreach ($case in @(@{ o = 'tab'; verb = 'new-tab' },
+                              @{ o = 'right'; verb = 'split-pane'; axis = '-V' },
+                              @{ o = 'down'; verb = 'split-pane'; axis = '-H' })) {
+            $wtArgs = Start-ClaudeLauncherPane -Result $result -PaneScript $stub -OpenIn $case.o
+            if ($wtArgs[0] -ne '-w') { throw "$($case.o): the window target must come first" }
+            if ($wtArgs -notcontains $case.verb) { throw "$($case.o): expected $($case.verb)" }
+            if ($case.axis -and ($wtArgs -notcontains $case.axis)) { throw "$($case.o): expected $($case.axis)" }
+            $d = [array]::IndexOf($wtArgs, '-d')
+            if ($wtArgs[$d + 1] -ne 'C:\My Projects\app') { throw "$($case.o): the project path was split or altered" }
+          }
+
+          Remove-Item $stub -Force -ErrorAction SilentlyContinue
+          Write-Host 'Windows Terminal command lines are well formed.'

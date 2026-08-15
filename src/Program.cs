@@ -76,7 +76,10 @@ public static class Program
             var mode = NormalizeMode(requestedMode);
             if (mode is not null)
             {
-                StateStore.WriteResult(profile, project, mode);
+                // Deliberately not Settings.DefaultOpenIn: a scripted launch must not
+                // start opening windows because of a UI preference.
+                var openIn = LaunchTarget.Normalize(Environment.GetEnvironmentVariable("CLAUDE_LAUNCHER_OPEN_IN"));
+                StateStore.WriteResult(profile, project, mode, openIn);
                 return 0;
             }
 
@@ -116,6 +119,7 @@ public static class Program
         Console.WriteLine("  CLAUDE_LAUNCHER_PROFILE    pre-select a profile");
         Console.WriteLine("  CLAUDE_LAUNCHER_PROJECT    pre-select a project");
         Console.WriteLine("  CLAUDE_LAUNCHER_MODE       new | continue | resume");
+        Console.WriteLine("  CLAUDE_LAUNCHER_OPEN_IN    current | tab | right | down");
     }
 
     /// <summary>Renders each screen to stdout as plain text - handy for checking layout over SSH or in CI.</summary>
