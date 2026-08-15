@@ -98,5 +98,12 @@ public sealed class UiSettings
     /// <summary>Terminal wall layout: tiled, stacked or focus.</summary>
     public string TerminalLayout { get; set; } = "tiled";
 
+    /// <summary>
+    /// Start new sessions with claude --remote-control, so they accept input
+    /// from claude.ai and the phone app. Off by default: it opens a relay
+    /// through Anthropic's servers, which is the user's call to make.
+    /// </summary>
+    public bool RemoteControl { get; set; }
+
     public static readonly string[] Modes = { "new", "continue", "resume" };
 }

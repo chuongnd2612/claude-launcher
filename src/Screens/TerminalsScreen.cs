@@ -471,7 +471,7 @@ public sealed class TerminalsScreen : ScreenBase
             string.Equals(p.DisplayLabel, row.ProfileName, StringComparison.OrdinalIgnoreCase))
             ?? App.State.Profiles[0];
 
-        _notice = PaneLauncher.Split(profile, row.ProjectPath, vertical, out var error)
+        _notice = PaneLauncher.Split(profile, row.ProjectPath, vertical, App.Settings.RemoteControl, out var error)
             ? $"Starting Claude in {row.ProjectName}, {(vertical ? "split right" : "split down")}."
             : "Could not open a pane: " + error;
 

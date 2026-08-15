@@ -207,7 +207,7 @@ public static class StateStore
     /// ignores it, and a missing value means the current console.
     /// </summary>
     public static void WriteResult(ProfileEntry profile, ProjectEntry project, string mode, string openIn,
-        string? sessionId = null)
+        string? sessionId = null, bool remoteControl = false)
     {
         var result = new
         {
@@ -222,7 +222,8 @@ public static class StateStore
 
             // Empty rather than absent: PowerShell 5.1 handles a missing
             // property awkwardly, and the wrapper only tests for content.
-            sessionId = sessionId ?? string.Empty
+            sessionId = sessionId ?? string.Empty,
+            remoteControl
         };
 
         var directory = Path.GetDirectoryName(ResultFile);

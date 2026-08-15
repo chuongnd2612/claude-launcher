@@ -143,6 +143,12 @@ function New-ClaudeLauncherPaneScript {
         }
         'continue' { $claudeArgs += '--continue' }
     }
+    # Remote control lets claude.ai and the phone app type into this session.
+    # The project name makes it findable in their session list.
+    if ($Result.PSObject.Properties['remoteControl'] -and $Result.remoteControl -eq $true) {
+        $claudeArgs += '--remote-control'
+        $claudeArgs += [string]$Result.project
+    }
     if ($ExtraArgs) { $claudeArgs += $ExtraArgs }
 
     $quoted = @()
@@ -336,6 +342,10 @@ function Invoke-ClaudeLauncher {
                         }
                     }
                     'continue' { $claudeArgs += '--continue' }
+                }
+                if ($result.PSObject.Properties['remoteControl'] -and $result.remoteControl -eq $true) {
+                    $claudeArgs += '--remote-control'
+                    $claudeArgs += [string]$result.project
                 }
                 if ($ClaudeArgs) { $claudeArgs += $ClaudeArgs }
                 & claude @claudeArgs
