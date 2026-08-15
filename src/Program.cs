@@ -147,6 +147,7 @@ public static class Program
             ("home", new HomeScreen(app, DemoSnapshot())),
             ("terminals", new TerminalsScreen(app, DemoSnapshot())),
             ("kill-session", new KillSessionScreen(app, DemoSnapshot().Sessions[0], () => { })),
+            ("chat", new ChatScreen(app, DemoChat(), ChatState.AwaitingPermission, DemoAsk())),
             ("resume", new ResumeScreen(app, DemoPastSessions())),
             ("session-detail", new SessionDetailScreen(app, DemoPastSessions()[0], DemoDetail())),
             ("delete-session", new DeleteSessionScreen(app, DemoPastSessions()[0], () => { })),
@@ -238,6 +239,22 @@ public static class Program
             Tool("Bash", "pnpm vitest run"),
             Say("17 passed, 1 failed. Patching normaliseEol().")
         }
+    };
+
+    private static ChatLine[] DemoChat() => new[]
+    {
+        new ChatLine { Kind = ChatLineKind.UserPrompt, Text = "add a redis token bucket to the gateway" },
+        new ChatLine { Kind = ChatLineKind.AssistantText, Text = "I'll add a limiter module and mount it before the auth middleware." },
+        new ChatLine { Kind = ChatLineKind.ToolCall, Text = "Read", Detail = "api/router.ts" },
+        new ChatLine { Kind = ChatLineKind.ToolCall, Text = "Write", Detail = "api/limiter.ts" }
+    };
+
+    private static PermissionAsk DemoAsk() => new()
+    {
+        RequestId = "demo",
+        Tool = "Edit",
+        Description = "api/router.ts",
+        InputJson = "{}"
     };
 
     private static List<PastSession> DemoPastSessions() => new()

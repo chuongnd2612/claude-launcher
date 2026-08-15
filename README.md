@@ -104,7 +104,8 @@ directly without showing the selection screens.
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
-| Session | `↑↓` navigate · `Enter` launch · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `Esc` back |
+| Session | `↑↓` navigate · `Enter` launch · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `h` chat here · `Esc` back |
+| Chat | type · `Enter` send · `y`/`a`/`n` answer a permission request · `Esc` stop a turn, then back · `PgUp/PgDn` scroll · `End` follow |
 | Resume | `↑↓` navigate · `Enter` resume · `/` filter · `l` logs · `d` delete · `Esc` back |
 | Session detail | `↑↓` scroll · `PgUp/PgDn` page · `Home/End` jump · `Esc` back |
 | Delete session | `←→` / `Tab` choose · `Enter` confirm · `y` delete · `n` / `Esc` cancel |
@@ -206,6 +207,47 @@ to an unrelated pane.
 `k` stops a session, always behind a confirmation — it kills the process tree, so anything Claude has
 not written out is lost. Background agents (`entrypoint: sdk-cli`) are left off the list; they are not
 terminals you can return to.
+
+## Chatting inside the launcher
+
+Step 3 has a fourth option, **Chat here** (`h`). It starts Claude as a session the launcher owns and
+gives you a prompt without opening a window:
+
+```text
+╭──────────────────────────────────────────────────────────────────────────╮
+│  › add a redis token bucket to the gateway                               │
+│  I'll add a limiter module and mount it before the auth middleware.      │
+│  ◆ Read api/router.ts                                                    │
+│  ◆ Write api/limiter.ts                                                  │
+╰──────────────────────────────────────────────────────────────────────────╯
+╭─ Permission ─────────────────────────────────────────────────────────────╮
+│  ◆ Edit  api/router.ts                                                   │
+│  Claude wants to run this tool.                                          │
+│  y allow    a always allow    n deny                                     │
+╰──────────────────────────────────────────────────────────────────────────╯
+ › _
+```
+
+Type and press `Enter`. Replies stream in as they are written. When Claude wants a tool that needs
+approval, the amber box appears: `y` allows it once, `a` allows that tool for the rest of the
+session, `n` refuses it and tells Claude why. `Esc` stops a turn that is running, and `Esc` again
+leaves the screen.
+
+Under the hood the launcher talks to Claude over its `stream-json` interface rather than pretending
+to be a terminal, which is what makes approve and deny possible at all. It is the same Claude — same
+tools, hooks, settings, MCP servers, and the same transcript on disk, so these sessions appear on
+Home and in the terminal wall like any other.
+
+Two limits worth knowing:
+
+- **It is a conversation view, not Claude's own terminal UI.** No slash-command menu, no plan-mode
+  interface.
+- **Tool output arrives when the tool finishes**, not while it runs. A long build shows
+  `◆ Bash` and then its result, rather than scrolling live. For watching something run, launch into a
+  pane instead and use the real terminal.
+
+The session belongs to the launcher, so closing the launcher ends it. Sessions opened into tabs or
+panes are independent and survive.
 
 ## Resuming a specific conversation
 
@@ -432,10 +474,11 @@ src/
     ScreenBuffer.cs   cell grid + single-write flush
     BlockFont.cs      5x5 block font for the banner
     Widgets.cs        chrome, step badges, cards, tips, footer
-  Screens/            Home, Terminals, Resume, SessionDetail, Profile, Project,
-                      Session, AddProfile, DeleteProfile, KillSession,
+  Screens/            Home, Terminals, Chat, Resume, SessionDetail, Profile,
+                      Project, Session, AddProfile, DeleteProfile, KillSession,
                       DeleteSession, Settings
-  Sessions/           reads Claude's own session registry and transcripts
+  Sessions/           reads Claude's session registry and transcripts; owns
+                      stream-json sessions for the chat screen
 ```
 
 ## Runtime state
