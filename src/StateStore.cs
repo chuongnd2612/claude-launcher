@@ -199,7 +199,14 @@ public static class StateStore
         File.WriteAllText(ProfilesFilePath, JsonSerializer.Serialize(file, WriteOptions));
     }
 
-    public static void WriteResult(ProfileEntry profile, ProjectEntry project, string mode)
+    public static void WriteResult(ProfileEntry profile, ProjectEntry project, string mode) =>
+        WriteResult(profile, project, mode, LaunchTarget.Current);
+
+    /// <summary>
+    /// Writes result.json. <paramref name="openIn"/> is additive: an older wrapper
+    /// ignores it, and a missing value means the current console.
+    /// </summary>
+    public static void WriteResult(ProfileEntry profile, ProjectEntry project, string mode, string openIn)
     {
         var result = new
         {
@@ -209,7 +216,8 @@ public static class StateStore
             configDir = ExpandHome(profile.ConfigDir),
             project = project.Name,
             path = project.Path,
-            mode
+            mode,
+            openIn = LaunchTarget.Normalize(openIn)
         };
 
         var directory = Path.GetDirectoryName(ResultFile);

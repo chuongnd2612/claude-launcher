@@ -5,7 +5,7 @@ namespace ClaudeLauncher.Screens;
 /// <summary>UI preferences, persisted to ~/.claude-launcher/ui.json.</summary>
 public sealed class SettingsScreen : ScreenBase
 {
-    private const int ItemCount = 3;
+    private const int ItemCount = 4;
 
     private int _index;
 
@@ -37,6 +37,10 @@ public sealed class SettingsScreen : ScreenBase
         Toggle(buffer, margin + 2, y + 3, panelWidth - 4, 2, "Default session mode",
             App.Settings.DefaultMode,
             "Pre-selected option on step 3");
+
+        Toggle(buffer, margin + 2, y + 4, panelWidth - 4, 3, "Default open in",
+            LaunchTarget.Label(App.Settings.DefaultOpenIn),
+            "Where Enter launches Claude");
 
         var infoY = y + ItemCount + 3;
         if (infoY + 6 <= buffer.Height - 4)
@@ -113,12 +117,15 @@ public sealed class SettingsScreen : ScreenBase
             case 1:
                 App.Settings.ShowTips = !App.Settings.ShowTips;
                 break;
-            default:
+            case 2:
                 var modes = UiSettings.Modes;
                 var current = Array.IndexOf(modes, App.Settings.DefaultMode);
                 if (current < 0) current = 0;
                 var next = (current + direction + modes.Length) % modes.Length;
                 App.Settings.DefaultMode = modes[next];
+                break;
+            default:
+                App.Settings.DefaultOpenIn = LaunchTarget.Next(App.Settings.DefaultOpenIn, direction);
                 break;
         }
 
