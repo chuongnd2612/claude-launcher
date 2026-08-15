@@ -200,7 +200,8 @@ public sealed class App
                 {
                     LaunchMode = action.Mode ?? "new";
                     LaunchOpenIn = LaunchTarget.Normalize(action.OpenIn ?? Settings.DefaultOpenIn);
-                    StateStore.WriteResult(Profile, Project, LaunchMode, LaunchOpenIn, action.SessionId);
+                    StateStore.WriteResult(Profile, Project, LaunchMode, LaunchOpenIn, action.SessionId,
+                        Settings.RemoteControl);
                 }
 
                 _stack.Clear();

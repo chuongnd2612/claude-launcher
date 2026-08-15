@@ -48,7 +48,7 @@ jobs:
           # Present at every size.
           # ASCII-only needles: the workflow file is asserted as ASCII, and the
           # box-drawing and bullet glyphs the screens use would break that.
-          $always = @('Select a Claude profile', 'Your intelligent CLI companion', 'Andrew Nguyen - chuongnd2612', 'Projects', 'New profile', 'Appearance', 'Running sessions', 'Stop session', 'Terminals', 'Focus', 'Zoom', 'Layout', 'Which session?', 'Transcript', 'Delete session')
+          $always = @('Select a Claude profile', 'Your intelligent CLI companion', 'Andrew Nguyen - chuongnd2612', 'Projects', 'New profile', 'Appearance', 'Running sessions', 'Stop session', 'Terminals', 'Focus', 'Zoom', 'Layout', 'Which session?', 'Transcript', 'Delete session', 'Remote control')
           # The launch summary and the tips box are intentionally dropped when the
           # window is too short, so only require them on roomy terminals.
           $tall = @('Launch summary', 'Tips', 'Opens in', 'Opening prompt', 'Counters')
@@ -175,4 +175,17 @@ jobs:
           }
 
           Remove-Item $stub -Force -ErrorAction SilentlyContinue
+
+          # Remote control adds the flag plus the project name to the stub.
+          $rc = [pscustomobject]@{
+            profile = 'work'; label = 'Work'; icon = 'W'
+            configDir = 'C:\Users\test\.claude-work'
+            project = 'demo'; path = 'C:\My Projects\app'; mode = 'new'; remoteControl = $true
+          }
+          $rcStub = New-ClaudeLauncherPaneScript -Result $rc -ExtraArgs @()
+          if ((Get-Content $rcStub -Raw) -notmatch [regex]::Escape("'--remote-control','demo'")) {
+            throw 'pane stub is missing the remote-control arguments'
+          }
+          Remove-Item $rcStub -Force -ErrorAction SilentlyContinue
+
           Write-Host 'Windows Terminal command lines are well formed.'

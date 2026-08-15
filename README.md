@@ -163,6 +163,7 @@ be removed.
 | Show tips | Show or hide the tips box |
 | Default session mode | Which option is preselected on step 3 (`new` / `continue` / `resume`) |
 | Default open in | Where `Enter` launches Claude (`current` / `new tab` / `split right` / `split down`) |
+| Remote control | Start new sessions with `claude --remote-control`, so they accept input from claude.ai and the phone app |
 
 ## Home: what is running
 
@@ -274,6 +275,13 @@ Terminal has no CLI to close someone else's pane).
 you cannot type into them — press `Enter` to jump to the real one. This is also why the design's
 `b` broadcast key is absent: there is no way to send input to a pane Windows Terminal owns, and a key
 that could paste a prompt into the *wrong* session is worse than no key.
+
+**Typing from your phone instead.** Turn on **Remote control** in settings and every session the
+launcher starts runs `claude --remote-control <project>`. That session then accepts input from
+claude.ai and the Claude phone app, named after its project — so the wall can sit on one monitor as a
+live overview while you answer a waiting session from wherever you are. This is Claude's own feature;
+the launcher only turns it on per session. It relays through Anthropic's servers, which is why it is
+off by default, and it applies to sessions the launcher starts — never to ones already running.
 
 ## Tabs and split panes
 
