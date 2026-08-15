@@ -147,6 +147,9 @@ public static class Program
             ("home", new HomeScreen(app, DemoSnapshot())),
             ("terminals", new TerminalsScreen(app, DemoSnapshot())),
             ("kill-session", new KillSessionScreen(app, DemoSnapshot().Sessions[0], () => { })),
+            ("resume", new ResumeScreen(app, DemoPastSessions())),
+            ("session-detail", new SessionDetailScreen(app, DemoPastSessions()[0], DemoDetail())),
+            ("delete-session", new DeleteSessionScreen(app, DemoPastSessions()[0], () => { })),
             ("profile", new ProfileScreen(app)),
             ("project", new ProjectScreen(app)),
             ("session", new SessionScreen(app)),
@@ -236,6 +239,51 @@ public static class Program
             Say("17 passed, 1 failed. Patching normaliseEol().")
         }
     };
+
+    private static List<PastSession> DemoPastSessions() => new()
+    {
+        new PastSession
+        {
+            SessionId = "8f31c2ab-0000-0000-0000-000000000000",
+            Path = @"C:\Users\demo\.claude-work\projects\D--demo\8f31c2ab.jsonl",
+            LastActivityUtc = DateTime.UtcNow.AddHours(-2),
+            SizeBytes = 184_320,
+            Loaded = true,
+            Title = "Refactor QAgent runner into stages",
+            FirstPrompt = "split the runner into plan/execute/verify stages and keep the CLI surface stable",
+            Model = "opus-5",
+            Branch = "feat/qagent-refactor",
+            ContextTokens = 184_000
+        },
+        new PastSession
+        {
+            SessionId = "a7d90144-0000-0000-0000-000000000000",
+            Path = @"C:\Users\demo\.claude-work\projects\D--demo\a7d90144.jsonl",
+            LastActivityUtc = DateTime.UtcNow.AddDays(-1),
+            SizeBytes = 76_800,
+            Loaded = true,
+            Title = "Add golden tests for QAgent",
+            FirstPrompt = "cover the runner with golden tests before we refactor it",
+            Model = "sonnet-4.5",
+            ContextTokens = 76_000
+        }
+    };
+
+    private static SessionDetail DemoDetail()
+    {
+        var detail = new SessionDetail
+        {
+            Turns = 48,
+            ToolCalls = 61,
+            StartedUtc = DateTime.UtcNow.AddHours(-3),
+            LastActivityUtc = DateTime.UtcNow.AddHours(-2)
+        };
+
+        detail.Files["agent/runner.ts"] = 4;
+        detail.Files["stages/plan.ts"] = 2;
+        detail.Entries.AddRange(DemoEntries(1));
+        return detail;
+    }
 
     private static TranscriptEntry Prompt(string text) => new() { Kind = EntryKind.UserPrompt, Text = text };
 

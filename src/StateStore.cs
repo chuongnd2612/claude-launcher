@@ -206,7 +206,8 @@ public static class StateStore
     /// Writes result.json. <paramref name="openIn"/> is additive: an older wrapper
     /// ignores it, and a missing value means the current console.
     /// </summary>
-    public static void WriteResult(ProfileEntry profile, ProjectEntry project, string mode, string openIn)
+    public static void WriteResult(ProfileEntry profile, ProjectEntry project, string mode, string openIn,
+        string? sessionId = null)
     {
         var result = new
         {
@@ -217,7 +218,11 @@ public static class StateStore
             project = project.Name,
             path = project.Path,
             mode,
-            openIn = LaunchTarget.Normalize(openIn)
+            openIn = LaunchTarget.Normalize(openIn),
+
+            // Empty rather than absent: PowerShell 5.1 handles a missing
+            // property awkwardly, and the wrapper only tests for content.
+            sessionId = sessionId ?? string.Empty
         };
 
         var directory = Path.GetDirectoryName(ResultFile);

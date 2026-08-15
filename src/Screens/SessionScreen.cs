@@ -102,7 +102,7 @@ public sealed class SessionScreen : ScreenBase
                 return ScreenAction.None;
             case ConsoleKey.Enter:
             case ConsoleKey.Spacebar:
-                return ScreenAction.Finish(Options[_index].Mode, _openIn);
+                return Choose(Options[_index].Mode);
             case ConsoleKey.LeftArrow:
                 _openIn = LaunchTarget.Next(_openIn, -1);
                 return ScreenAction.None;
@@ -117,12 +117,29 @@ public sealed class SessionScreen : ScreenBase
         switch (char.ToLowerInvariant(key.KeyChar))
         {
             case 'o': _openIn = LaunchTarget.Next(_openIn); return ScreenAction.None;
-            case 'n': return ScreenAction.Finish("new", _openIn);
-            case 'c': return ScreenAction.Finish("continue", _openIn);
-            case 'r': return ScreenAction.Finish("resume", _openIn);
+            case 'n': return Choose("new");
+            case 'c': return Choose("continue");
+            case 'r': return Choose("resume");
             case 'q': return ScreenAction.Exit;
         }
 
         return ScreenAction.None;
+    }
+
+    /// <summary>
+    /// Resume shows the picker when this project has transcripts, so the choice
+    /// is made against titles and prompts rather than inside Claude's own list.
+    /// With none to show, it falls through to a bare --resume.
+    /// </summary>
+    private ScreenAction Choose(string mode)
+    {
+        if (mode != "resume") return ScreenAction.Finish(mode, _openIn);
+
+        var sessions = Sessions.SessionReader.ListProjectSessions(
+            StateStore.ExpandHome(App.Profile!.ConfigDir), App.Project!.Path);
+
+        if (sessions.Count == 0) return ScreenAction.Finish(mode, _openIn);
+
+        return ScreenAction.Push(new ResumeScreen(App, _openIn));
     }
 }
