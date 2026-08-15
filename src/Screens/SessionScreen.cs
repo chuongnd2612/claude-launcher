@@ -11,7 +11,8 @@ public sealed class SessionScreen : ScreenBase
     {
         new("new", "▶", "New session", "Start a fresh conversation in this project", "claude"),
         new("continue", "→", "Continue", "Pick up the most recent conversation", "claude --continue"),
-        new("resume", "↻", "Resume", "Choose from earlier sessions to resume", "claude --resume")
+        new("resume", "↻", "Resume", "Choose from earlier sessions to resume", "claude --resume"),
+        new("chat", "▣", "Chat here", "Type to Claude inside the launcher, no new window", "stream")
     };
 
     private int _index;
@@ -37,11 +38,25 @@ public sealed class SessionScreen : ScreenBase
         var width = buffer.Width - margin * 2;
         var cardWidth = Math.Min(width, Math.Max(44, width * 2 / 3));
 
-        for (var i = 0; i < Options.Length; i++)
+        // Every option has to stay visible: an option you cannot see is one you
+        // do not know exists. Cards lose their gaps first, then their boxes.
+        // The summary is counted in, so gaps go before it does.
+        const int summaryRows = 8;
+        var room = buffer.Height - 4 - y;
+        var stride = room >= Options.Length * 4 - 1 + summaryRows ? 4 : 3;
+        var compact = room < Options.Length * 3 - 1;
+
+        if (compact)
+        {
+            CompactOptions(buffer, margin, y, cardWidth);
+            y += Options.Length;
+        }
+
+        for (var i = 0; i < Options.Length && !compact; i++)
         {
             var option = Options[i];
             var selected = i == _index;
-            var cardY = y + i * 4;
+            var cardY = y + i * stride;
             if (cardY + 3 > buffer.Height - 4) break;
 
             Widgets.Panel(buffer, margin, cardY, cardWidth, 3, selected);
@@ -61,7 +76,7 @@ public sealed class SessionScreen : ScreenBase
                 new Sty(selected ? Theme.VioletSoft : Theme.Dim, bg, italic: true));
         }
 
-        var summaryY = y + Options.Length * 4;
+        var summaryY = compact ? y + 1 : y + Options.Length * stride;
         if (summaryY + 7 <= buffer.Height - 4)
         {
             Widgets.TitledBox(buffer, margin, summaryY, width, 7, "Launch summary", Theme.VioletSoft);
@@ -81,6 +96,25 @@ public sealed class SessionScreen : ScreenBase
             new KeyHint("esc", "Back"),
             new KeyHint("q", "Quit")
         });
+    }
+
+    /// <summary>One line per option, for windows too short to box them.</summary>
+    private void CompactOptions(ScreenBuffer buffer, int margin, int y, int width)
+    {
+        for (var i = 0; i < Options.Length; i++)
+        {
+            var option = Options[i];
+            var selected = i == _index;
+            var rowY = y + i;
+            var bg = selected ? Theme.PanelSelected : Theme.Panel;
+
+            buffer.Fill(margin, rowY, width, 1, bg);
+            buffer.Write(margin + 1, rowY, option.Glyph, new Sty(selected ? Theme.Blue : Theme.Muted, bg, bold: true));
+            buffer.WriteClipped(margin + 4, rowY, option.Title, 16,
+                new Sty(selected ? Theme.Blue : Theme.Text, bg, bold: selected));
+            buffer.WriteClipped(margin + 21, rowY, option.Detail, Math.Max(0, width - 23),
+                new Sty(Theme.Muted, bg));
+        }
     }
 
     private static void Row(ScreenBuffer buffer, int x, int y, string label, string value, int width)
@@ -120,6 +154,7 @@ public sealed class SessionScreen : ScreenBase
             case 'n': return Choose("new");
             case 'c': return Choose("continue");
             case 'r': return Choose("resume");
+            case 'h': return Choose("chat");
             case 'q': return ScreenAction.Exit;
         }
 
@@ -133,6 +168,15 @@ public sealed class SessionScreen : ScreenBase
     /// </summary>
     private ScreenAction Choose(string mode)
     {
+        // Chat keeps the launcher running and owns the process, so it never
+        // writes result.json - there is nothing for the wrapper to launch.
+        if (mode == "chat")
+        {
+            var session = new Sessions.StreamSession(App.Profile!, App.Project!.Path);
+            session.Start();
+            return ScreenAction.Push(new ChatScreen(App, session));
+        }
+
         if (mode != "resume") return ScreenAction.Finish(mode, _openIn);
 
         var sessions = Sessions.SessionReader.ListProjectSessions(
