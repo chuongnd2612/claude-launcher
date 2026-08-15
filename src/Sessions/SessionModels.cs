@@ -36,6 +36,29 @@ public sealed class ClaudeSessionFile
     public long StatusUpdatedAt { get; set; }
 }
 
+public enum EntryKind
+{
+    UserPrompt,
+    AssistantText,
+    ToolCall,
+    Thinking
+}
+
+/// <summary>
+/// One decoded transcript line, ready to draw. Plain text only: no markdown,
+/// no ANSI, no newlines - the screen wraps it to whatever the tile allows.
+/// </summary>
+public sealed class TranscriptEntry
+{
+    public EntryKind Kind { get; init; }
+
+    /// <summary>Prose, the prompt, or the tool verb ("Read", "Bash").</summary>
+    public string Text { get; init; } = string.Empty;
+
+    /// <summary>Tool calls only: the file or command the tool acted on.</summary>
+    public string? Target { get; init; }
+}
+
 /// <summary>What the Home screen draws for one running session.</summary>
 public sealed class SessionRow
 {
@@ -55,6 +78,10 @@ public sealed class SessionRow
     public long ContextTokens { get; set; }
     public string? Model { get; set; }
     public int Pid { get; set; }
+    public string Branch { get; set; } = string.Empty;
+
+    /// <summary>Oldest to newest, capped by the reader. Empty on the Home screen.</summary>
+    public IReadOnlyList<TranscriptEntry> Entries { get; set; } = Array.Empty<TranscriptEntry>();
 }
 
 /// <summary>A row of the "Recent projects" panel, from history.jsonl.</summary>

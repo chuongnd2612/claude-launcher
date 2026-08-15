@@ -18,6 +18,12 @@ public sealed class SessionService
     /// <summary>Transcript tails are re-read at most this often per session.</summary>
     private static readonly TimeSpan FactsTtl = TimeSpan.FromSeconds(3);
 
+    /// <summary>
+    /// Decode transcript entries too. Off for the Home list, which only needs
+    /// counters; on for the terminal wall, which draws the conversation.
+    /// </summary>
+    public bool WithEntries { get; set; }
+
     public SessionSnapshot Build()
     {
         var rows = new List<SessionRow>();
@@ -57,7 +63,9 @@ public sealed class SessionService
                     Task = Task(entry, facts),
                     ContextTokens = facts.ContextTokens,
                     Model = ShortModel(facts.Model),
-                    Pid = entry.Pid
+                    Pid = entry.Pid,
+                    Branch = facts.Branch,
+                    Entries = facts.Entries
                 };
 
                 Classify(entry, row);
@@ -119,7 +127,7 @@ public sealed class SessionService
         }
 
         var path = ClaudePaths.TranscriptFile(configDir, entry.Cwd, entry.SessionId);
-        var facts = SessionReader.ReadTranscriptTail(path);
+        var facts = SessionReader.ReadTranscriptTail(path, WithEntries);
 
         _facts[key] = facts;
         _factsAt[key] = DateTime.UtcNow;

@@ -95,5 +95,8 @@ public sealed class UiSettings
     public string DefaultMode { get; set; } = "new";
     public string DefaultOpenIn { get; set; } = LaunchTarget.Current;
 
+    /// <summary>Terminal wall layout: tiled, stacked or focus.</summary>
+    public string TerminalLayout { get; set; } = "tiled";
+
     public static readonly string[] Modes = { "new", "continue", "resume" };
 }
