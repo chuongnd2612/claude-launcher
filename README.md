@@ -99,6 +99,8 @@ directly without showing the selection screens.
 
 | Screen  | Keys |
 | ------- | ---- |
+| Home | `↑↓` navigate · `Enter` attach · `n` new session · `k` stop · `p` profiles · `q` quit |
+| Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
 | Session | `↑↓` navigate · `Enter` launch · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `Esc` back |
@@ -157,6 +159,48 @@ be removed.
 | Show tips | Show or hide the tips box |
 | Default session mode | Which option is preselected on step 3 (`new` / `continue` / `resume`) |
 | Default open in | Where `Enter` launches Claude (`current` / `new tab` / `split right` / `split down`) |
+
+## Home: what is running
+
+With at least one Claude session alive, `claude-launcher` opens on **Home** instead of the profile
+picker. With nothing running you go straight into the wizard as before, so the quick path is
+unchanged.
+
+```text
+Home  /  4 sessions running
+
+  project          task                          state             context   model
+▸ qagent           Refactor runner into stages    running 12m 04s      184k   sonnet-4.5
+  api-gateway      Add rate limiting              waiting? 46s          97k   sonnet-4.5
+  web-dash         Fix chart tooltips             idle 4m               41k   haiku-4.5
+```
+
+The list is read from what Claude Code already records — the launcher does not track sessions itself,
+so sessions started anywhere (another terminal, another tool) show up too. It refreshes once a second.
+
+| Column | Where it comes from |
+| ------ | ------------------- |
+| task | Claude's own generated session title, else its session name |
+| state | Claude's `busy` / `idle` status, aged from when it last changed |
+| context | tokens carried by the most recent assistant message |
+| model | the model that message used |
+
+Two deliberate limits, so the screen never implies more than it knows:
+
+- **`waiting?` has a question mark** because it is inferred. Claude publishes only *busy* and *idle*;
+  a session sitting at a permission prompt looks exactly like an idle one, so "recently idle" is the
+  best available signal.
+- **`context` is not a session total.** It is one complete number from the last message rather than a
+  partial sum over the transcript. Lifetime totals need the whole file, which is not worth doing on
+  every refresh.
+
+`Enter` brings Windows Terminal to the front. It does not jump to a specific pane: Windows Terminal
+assigns pane ids that cannot be read back from its CLI, so targeting one would sometimes switch you
+to an unrelated pane.
+
+`k` stops a session, always behind a confirmation — it kills the process tree, so anything Claude has
+not written out is lost. Background agents (`entrypoint: sdk-cli`) are left off the list; they are not
+terminals you can return to.
 
 ## Tabs and split panes
 
@@ -307,7 +351,9 @@ src/
     ScreenBuffer.cs   cell grid + single-write flush
     BlockFont.cs      5x5 block font for the banner
     Widgets.cs        chrome, step badges, cards, tips, footer
-  Screens/            Profile, Project, Session, AddProfile, DeleteProfile, Settings
+  Screens/            Home, Profile, Project, Session, AddProfile, DeleteProfile,
+                      KillSession, Settings
+  Sessions/           reads Claude's own session registry and transcripts
 ```
 
 ## Runtime state

@@ -83,6 +83,26 @@ public static class Widgets
         return y + 2;
     }
 
+    /// <summary>
+    /// One-line header for screens that need their rows for content: logo left,
+    /// byline right, rule under it. Returns the first free row.
+    /// </summary>
+    public static int CompactChrome(ScreenBuffer buffer, int y = 1)
+    {
+        var margin = Margin(buffer);
+        var x = buffer.Write(margin, y, LogoMark + " ", new Sty(Theme.GradientStart, Theme.Bg, bold: true));
+        GradientText(buffer, x, y, "CLAUDE LAUNCHER", Theme.GradientStart, Theme.GradientEnd, bold: true);
+
+        var credit = $"{Author} - {AuthorHandle}";
+        if (margin + 20 + credit.Length < buffer.Width - margin)
+            buffer.WriteRight(buffer.Width - margin - 1, y, credit, new Sty(Theme.Dim, Theme.Bg));
+
+        buffer.HLine(margin, y + 1, Math.Max(0, buffer.Width - margin * 2), '─',
+            new Sty(Theme.BorderMuted, Theme.Bg));
+
+        return y + 3;
+    }
+
     /// <summary>Author byline, centered under the subtitle.</summary>
     private static void Credit(ScreenBuffer buffer, int y)
     {
