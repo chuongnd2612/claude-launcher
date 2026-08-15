@@ -145,6 +145,7 @@ public static class Program
         var screens = new (string Name, ScreenBase Screen)[]
         {
             ("home", new HomeScreen(app, DemoSnapshot())),
+            ("terminals", new TerminalsScreen(app, DemoSnapshot())),
             ("kill-session", new KillSessionScreen(app, DemoSnapshot().Sessions[0], () => { })),
             ("profile", new ProfileScreen(app)),
             ("project", new ProjectScreen(app)),
@@ -197,6 +198,49 @@ public static class Program
         StateAge = new TimeSpan(0, 0, minutes, seconds),
         ContextTokens = tokens,
         Model = pane == 3 ? "haiku-4.5" : "sonnet-4.5",
-        Pid = 1000 + pane
+        Pid = 1000 + pane,
+        Branch = pane == 1 ? "feat/qagent-refactor" : pane == 3 ? "fix/tooltip" : "main",
+        Entries = DemoEntries(pane)
     };
+
+    private static TranscriptEntry[] DemoEntries(int pane) => pane switch
+    {
+        1 => new[]
+        {
+            Prompt("split the runner into plan/execute/verify stages"),
+            Say("I'll restructure runner.ts into three stages and keep the public run() signature intact."),
+            Tool("Read", "agent/runner.ts"),
+            Tool("Edit", "stages/plan.ts"),
+            Tool("Bash", "pnpm typecheck"),
+            Say("Stage split done. Wiring verify() next."),
+            new TranscriptEntry { Kind = EntryKind.Thinking, Text = "thinking" }
+        },
+        2 => new[]
+        {
+            Prompt("add a redis token bucket to the gateway"),
+            Tool("Read", "api/router.ts"),
+            Tool("Write", "api/limiter.ts"),
+            Say("Mount the limiter before the auth middleware?")
+        },
+        3 => new[]
+        {
+            Prompt("tooltips clip at the right edge of the chart"),
+            Tool("Edit", "charts/Tooltip.tsx"),
+            Say("Flipped the anchor when it overflows. Fixed in both the line and bar chart tooltips.")
+        },
+        _ => new[]
+        {
+            Prompt("write a test suite for the note parser"),
+            Tool("Write", "test/parser.spec.ts"),
+            Tool("Bash", "pnpm vitest run"),
+            Say("17 passed, 1 failed. Patching normaliseEol().")
+        }
+    };
+
+    private static TranscriptEntry Prompt(string text) => new() { Kind = EntryKind.UserPrompt, Text = text };
+
+    private static TranscriptEntry Say(string text) => new() { Kind = EntryKind.AssistantText, Text = text };
+
+    private static TranscriptEntry Tool(string verb, string target) =>
+        new() { Kind = EntryKind.ToolCall, Text = verb, Target = target };
 }

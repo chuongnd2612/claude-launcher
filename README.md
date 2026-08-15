@@ -99,7 +99,8 @@ directly without showing the selection screens.
 
 | Screen  | Keys |
 | ------- | ---- |
-| Home | `↑↓` navigate · `Enter` attach · `n` new session · `k` stop · `p` profiles · `q` quit |
+| Home | `↑↓` navigate · `Enter` attach · `n` new session · `t` tile · `k` stop · `p` profiles · `q` quit |
+| Terminals | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `v` split right · `s` split down · `Space` layout · `w` remove tile · `Esc` back |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
@@ -201,6 +202,42 @@ to an unrelated pane.
 `k` stops a session, always behind a confirmation — it kills the process tree, so anything Claude has
 not written out is lost. Background agents (`entrypoint: sdk-cli`) are left off the list; they are not
 terminals you can return to.
+
+## The terminal wall
+
+`t` on Home tiles every running session into one view, each tile tailing that session's transcript:
+
+```text
+  ╭───╮          ╭───╮          ╭───╮          ╭───╮
+  │ 1 │ ──────── │ 2 │ ──────── │ 3 │ ──────── │ 4 │
+  ╰───╯          ╰───╯          ╰───╯          ╰───╯
+  qagent         api-gateway    web-dash       notes-cli
+
+  ╭─ 1 · qagent ────────── running 12m 04s ─╮  ╭─ 2 · api-gateway ──── waiting? 46s ─╮
+  │ feat/qagent-refactor                    │  │ main                                │
+  │ › split the runner into stages          │  │ › add a redis token bucket          │
+  │ ◆ Read agent/runner.ts                  │  │ ◆ Write api/limiter.ts              │
+  │ ◆ Bash pnpm typecheck                   │  │ Mount the limiter before auth?      │
+  ╰─────────────────────────────────────────╯  ╰─────────────────────────────────────╯
+```
+
+A tile's border turns **amber** when that session may be waiting for you, and blue when it is the
+focused one. `Space` cycles three layouts:
+
+| Layout | Shape |
+| ------ | ----- |
+| `tiled` | a grid, squarest that fits — 2x2 for four sessions |
+| `stacked` | one column, full width — best for reading prose |
+| `focus` | the focused session large, the rest as a list — how more than four fit |
+
+`z` zooms the focused tile to the whole grid. `v` and `s` start another Claude in that tile's project,
+in a pane beside it. `w` removes a tile from the wall (it does not stop the session — Windows
+Terminal has no CLI to close someone else's pane).
+
+**The tiles are read-only.** They are built from the transcript on disk, not from the terminal, so
+you cannot type into them — press `Enter` to jump to the real one. This is also why the design's
+`b` broadcast key is absent: there is no way to send input to a pane Windows Terminal owns, and a key
+that could paste a prompt into the *wrong* session is worse than no key.
 
 ## Tabs and split panes
 
@@ -351,8 +388,8 @@ src/
     ScreenBuffer.cs   cell grid + single-write flush
     BlockFont.cs      5x5 block font for the banner
     Widgets.cs        chrome, step badges, cards, tips, footer
-  Screens/            Home, Profile, Project, Session, AddProfile, DeleteProfile,
-                      KillSession, Settings
+  Screens/            Home, Terminals, Profile, Project, Session, AddProfile,
+                      DeleteProfile, KillSession, Settings
   Sessions/           reads Claude's own session registry and transcripts
 ```
 

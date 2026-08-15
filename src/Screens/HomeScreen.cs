@@ -103,6 +103,7 @@ public sealed class HomeScreen : ScreenBase
             new KeyHint("↑↓", "Navigate"),
             new KeyHint("↵", "Attach"),
             new KeyHint("n", "New"),
+            new KeyHint("t", "Tile"),
             new KeyHint("k", "Kill"),
             new KeyHint("p", "Profile"),
             new KeyHint("q", "Quit")
@@ -223,6 +224,9 @@ public sealed class HomeScreen : ScreenBase
             case 'n':
             case 'p':
                 return ScreenAction.Push(new ProfileScreen(App));
+            case 't':
+                if (_service is null || Rows.Count == 0) return ScreenAction.None;
+                return ScreenAction.Push(new TerminalsScreen(App, _service));
             case 'k':
                 return Kill();
             case 'q':

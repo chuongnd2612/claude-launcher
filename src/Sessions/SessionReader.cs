@@ -85,13 +85,21 @@ public static class SessionReader
         public long ContextTokens { get; set; }
 
         public DateTime? LastActivityUtc { get; set; }
+
+        public string Branch { get; set; } = string.Empty;
+
+        /// <summary>Oldest to newest. Only filled when the caller asks for them.</summary>
+        public List<TranscriptEntry> Entries { get; } = new();
     }
+
+    /// <summary>How many decoded entries a tile keeps. A tall tile shows ~20.</summary>
+    private const int MaxEntries = 60;
 
     /// <summary>
     /// Reads the last 64 KB of a transcript. Measured on a 3.1 MB file that
     /// Claude had open: 13 ms, with the title 538 bytes from the end.
     /// </summary>
-    public static TranscriptFacts ReadTranscriptTail(string path)
+    public static TranscriptFacts ReadTranscriptTail(string path, bool withEntries = false)
     {
         var facts = new TranscriptFacts();
 
@@ -114,7 +122,11 @@ public static class SessionReader
             var first = start > 0 ? 1 : 0;
             var last = lines.Length - 1;
 
-            for (var i = first; i < last; i++) Fold(lines[i], facts);
+            for (var i = first; i < last; i++) Fold(lines[i], facts, withEntries);
+
+            // Keep only the newest, since a tile draws from the end.
+            if (facts.Entries.Count > MaxEntries)
+                facts.Entries.RemoveRange(0, facts.Entries.Count - MaxEntries);
         }
         catch
         {
@@ -124,7 +136,7 @@ public static class SessionReader
         return facts;
     }
 
-    private static void Fold(string line, TranscriptFacts facts)
+    private static void Fold(string line, TranscriptFacts facts, bool withEntries)
     {
         if (line.Length < 2) return;
 
@@ -143,7 +155,21 @@ public static class SessionReader
                 return;
             }
 
+            if (root.TryGetProperty("gitBranch", out var branch) &&
+                branch.ValueKind == JsonValueKind.String)
+            {
+                var value = branch.GetString();
+                if (!string.IsNullOrWhiteSpace(value)) facts.Branch = value!;
+            }
+
+            if (type == "user")
+            {
+                if (withEntries) FoldUser(root, facts);
+                return;
+            }
+
             if (type != "assistant") return;
+            if (withEntries) FoldAssistant(root, facts);
 
             if (root.TryGetProperty("timestamp", out var ts) &&
                 ts.ValueKind == JsonValueKind.String &&
@@ -168,6 +194,150 @@ public static class SessionReader
         {
             // One malformed line never aborts the scan.
         }
+    }
+
+    /// <summary>
+    /// A user line is either a typed prompt or a tool result being fed back.
+    /// Only the prompt is worth a tile row; tool results and pasted images are
+    /// noise at this size.
+    /// </summary>
+    private static void FoldUser(JsonElement root, TranscriptFacts facts)
+    {
+        if (!root.TryGetProperty("message", out var message)) return;
+        if (!message.TryGetProperty("content", out var content)) return;
+
+        if (content.ValueKind == JsonValueKind.String)
+        {
+            Add(facts, EntryKind.UserPrompt, content.GetString());
+            return;
+        }
+
+        if (content.ValueKind != JsonValueKind.Array) return;
+
+        foreach (var block in content.EnumerateArray())
+        {
+            if (!block.TryGetProperty("type", out var kind)) continue;
+            if (kind.GetString() != "text") continue;
+            if (block.TryGetProperty("text", out var text)) Add(facts, EntryKind.UserPrompt, text.GetString());
+        }
+    }
+
+    private static void FoldAssistant(JsonElement root, TranscriptFacts facts)
+    {
+        if (!root.TryGetProperty("message", out var message)) return;
+        if (!message.TryGetProperty("content", out var content)) return;
+        if (content.ValueKind != JsonValueKind.Array) return;
+
+        foreach (var block in content.EnumerateArray())
+        {
+            if (!block.TryGetProperty("type", out var kindElement)) continue;
+
+            switch (kindElement.GetString())
+            {
+                case "text":
+                    if (block.TryGetProperty("text", out var text))
+                        Add(facts, EntryKind.AssistantText, text.GetString());
+                    break;
+
+                case "thinking":
+                    Add(facts, EntryKind.Thinking, "thinking");
+                    break;
+
+                case "tool_use":
+                    var name = block.TryGetProperty("name", out var n) ? n.GetString() : null;
+                    if (string.IsNullOrEmpty(name)) break;
+                    facts.Entries.Add(new TranscriptEntry
+                    {
+                        Kind = EntryKind.ToolCall,
+                        Text = name!,
+                        Target = ToolTarget(block)
+                    });
+                    break;
+            }
+        }
+    }
+
+    /// <summary>The one thing worth showing about a tool call: which file, or which command.</summary>
+    private static string? ToolTarget(JsonElement block)
+    {
+        if (!block.TryGetProperty("input", out var input) || input.ValueKind != JsonValueKind.Object)
+            return null;
+
+        foreach (var name in new[] { "file_path", "path", "command", "pattern", "url", "query" })
+        {
+            if (!input.TryGetProperty(name, out var value)) continue;
+            if (value.ValueKind != JsonValueKind.String) continue;
+
+            var text = Flatten(value.GetString());
+            if (string.IsNullOrEmpty(text)) continue;
+
+            // Paths are more legible from the tail; commands from the head.
+            return name is "file_path" or "path" ? Shorten(text!) : text;
+        }
+
+        return null;
+    }
+
+    /// <summary>Keeps the last two path segments: "src/agent/runner.ts" stays readable in a narrow tile.</summary>
+    private static string Shorten(string path)
+    {
+        var parts = path.Split('\\', '/');
+        return parts.Length <= 2 ? path : string.Join('/', parts[^2..]);
+    }
+
+    private static void Add(TranscriptFacts facts, EntryKind kind, string? text)
+    {
+        var value = Prose(text);
+        if (string.IsNullOrEmpty(value)) return;
+        facts.Entries.Add(new TranscriptEntry { Kind = kind, Text = value! });
+    }
+
+    /// <summary>
+    /// Collapses newlines and runs of whitespace: a tile draws single lines.
+    /// Nothing else is removed - this also runs over file paths and commands,
+    /// where stripping characters would corrupt what it is showing.
+    /// </summary>
+    private static string? Flatten(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+
+        var builder = new System.Text.StringBuilder(text!.Length);
+        var space = false;
+
+        foreach (var ch in text)
+        {
+            if (char.IsWhiteSpace(ch) || char.IsControl(ch))
+            {
+                space = true;
+                continue;
+            }
+
+            if (space && builder.Length > 0) builder.Append(' ');
+            space = false;
+            builder.Append(ch);
+        }
+
+        return builder.Length == 0 ? null : builder.ToString();
+    }
+
+    /// <summary>
+    /// Prose only: drops the markdown Claude writes for a terminal that renders
+    /// it. Deliberately narrow - bold markers, code fences and backticks, which
+    /// are unambiguous decoration. Underscores and hashes are left alone because
+    /// they carry meaning inside identifiers like grp_case_id.
+    /// </summary>
+    private static string? Prose(string? text)
+    {
+        var flat = Flatten(text);
+        if (flat is null) return null;
+
+        flat = flat.Replace("```", " ").Replace("**", string.Empty).Replace("`", string.Empty);
+
+        // Heading marks only count at the start of what is now one line.
+        flat = flat.TrimStart('#', ' ');
+
+        flat = Flatten(flat);
+        return string.IsNullOrWhiteSpace(flat) ? null : flat;
     }
 
     private static long Long(JsonElement parent, string name) =>
