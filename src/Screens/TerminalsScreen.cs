@@ -49,8 +49,11 @@ public sealed class TerminalsScreen : ScreenBase
     }
 
     /// <summary>The live session behind a tile, when the launcher owns it.</summary>
-    private StreamSession? Live(SessionRow row) =>
-        App.Chats.FirstOrDefault(c => c.SessionId == row.SessionId && c.State != ChatState.Ended);
+    private StreamSession? Live(SessionRow row) => App.Chats.FirstOrDefault(c =>
+        c.State != ChatState.Ended &&
+        (c.SessionId is not null && c.SessionId == row.SessionId ||
+         string.IsNullOrEmpty(row.SessionId) &&
+         string.Equals(c.ProjectPath, row.ProjectPath, StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>Fixture constructor for --selftest.</summary>
     public TerminalsScreen(App app, SessionSnapshot snapshot) : base(app)
@@ -68,8 +71,45 @@ public sealed class TerminalsScreen : ScreenBase
         return true;
     }
 
-    private List<SessionRow> Panes =>
-        _snapshot.Sessions.Where(s => !_hidden.Contains(s.SessionId)).ToList();
+    private List<SessionRow> Panes
+    {
+        get
+        {
+            var rows = _snapshot.Sessions.Where(s => !_hidden.Contains(s.SessionId)).ToList();
+
+            // A chat has no session id until Claude's first reply, so it is not
+            // on disk yet - but it is running and belongs on the wall.
+            foreach (var chat in App.Chats)
+            {
+                if (chat.State == ChatState.Ended) continue;
+                if (chat.SessionId is not null &&
+                    (rows.Any(r => r.SessionId == chat.SessionId) || _hidden.Contains(chat.SessionId)))
+                {
+                    continue;
+                }
+
+                if (chat.SessionId is null && rows.Any(r =>
+                        string.Equals(r.ProjectPath, chat.ProjectPath, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                rows.Add(new SessionRow
+                {
+                    SessionId = chat.SessionId ?? string.Empty,
+                    ProfileName = chat.Profile.DisplayLabel,
+                    ProfileIcon = chat.Profile.DisplayIcon,
+                    ProjectName = chat.ProjectName,
+                    ProjectPath = chat.ProjectPath,
+                    Task = "chat session",
+                    Model = chat.Model,
+                    State = SessionState.Idle
+                });
+            }
+
+            return rows;
+        }
+    }
 
     public override void Render(ScreenBuffer buffer)
     {

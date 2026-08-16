@@ -156,7 +156,7 @@ public sealed class ChatScreen : ScreenBase
 
         _session.Dispose();
         App.Chats.Remove(_session);
-        return ScreenAction.Back;
+        return ScreenAction.Root(new HomeScreen(App, new SessionService(App.State)));
     }
 
     private string StateText() => State switch
@@ -376,7 +376,10 @@ public sealed class ChatScreen : ScreenBase
             case ConsoleKey.Escape:
                 if (matches.Count > 0) { _input = string.Empty; return ScreenAction.None; }
                 if (State == ChatState.Working) { _session.Interrupt(); return ScreenAction.None; }
-                return ScreenAction.Back;
+
+                // Home, not the wizard step behind this screen: the session keeps
+                // running, and Home is the only place it can be found again.
+                return ScreenAction.Root(new HomeScreen(App, new SessionService(App.State)));
 
             case ConsoleKey.Tab:
                 if (matches.Count > 0)

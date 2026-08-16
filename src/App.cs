@@ -8,6 +8,7 @@ public enum ActionKind
     Push,
     Replace,
     Pop,
+    Root,
     Quit,
     Finish
 }
@@ -29,6 +30,9 @@ public sealed class ScreenAction
     public static ScreenAction Push(ScreenBase next) => new() { Kind = ActionKind.Push, Next = next };
 
     public static ScreenAction Replace(ScreenBase next) => new() { Kind = ActionKind.Replace, Next = next };
+
+    /// <summary>Drops the whole stack and starts again at one screen, for going back to the hub.</summary>
+    public static ScreenAction Root(ScreenBase next) => new() { Kind = ActionKind.Root, Next = next };
 
     /// <summary>The default keeps existing call sites launching in the current console.</summary>
     public static ScreenAction Finish(string mode, string openIn = LaunchTarget.Current) =>
@@ -204,6 +208,15 @@ public sealed class App
             case ActionKind.Pop:
                 if (_stack.Count > 1) _stack.RemoveAt(_stack.Count - 1);
                 else _stack.Clear();
+                break;
+
+            case ActionKind.Root:
+                if (action.Next is not null)
+                {
+                    _stack.Clear();
+                    _stack.Add(action.Next);
+                }
+
                 break;
             case ActionKind.Quit:
                 _stack.Clear();

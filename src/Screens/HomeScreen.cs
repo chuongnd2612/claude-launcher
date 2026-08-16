@@ -44,7 +44,39 @@ public sealed class HomeScreen : ScreenBase
         return true;
     }
 
-    private IReadOnlyList<SessionRow> Rows => _snapshot.Sessions;
+    /// <summary>
+    /// Sessions on disk, plus the chats this launcher owns. A chat has no
+    /// session id until Claude's first reply, so it cannot be found on disk yet
+    /// - and a chat you just started must not be missing from the one screen
+    /// that exists to find it again.
+    /// </summary>
+    private IReadOnlyList<SessionRow> Rows
+    {
+        get
+        {
+            var rows = new List<SessionRow>(_snapshot.Sessions);
+
+            foreach (var chat in App.Chats)
+            {
+                if (chat.State == ChatState.Ended) continue;
+                if (chat.SessionId is not null && rows.Any(r => r.SessionId == chat.SessionId)) continue;
+
+                rows.Add(new SessionRow
+                {
+                    SessionId = chat.SessionId ?? string.Empty,
+                    ProfileName = chat.Profile.DisplayLabel,
+                    ProfileIcon = chat.Profile.DisplayIcon,
+                    ProjectName = chat.ProjectName,
+                    ProjectPath = chat.ProjectPath,
+                    Task = "chat session",
+                    Model = chat.Model,
+                    State = SessionState.Idle
+                });
+            }
+
+            return rows;
+        }
+    }
 
     public override void Render(ScreenBuffer buffer)
     {
@@ -146,6 +178,13 @@ public sealed class HomeScreen : ScreenBase
         }
     }
 
+    /// <summary>The live chat behind a row, matched by id or by project before one exists.</summary>
+    private StreamSession? Chat(SessionRow row) => App.Chats.FirstOrDefault(c =>
+        c.State != ChatState.Ended &&
+        (c.SessionId is not null && c.SessionId == row.SessionId ||
+         string.IsNullOrEmpty(row.SessionId) &&
+         string.Equals(c.ProjectPath, row.ProjectPath, StringComparison.OrdinalIgnoreCase)));
+
     private static void Header(ScreenBuffer buffer, int y, in Columns c)
     {
         var style = new Sty(Theme.Dim, Theme.Panel, italic: true);
@@ -173,7 +212,7 @@ public sealed class HomeScreen : ScreenBase
 
             // Claude records no status for SDK sessions, so a chat we own would
             // read "unknown" while it is plainly working. Ask the session itself.
-            var chat = App.Chats.FirstOrDefault(c => c.SessionId == row.SessionId && c.State != ChatState.Ended);
+            var chat = Chat(row);
             var state = chat is null
                 ? row.State
                 : chat.Pending is not null ? SessionState.Waiting
@@ -269,7 +308,7 @@ public sealed class HomeScreen : ScreenBase
 
         // A chat the launcher owns reopens where it left off; there is no
         // terminal to raise for it.
-        var chat = App.Chats.FirstOrDefault(c => c.SessionId == row.SessionId && c.State != ChatState.Ended);
+        var chat = Chat(row);
         if (chat is not null) return ScreenAction.Push(new ChatScreen(App, chat));
 
         if (!TerminalWindow.Raise())

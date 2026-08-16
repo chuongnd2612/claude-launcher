@@ -238,9 +238,18 @@ to be a terminal, which is what makes approve and deny possible at all. It is th
 tools, hooks, settings, MCP servers, and the same transcript on disk, so these sessions appear on
 Home and in the terminal wall like any other.
 
-**Several chats at once.** Leaving a chat with `Esc` keeps it running. It appears on Home marked
-`· chat` and as a tile on the terminal wall, and `Enter` on it from Home reopens the conversation
-where you left off. Start another from any project the same way.
+**Several chats at once.** `Esc` from a chat returns to **Home**, not the wizard step behind it — the
+session keeps running, and Home is where it can be found again. It is listed there marked `· chat`
+and appears as a tile on the wall; `Enter` reopens the conversation where you left off. So the loop
+is:
+
+```text
+Home ─ n ─→ profile ─→ project ─→ Chat here ─→ type ─ Esc ─→ Home
+  ↑                                                            │
+  └──────────── Enter reopens either chat ←───────────────── n again
+```
+
+A chat shows up on Home the moment it starts, before Claude has replied at all.
 
 **Typing on the wall.** Focus a chat tile and press `i` to type straight into that session without
 leaving the wall — replies, tool calls and permission prompts all render in the tile. `Esc` stops
