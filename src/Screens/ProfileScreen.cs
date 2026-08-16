@@ -173,7 +173,10 @@ public sealed class ProfileScreen : ScreenBase
             case ConsoleKey.Delete:
                 return Remove();
             case ConsoleKey.Escape:
-                return ScreenAction.Exit;
+                // Back, not Exit: this screen is the root when nothing is
+                // running (so Back still quits), but sits above Home when
+                // something is - and then Esc should return there.
+                return ScreenAction.Back;
         }
 
         var ch = char.ToLowerInvariant(key.KeyChar);
