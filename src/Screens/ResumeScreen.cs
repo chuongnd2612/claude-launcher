@@ -287,7 +287,7 @@ public sealed class ResumeScreen : ScreenBase
                 StateStore.ExpandHome(App.Profile!.ConfigDir), 100, 30, sessionId);
 
             App.Terminals.Add(tile);
-            return ScreenAction.Push(new TerminalSessionScreen(App, tile));
+            return ScreenAction.Root(new TerminalsScreen(App, new SessionService(App.State), tile));
         }
         catch (Exception)
         {

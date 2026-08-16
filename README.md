@@ -108,7 +108,6 @@ directly without showing the selection screens.
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
 | Session | `↑↓` navigate · `Enter` launch · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `h` chat view (only with terminal tiles off) · `Esc` back |
 | Chat | type · `Enter` send · `/` commands (`↑↓` pick, `Tab` complete) · `y`/`a`/`n` answer a permission request · `Ctrl+D` detach to a pane · `Esc` stop a turn, then back · `PgUp/PgDn` scroll · `End` follow |
-| Terminal session (`Chat here` with terminal tiles on) | every key goes to Claude · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` type again · `t` wall · `Esc` Home |
 | Resume | `↑↓` navigate · `Enter` resume (a terminal tile, or a real terminal when tiles are off) · `t` force a terminal tile · `c` resume in the chat view · `/` filter · `l` logs · `d` delete · `Esc` back |
 | Session detail | `↑↓` scroll · `PgUp/PgDn` page · `Home/End` jump · `Esc` back |
 | Delete session | `←→` / `Tab` choose · `Enter` confirm · `y` delete · `n` / `Esc` cancel |
@@ -372,8 +371,10 @@ that could paste a prompt into the *wrong* session is worse than no key.
 
 **Which engine runs an in-launcher session is a setting.** `Terminal tiles` in settings (`s`) is
 **on by default**. With it on, step 3 drops to three options — **New session**, **Continue**,
-**Resume** — and each one lands straight on Claude's own interface inside the launcher. There is no
-separate `Chat here` row, because every option already opens here.
+**Resume** — and each one opens the session on the **terminal wall**, with the new tile focused and
+ready to type. Everything else you have running stays in sight; `z` zooms the focused tile to the
+whole window when you want one session filling the screen. There is no separate `Chat here` row,
+because every option already opens here.
 
 Turn the setting off to get the old behaviour: `New`/`Continue`/`Resume` hand the session to the
 wrapper, and `Chat here` opens the launcher's styled chat view — blue prompts, muted tool lines, the

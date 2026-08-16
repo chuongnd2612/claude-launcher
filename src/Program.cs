@@ -149,7 +149,6 @@ public static class Program
             ("home", new HomeScreen(app, DemoSnapshot())),
             ("terminals", new TerminalsScreen(app, DemoSnapshot())),
             ("terminal-preview", new TerminalPreviewScreen(app)),
-            ("terminal-session", new TerminalSessionScreen(app, TerminalPreviewScreen.Demo(), "qagent")),
             ("kill-session", new KillSessionScreen(app, DemoSnapshot().Sessions[0], () => { })),
             ("chat", new ChatScreen(app, DemoChat(), ChatState.AwaitingPermission, DemoAsk())),
             ("resume", new ResumeScreen(app, DemoPastSessions())),
