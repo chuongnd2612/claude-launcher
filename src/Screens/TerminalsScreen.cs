@@ -358,7 +358,9 @@ public sealed class TerminalsScreen : ScreenBase
             Widgets.Footer(buffer, new[]
             {
                 new KeyHint("type", "Claude's own UI"),
-                new KeyHint("^]", "Release keyboard")
+                new KeyHint("^t", "New terminal"),
+                new KeyHint("alt+1-9", "Pane"),
+                new KeyHint("^]", "Release")
             });
 
             return;
@@ -859,6 +861,12 @@ public sealed class TerminalsScreen : ScreenBase
                 _notice = _released ? "keyboard released · ctrl+] to type" : null;
                 return ScreenAction.None;
             }
+
+            // Without this the picker cannot be reached at all from a wall of
+            // terminal tiles: plain t is a character to the child, and so was
+            // ctrl+t, so every route to "open another terminal" was swallowed.
+            if ((ctrlKey || (key.Modifiers & ConsoleModifiers.Alt) != 0) && key.Key == ConsoleKey.T)
+                return ScreenAction.Push(new NewTerminalScreen(App));
 
             // Switching panes has to work mid-sentence, so a few Alt chords are
             // kept back from the child. Alt is the safe half of the keyboard:
