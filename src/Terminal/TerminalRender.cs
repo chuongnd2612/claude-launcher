@@ -27,7 +27,7 @@ public static class TerminalRender
         {
             for (var col = 0; col < cols; col++)
             {
-                var cell = screen[col, row];
+                var cell = screen.CellAt(col, row);
 
                 var fg = (cell.Attrs & CellAttrs.HasFg) != 0 ? cell.Fg : Theme.Text;
                 var bg = (cell.Attrs & CellAttrs.HasBg) != 0 ? cell.Bg : fill;
@@ -49,6 +49,12 @@ public static class TerminalRender
             }
         }
 
+        if (screen.IsScrolled)
+        {
+            DrawScrollMark(buffer, screen, x, y, width, fill);
+            return;
+        }
+
         if (!focused || !screen.CursorVisible) return;
 
         var cursorX = x + screen.CursorX;
@@ -60,5 +66,21 @@ public static class TerminalRender
         var under = screen[screen.CursorX, screen.CursorY];
         var underFg = (under.Attrs & CellAttrs.HasFg) != 0 ? under.Fg : Theme.Text;
         buffer.Set(cursorX, cursorY, under.Ch == '\0' ? ' ' : under.Ch, new Sty(fill, underFg));
+    }
+
+    /// <summary>Narrower than this and the mark would eat the pane's own output.</summary>
+    private const int MarkMinWidth = 20;
+
+    private static void DrawScrollMark(ScreenBuffer buffer, TerminalScreen screen,
+        int x, int y, int width, Rgb fill)
+    {
+        if (width < MarkMinWidth) return;
+
+        var label = "↑ " + screen.ScrollOffset;
+        if (label.Length > width) return;
+
+        var style = new Sty(Theme.Muted, fill, bold: false, dim: true);
+        var start = x + width - label.Length;
+        for (var i = 0; i < label.Length; i++) buffer.Set(start + i, y, label[i], style);
     }
 }

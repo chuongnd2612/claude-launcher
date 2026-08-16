@@ -33,6 +33,14 @@ public sealed class TerminalScreen : IVtSink
     private Buffer _alt;
     private Buffer _active;
 
+    /// <summary>Rows evicted from the top of the primary buffer, oldest first.</summary>
+    private readonly TerminalCell[]?[] _scrollback = new TerminalCell[MaxScrollback][];
+    private int _scrollbackStart;
+    private int _scrollbackCount;
+    private int _scrollOffset;
+
+    private const int MaxScrollback = 2000;
+
     private int _cursorX;
     private int _cursorY;
 
@@ -92,6 +100,47 @@ public sealed class TerminalScreen : IVtSink
         }
     }
 
+    /// <summary>Lines retained above the primary buffer, capped at 2000.</summary>
+    public int ScrollbackCount => _scrollbackCount;
+
+    /// <summary>How many lines the view is scrolled back; 0 is the live bottom.</summary>
+    public int ScrollOffset => _scrollOffset;
+
+    public bool IsScrolled => _scrollOffset > 0;
+
+    /// <summary>Positive moves back into history, negative back toward live.</summary>
+    public void ScrollBy(int lines)
+    {
+        // The alternate screen is a full-screen view with no history of its own.
+        if (IsAlternate || lines == 0) return;
+        var next = Math.Clamp(_scrollOffset + lines, 0, _scrollbackCount);
+        if (next == _scrollOffset) return;
+        _scrollOffset = next;
+        Revision++;
+    }
+
+    public void ScrollToBottom()
+    {
+        if (_scrollOffset == 0) return;
+        _scrollOffset = 0;
+        Revision++;
+    }
+
+    /// <summary>
+    /// The cell at a viewport position, reading scrollback for the rows the
+    /// current offset has pushed the live region past. Total: out of range
+    /// reads a blank rather than throwing, so a renderer can paint any rect.
+    /// </summary>
+    public TerminalCell CellAt(int x, int y)
+    {
+        if (x < 0 || y < 0 || x >= _active.Cols || y >= _active.Rows) return TerminalCell.Blank;
+        if (y >= _scrollOffset) return _active.Cells[(y - _scrollOffset) * _active.Cols + x];
+
+        var line = _scrollback[(_scrollbackStart + _scrollbackCount - _scrollOffset + y) % MaxScrollback];
+        if (line is null || x >= line.Length) return TerminalCell.Blank;
+        return line[x];
+    }
+
     public void Resize(int cols, int rows)
     {
         if (cols < 1) cols = 1;
@@ -108,6 +157,7 @@ public sealed class TerminalScreen : IVtSink
         _savedX = Math.Min(_savedX, cols - 1);
         _savedY = Math.Min(_savedY, rows - 1);
         _pendingWrap = false;
+        _scrollOffset = Math.Clamp(_scrollOffset, 0, _scrollbackCount);
         Revision++;
     }
 
@@ -290,8 +340,36 @@ public sealed class TerminalScreen : IVtSink
     private void ScrollUp()
     {
         var cols = _active.Cols;
+        if (!IsAlternate) PushScrollback(_active.Cells.AsSpan(0, cols));
         Array.Copy(_active.Cells, cols, _active.Cells, 0, cols * (_active.Rows - 1));
         _active.Cells.AsSpan(cols * (_active.Rows - 1), cols).Fill(Blank());
+    }
+
+    private void PushScrollback(ReadOnlySpan<TerminalCell> row)
+    {
+        var slot = (_scrollbackStart + _scrollbackCount) % MaxScrollback;
+
+        // At the cap the oldest line's array is recycled rather than dropped, so
+        // a long-running pane stops allocating once the ring has filled.
+        var line = _scrollback[slot];
+        if (line is null || line.Length != row.Length) line = new TerminalCell[row.Length];
+        row.CopyTo(line);
+        _scrollback[slot] = line;
+
+        if (_scrollbackCount == MaxScrollback) _scrollbackStart = (_scrollbackStart + 1) % MaxScrollback;
+        else _scrollbackCount++;
+
+        // A reader stays on the text they are looking at: the offset counts back
+        // from the live bottom, so it has to grow as the bottom moves away. Once
+        // the ring is full the oldest line is gone and the view has to slide.
+        if (_scrollOffset > 0 && _scrollOffset < _scrollbackCount) _scrollOffset++;
+    }
+
+    private void ClearScrollback()
+    {
+        _scrollbackStart = 0;
+        _scrollbackCount = 0;
+        _scrollOffset = 0;
     }
 
     private void MoveCursor(int dx, int dy)
@@ -320,8 +398,9 @@ public sealed class TerminalScreen : IVtSink
             case 1:
                 _active.Cells.AsSpan(0, start + 1).Fill(Blank());
                 break;
-            default: // 2 (screen) and 3 (screen plus scrollback, which we do not keep)
+            default: // 2 (screen) and 3 (screen plus scrollback)
                 _active.Cells.AsSpan().Fill(Blank());
+                if (mode == 3 && !IsAlternate) ClearScrollback();
                 break;
         }
 
@@ -392,6 +471,7 @@ public sealed class TerminalScreen : IVtSink
         {
             _savedX = _cursorX;
             _savedY = _cursorY;
+            _scrollOffset = 0;
             _alt.Cells.AsSpan().Fill(Blank());
             _active = _alt;
             _cursorX = 0;
@@ -419,6 +499,7 @@ public sealed class TerminalScreen : IVtSink
         _savedY = 0;
         _pendingWrap = false;
         CursorVisible = true;
+        ClearScrollback();
         ResetSgr();
         Revision++;
     }

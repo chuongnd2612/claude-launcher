@@ -135,6 +135,10 @@ public sealed class TerminalTile : IDisposable
     private void OnOutput(byte[] chunk)
     {
         lock (_gate) _parser.Feed(chunk, _screen);
+
+        // Painting on the next poll instead would put the whole refresh interval
+        // between a keystroke and its echo.
+        Tui.ConsoleInput.Wake();
     }
 
     private static string Executable()
