@@ -217,6 +217,11 @@ public sealed class StreamSession : IDisposable
         try
         {
             _process = Process.Start(info);
+
+            // Ties the session to the launcher's lifetime, so an abrupt exit -
+            // one that never reaches Dispose - does not leave Claude and its own
+            // subprocesses running with no window to find them in.
+            if (_process is not null) ProcessJob.Assign(_process.Handle);
         }
         catch (Exception ex)
         {
