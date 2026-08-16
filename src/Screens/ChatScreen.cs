@@ -22,6 +22,8 @@ public sealed class ChatScreen : ScreenBase
     private int _scroll;
     private bool _follow = true;
     private int _seenRevision = -1;
+    private int _menuIndex;
+    private string? _notice;
 
     public ChatScreen(App app, StreamSession session) : base(app)
     {
@@ -48,10 +50,28 @@ public sealed class ChatScreen : ScreenBase
     public override bool NeedsRedraw()
     {
         if (_session is null) return false;
+
+        // A running tool shows a live elapsed time, so redraw while one is up
+        // even when no new events have arrived.
+        if (_session.ActiveTool is not null) return true;
         if (_session.Revision == _seenRevision) return false;
 
         _seenRevision = _session.Revision;
         return true;
+    }
+
+    /// <summary>Commands matching what has been typed after the leading slash.</summary>
+    private List<SlashCommand> Matches()
+    {
+        if (_session is null || !_input.StartsWith('/')) return new List<SlashCommand>();
+
+        var typed = _input.Substring(1);
+        if (typed.Contains(' ')) return new List<SlashCommand>();   // already past the name
+
+        return _session.Commands
+            .Where(c => c.Name.StartsWith(typed, StringComparison.OrdinalIgnoreCase))
+            .Take(40)
+            .ToList();
     }
 
     public override void Render(ScreenBuffer buffer)
@@ -72,18 +92,70 @@ public sealed class ChatScreen : ScreenBase
 
         y += 2;
 
-        // Bottom up: input line, then the permission box when one is waiting.
+        // Bottom up: input line, then the permission box or command menu, then
+        // whatever height is left goes to the transcript.
         var inputY = buffer.Height - 4;
+        var matches = Matches();
+
         var askHeight = Pending is null ? 0 : 5;
-        var transcriptBottom = inputY - askHeight - 1;
+        var menuHeight = Pending is null && matches.Count > 0
+            ? Math.Min(matches.Count, Math.Max(3, (buffer.Height - y - 12) / 2)) + 2
+            : 0;
+
+        var running = _session?.ActiveTool;
+        var runningHeight = running is null ? 0 : 1;
+
+        var transcriptBottom = inputY - askHeight - menuHeight - runningHeight - 1;
         var transcriptHeight = transcriptBottom - y;
 
         if (transcriptHeight >= 3) Transcript(buffer, margin, y, width, transcriptHeight);
-        if (Pending is not null) Ask(buffer, margin, transcriptBottom + 1, width);
+
+        var below = transcriptBottom + 1;
+
+        if (running is not null)
+        {
+            var elapsed = Sessions.Format.Duration(running.Elapsed);
+            buffer.WriteClipped(margin + 1, below,
+                $"◆ {running.Description} · running {elapsed}", width - 2,
+                new Sty(Theme.Amber, Theme.Bg));
+            below++;
+        }
+
+        if (Pending is not null) Ask(buffer, margin, below, width);
+        else if (menuHeight > 0) Menu(buffer, margin, below, width, menuHeight, matches);
 
         InputLine(buffer, margin, inputY, width);
 
+        if (_notice is not null)
+            buffer.WriteClipped(margin + 1, inputY + 1, _notice, width - 2, new Sty(Theme.Amber, Theme.Bg));
+
         Widgets.Footer(buffer, Hints());
+    }
+
+    /// <summary>
+    /// Continues this conversation in a Windows Terminal pane and closes the
+    /// chat. The launcher owns the process, so it would die with the launcher -
+    /// but the conversation is on disk, and --resume picks it up exactly.
+    /// </summary>
+    private ScreenAction Detach()
+    {
+        if (_session?.SessionId is null)
+        {
+            _notice = "Nothing to hand over yet — send a message first.";
+            return ScreenAction.None;
+        }
+
+        var ok = PaneLauncher.Split(_session.Profile, _session.ProjectPath, vertical: true,
+            App.Settings.RemoteControl, out var error, _session.SessionId);
+
+        if (!ok)
+        {
+            _notice = "Could not open a pane: " + error;
+            return ScreenAction.None;
+        }
+
+        _session.Dispose();
+        return ScreenAction.Back;
     }
 
     private string StateText() => State switch
@@ -108,20 +180,35 @@ public sealed class ChatScreen : ScreenBase
             };
         }
 
-        return State == ChatState.Working
-            ? new[]
+        if (State == ChatState.Working)
+        {
+            return new[]
             {
                 new KeyHint("esc", "Stop"),
                 new KeyHint("PgUp/PgDn", "Scroll"),
-                new KeyHint("^C", "Leave")
-            }
-            : new[]
-            {
-                new KeyHint("type", "Message"),
-                new KeyHint("↵", "Send"),
-                new KeyHint("PgUp/PgDn", "Scroll"),
-                new KeyHint("esc", "Back")
+                new KeyHint("^d", "Detach")
             };
+        }
+
+        if (Matches().Count > 0)
+        {
+            return new[]
+            {
+                new KeyHint("↑↓", "Pick"),
+                new KeyHint("tab", "Complete"),
+                new KeyHint("↵", "Complete"),
+                new KeyHint("esc", "Clear")
+            };
+        }
+
+        return new[]
+        {
+            new KeyHint("type", "Message"),
+            new KeyHint("/", "Commands"),
+            new KeyHint("↵", "Send"),
+            new KeyHint("^d", "Detach"),
+            new KeyHint("esc", "Back")
+        };
     }
 
     private void Transcript(ScreenBuffer buffer, int x, int y, int width, int height)
@@ -180,6 +267,38 @@ public sealed class ChatScreen : ScreenBase
 
             into.Add((first ? word : "  " + word, style));
             first = false;
+        }
+    }
+
+    /// <summary>Slash-command picker, built from the commands the session reported.</summary>
+    private void Menu(ScreenBuffer buffer, int x, int y, int width, int height, List<SlashCommand> matches)
+    {
+        Widgets.TitledBox(buffer, x, y, width, height, $"Commands · {matches.Count}", Theme.VioletSoft);
+
+        var rows = height - 2;
+        _menuIndex = Math.Clamp(_menuIndex, 0, Math.Max(0, matches.Count - 1));
+        var start = Math.Max(0, Math.Min(_menuIndex - rows + 1, matches.Count - rows));
+        if (start < 0) start = 0;
+
+        for (var i = 0; i < rows; i++)
+        {
+            var index = start + i;
+            if (index >= matches.Count) break;
+
+            var command = matches[index];
+            var selected = index == _menuIndex;
+            var rowY = y + 1 + i;
+            var bg = selected ? Theme.PanelSelected : Theme.Panel;
+
+            buffer.Fill(x + 1, rowY, width - 2, 1, bg);
+            buffer.WriteClipped(x + 3, rowY, "/" + command.Name, 24,
+                new Sty(selected ? Theme.Blue : Theme.Text, bg, bold: selected));
+
+            var detail = string.IsNullOrEmpty(command.ArgumentHint)
+                ? command.Description
+                : $"{command.ArgumentHint} — {command.Description}";
+
+            buffer.WriteClipped(x + 28, rowY, detail, Math.Max(0, width - 31), new Sty(Theme.Dim, bg));
         }
     }
 
@@ -249,16 +368,50 @@ public sealed class ChatScreen : ScreenBase
             return ScreenAction.None;
         }
 
+        var matches = Matches();
+
         switch (key.Key)
         {
             case ConsoleKey.Escape:
+                if (matches.Count > 0) { _input = string.Empty; return ScreenAction.None; }
                 if (State == ChatState.Working) { _session.Interrupt(); return ScreenAction.None; }
                 return ScreenAction.Back;
 
+            case ConsoleKey.Tab:
+                if (matches.Count > 0)
+                {
+                    _input = "/" + matches[Math.Clamp(_menuIndex, 0, matches.Count - 1)].Name + " ";
+                    _menuIndex = 0;
+                }
+
+                return ScreenAction.None;
+
+            case ConsoleKey.UpArrow:
+                if (matches.Count > 0) { _menuIndex = Math.Max(0, _menuIndex - 1); return ScreenAction.None; }
+                _follow = false;
+                _scroll = Math.Max(0, _scroll - 1);
+                return ScreenAction.None;
+
+            case ConsoleKey.DownArrow:
+                if (matches.Count > 0) { _menuIndex = Math.Min(matches.Count - 1, _menuIndex + 1); return ScreenAction.None; }
+                _scroll++;
+                return ScreenAction.None;
+
             case ConsoleKey.Enter:
                 if (State == ChatState.Working || _input.Trim().Length == 0) return ScreenAction.None;
+
+                // Enter completes the highlighted command rather than sending a
+                // half-typed name; a second Enter sends it.
+                if (matches.Count > 0 && !_input.EndsWith(' '))
+                {
+                    _input = "/" + matches[Math.Clamp(_menuIndex, 0, matches.Count - 1)].Name + " ";
+                    _menuIndex = 0;
+                    return ScreenAction.None;
+                }
+
                 _session.Send(_input.Trim());
                 _input = string.Empty;
+                _menuIndex = 0;
                 _follow = true;
                 return ScreenAction.None;
 
@@ -280,7 +433,16 @@ public sealed class ChatScreen : ScreenBase
                 return ScreenAction.None;
         }
 
-        if (!char.IsControl(key.KeyChar) && State != ChatState.Working) _input += key.KeyChar;
+        // Ctrl+D hands the conversation to a real terminal pane, where it
+        // outlives the launcher. Not a plain letter: it must not fire mid-typing.
+        if (key.Key == ConsoleKey.D && (key.Modifiers & ConsoleModifiers.Control) != 0) return Detach();
+
+        if (!char.IsControl(key.KeyChar) && State != ChatState.Working)
+        {
+            _input += key.KeyChar;
+            if (_input.StartsWith('/')) _menuIndex = 0;
+        }
+
         return ScreenAction.None;
     }
 }

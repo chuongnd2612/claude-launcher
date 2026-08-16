@@ -32,6 +32,24 @@ public sealed class ChatLine
     public string? Detail { get; init; }
 }
 
+/// <summary>A slash command the session offers, as reported at startup.</summary>
+public sealed class SlashCommand
+{
+    public string Name { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string ArgumentHint { get; init; } = string.Empty;
+}
+
+/// <summary>A tool that has started and not yet reported back.</summary>
+public sealed class RunningTool
+{
+    public string Description { get; init; } = string.Empty;
+    public string Kind { get; init; } = string.Empty;
+    public DateTime StartedUtc { get; init; } = DateTime.UtcNow;
+
+    public TimeSpan Elapsed => DateTime.UtcNow - StartedUtc;
+}
+
 /// <summary>A tool waiting on the user's answer.</summary>
 public sealed class PermissionAsk
 {
@@ -86,6 +104,12 @@ public sealed class StreamSession : IDisposable
     public string? Model { get; private set; }
 
     public PermissionAsk? Pending { get; private set; }
+
+    /// <summary>Non-null while a tool is running, so the screen can show what and for how long.</summary>
+    public RunningTool? ActiveTool { get; private set; }
+
+    /// <summary>Slash commands this session accepts, reported during startup.</summary>
+    public IReadOnlyList<SlashCommand> Commands { get; private set; } = Array.Empty<SlashCommand>();
 
     /// <summary>Bumped whenever anything changes, so the screen can redraw only when needed.</summary>
     public int Revision => Volatile.Read(ref _revision);
@@ -288,6 +312,10 @@ public sealed class StreamSession : IDisposable
                 HandleControlRequest(root);
                 break;
 
+            case "control_response":
+                HandleControlResponse(root);
+                break;
+
             case "stream_event":
                 HandleDelta(root);
                 break;
@@ -310,6 +338,7 @@ public sealed class StreamSession : IDisposable
                 lock (_gate)
                 {
                     Commit();
+                    ActiveTool = null;
                     State = Pending is null ? ChatState.Idle : ChatState.AwaitingPermission;
                 }
 
@@ -353,6 +382,40 @@ public sealed class StreamSession : IDisposable
             State = ChatState.AwaitingPermission;
         }
 
+        Touch();
+    }
+
+    /// <summary>The reply to our initialize carries the session's slash commands.</summary>
+    private void HandleControlResponse(JsonElement root)
+    {
+        if (!root.TryGetProperty("response", out var outer)) return;
+        if (!outer.TryGetProperty("response", out var inner)) return;
+        if (!inner.TryGetProperty("commands", out var commands)) return;
+        if (commands.ValueKind != JsonValueKind.Array) return;
+
+        var parsed = new List<SlashCommand>();
+
+        foreach (var command in commands.EnumerateArray())
+        {
+            var name = command.TryGetProperty("name", out var n) ? n.GetString() : null;
+            if (string.IsNullOrWhiteSpace(name)) continue;
+
+            var description = command.TryGetProperty("description", out var d) ? d.GetString() ?? string.Empty : string.Empty;
+            var hint = command.TryGetProperty("argumentHint", out var a) ? a.GetString() ?? string.Empty : string.Empty;
+
+            // Descriptions run to paragraphs; the menu has one line per command.
+            var cut = description.IndexOf(". ", StringComparison.Ordinal);
+            if (cut > 0) description = description.Substring(0, cut);
+
+            parsed.Add(new SlashCommand
+            {
+                Name = name!,
+                Description = Clean(description) ?? string.Empty,
+                ArgumentHint = hint
+            });
+        }
+
+        Commands = parsed.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ToArray();
         Touch();
     }
 
@@ -453,6 +516,29 @@ public sealed class StreamSession : IDisposable
 
             case "permission_denied":
                 Add(ChatLineKind.Notice, "Claude was denied that tool.");
+                break;
+
+            // Tool output only arrives when the tool finishes, but these two say
+            // what started and when it ended - enough to show a live "running".
+            case "task_started":
+                var description = root.TryGetProperty("description", out var desc) ? desc.GetString() : null;
+                var kind = root.TryGetProperty("task_type", out var type) ? type.GetString() : null;
+
+                lock (_gate)
+                {
+                    ActiveTool = new RunningTool
+                    {
+                        Description = Clean(description) ?? "working",
+                        Kind = kind ?? string.Empty
+                    };
+                }
+
+                Touch();
+                break;
+
+            case "task_notification":
+                lock (_gate) ActiveTool = null;
+                Touch();
                 break;
         }
     }
