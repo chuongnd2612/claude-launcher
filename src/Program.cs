@@ -30,6 +30,8 @@ public static class Program
             return 0;
         }
 
+        Widgets.Version = Version;
+
         try
         {
             var settings = StateStore.LoadSettings();
