@@ -181,7 +181,7 @@ public static class ConsoleInput
 
             switch (record.EventType)
             {
-                case KeyEventType when record.Key.KeyDown:
+                case KeyEventType when record.Key.KeyDown != 0:
                     Queue.Enqueue(new InputEvent(ToKeyInfo(record.Key)));
                     break;
 
@@ -223,7 +223,7 @@ public static class ConsoleInput
         if ((state & (leftAlt | rightAlt)) != 0) modifiers |= ConsoleModifiers.Alt;
         if ((state & (leftCtrl | rightCtrl)) != 0) modifiers |= ConsoleModifiers.Control;
 
-        return new ConsoleKeyInfo(key.UnicodeChar, (ConsoleKey)key.VirtualKeyCode,
+        return new ConsoleKeyInfo((char)key.UnicodeChar, (ConsoleKey)key.VirtualKeyCode,
             (modifiers & ConsoleModifiers.Shift) != 0,
             (modifiers & ConsoleModifiers.Alt) != 0,
             (modifiers & ConsoleModifiers.Control) != 0);
@@ -236,14 +236,19 @@ public static class ConsoleInput
         public short Y;
     }
 
+    // Every field is a fixed-width integer so the managed layout is identical to
+    // the native one. A `bool` here is 1 managed byte against BOOL's 4, and the
+    // array is handed over blittably rather than field-by-field, which read
+    // every field after it two bytes early - VirtualKeyCode came back as the
+    // repeat count, so every key decoded to the same meaningless value.
     [StructLayout(LayoutKind.Sequential)]
     private struct KeyEventRecord
     {
-        [MarshalAs(UnmanagedType.Bool)] public bool KeyDown;
+        public int KeyDown;
         public ushort RepeatCount;
         public ushort VirtualKeyCode;
         public ushort VirtualScanCode;
-        public char UnicodeChar;
+        public ushort UnicodeChar;
         public int ControlKeyState;
     }
 
