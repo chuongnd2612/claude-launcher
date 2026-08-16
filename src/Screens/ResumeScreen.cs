@@ -152,6 +152,7 @@ public sealed class ResumeScreen : ScreenBase
             {
                 new KeyHint("↑↓", "Navigate"),
                 new KeyHint("↵", "Resume"),
+                new KeyHint("c", "Chat here"),
                 new KeyHint("/", "Filter"),
                 new KeyHint("l", "Logs"),
                 new KeyHint("d", "Delete"),
@@ -229,6 +230,15 @@ public sealed class ResumeScreen : ScreenBase
         if (ch == 'q') return ScreenAction.Exit;
 
         if (items.Count == 0) return ScreenAction.None;
+
+        // Pick the conversation back up inside the launcher rather than in a
+        // terminal. Claude reloads it from disk, so nothing is lost either way.
+        if (ch == 'c')
+        {
+            var session = new Sessions.StreamSession(App.Profile!, App.Project!.Path);
+            session.Start(items[_index].SessionId);
+            return ScreenAction.Push(new ChatScreen(App, session));
+        }
 
         if (ch == 'l') return ScreenAction.Push(new SessionDetailScreen(App, items[_index]));
 
