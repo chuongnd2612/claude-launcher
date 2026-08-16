@@ -138,7 +138,8 @@ public sealed class HomeScreen : ScreenBase
         Widgets.Footer(buffer, new[]
         {
             new KeyHint("↑↓", "Navigate"),
-            new KeyHint("↵", "Attach"),
+            new KeyHint("↵", "Open"),
+            new KeyHint("a", "Attach"),
             new KeyHint("n", "New"),
             new KeyHint("t", "Tile"),
             new KeyHint("k", "Kill"),
@@ -270,7 +271,7 @@ public sealed class HomeScreen : ScreenBase
                 _index = Math.Max(0, Rows.Count - 1);
                 return ScreenAction.None;
             case ConsoleKey.Enter:
-                return Attach();
+                return Open();
             case ConsoleKey.Escape:
                 return ScreenAction.Exit;
         }
@@ -283,6 +284,8 @@ public sealed class HomeScreen : ScreenBase
             case 't':
                 if (_service is null || Rows.Count == 0) return ScreenAction.None;
                 return ScreenAction.Push(new TerminalsScreen(App, _service));
+            case 'a':
+                return Attach();
             case 'k':
                 return Kill();
             case 'q':
@@ -300,6 +303,20 @@ public sealed class HomeScreen : ScreenBase
     /// one would sometimes switch the user to an unrelated pane, which is worse
     /// than telling them where to look.
     /// </summary>
+    /// <summary>
+    /// Enter opens the wall on the chosen session. Everything the launcher owns
+    /// is shown there, and a session in someone else's terminal at least gets
+    /// its tile put in front of you - raising a window and saying "find the
+    /// pane yourself" was never much of an answer. `a` still raises it.
+    /// </summary>
+    private ScreenAction Open()
+    {
+        if (Rows.Count == 0) return ScreenAction.Push(new ProfileScreen(App));
+
+        var row = Rows[_index];
+        return ScreenAction.Root(new TerminalsScreen(App, new SessionService(App.State), row.SessionId));
+    }
+
     private ScreenAction Attach()
     {
         if (Rows.Count == 0) return ScreenAction.Push(new ProfileScreen(App));

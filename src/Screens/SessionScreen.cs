@@ -193,17 +193,31 @@ public sealed class SessionScreen : ScreenBase
     }
 
     /// <summary>
+    /// The newest recorded session for this project, or null when there is
+    /// none - in which case Continue simply starts a fresh conversation.
+    /// </summary>
+    private string? LatestSessionId()
+    {
+        var recorded = Sessions.SessionReader.ListProjectSessions(
+            StateStore.ExpandHome(App.Profile!.ConfigDir), App.Project!.Path);
+
+        return recorded
+            .OrderByDescending(s => s.LastActivityUtc)
+            .Select(s => s.SessionId)
+            .FirstOrDefault();
+    }
+
+    /// <summary>
     /// Starts a tile for this project, or returns null and leaves a notice when
     /// a pseudo console is unavailable, so the caller can fall back.
     /// </summary>
-    private ScreenAction? OpenTile(bool continueLatest = false, string? resumeSessionId = null)
+    private ScreenAction? OpenTile(string? resumeSessionId = null)
     {
         try
         {
             var tile = Terminal.TerminalTile.Start(
                 App.Project!.Path, App.Project!.Name,
-                StateStore.ExpandHome(App.Profile!.ConfigDir), 100, 30,
-                resumeSessionId, continueLatest);
+                StateStore.ExpandHome(App.Profile!.ConfigDir), 100, 30, resumeSessionId);
 
             App.Terminals.Add(tile);
 
@@ -237,7 +251,10 @@ public sealed class SessionScreen : ScreenBase
         // first, because choosing which conversation is the point of it.
         if (InLauncher(App, _openIn) && mode is "new" or "continue")
         {
-            var tile = OpenTile(continueLatest: mode == "continue");
+            // Continue resolves to the newest recorded session rather than
+            // passing --continue: a tile without an id cannot be told apart
+            // from its project's other sessions on the wall.
+            var tile = OpenTile(mode == "continue" ? LatestSessionId() : null);
             if (tile is not null) return tile;
         }
 
@@ -263,7 +280,7 @@ public sealed class SessionScreen : ScreenBase
             // --continue is the closest honest answer.
             if (recorded.Count == 0)
             {
-                var latest = OpenTile(continueLatest: true);
+                var latest = OpenTile();
                 if (latest is not null) return latest;
             }
             else

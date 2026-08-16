@@ -58,25 +58,22 @@ public sealed class TerminalTile : IDisposable
     public string SessionId { get; private init; } = string.Empty;
 
     public static TerminalTile Start(string projectPath, string projectName, string configDir,
-        int cols, int rows, string? resumeSessionId = null, bool continueLatest = false)
+        int cols, int rows, string? resumeSessionId = null)
     {
         cols = Math.Max(20, cols);
         rows = Math.Max(4, rows);
 
+        // Every tile carries a real id. An id-less tile has to be matched by
+        // project instead, and a project with several sessions then shows the
+        // same terminal in every one of its panes - each pane resizing the one
+        // pty to a different size. Continue resolves to --resume before it gets
+        // here, so this stays true.
         var resuming = !string.IsNullOrWhiteSpace(resumeSessionId);
-
-        // --continue picks a conversation we cannot name in advance, so that
-        // tile has no id until Claude writes one; it is keyed by project until
-        // then, the same way a chat is.
-        var sessionId = continueLatest ? string.Empty
-            : resuming ? resumeSessionId!
-            : Guid.NewGuid().ToString();
+        var sessionId = resuming ? resumeSessionId! : Guid.NewGuid().ToString();
 
         var command = new StringBuilder();
         command.Append('"').Append(Executable()).Append('"');
-
-        if (continueLatest) command.Append(" --continue");
-        else command.Append(resuming ? " --resume " : " --session-id ").Append(sessionId);
+        command.Append(resuming ? " --resume " : " --session-id ").Append(sessionId);
 
         var env = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
         {

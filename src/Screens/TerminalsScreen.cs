@@ -112,14 +112,14 @@ public sealed class TerminalsScreen : ScreenBase
     private bool _released;
 
     /// <summary>
-    /// The terminal tile behind a row. A --continue tile has no id until Claude
-    /// writes one, so it is matched by project until then.
+    /// The terminal tile behind a row, matched only by session id. Falling back
+    /// to the project path would put one terminal in every pane of a project
+    /// that has several sessions, with each pane resizing the same pty.
     /// </summary>
-    private TerminalTile? LiveTerminal(SessionRow row) => App.Terminals.FirstOrDefault(t =>
-        !t.HasExited &&
-        (!string.IsNullOrEmpty(t.SessionId) && t.SessionId == row.SessionId ||
-         string.IsNullOrEmpty(t.SessionId) &&
-         string.Equals(t.ProjectPath, row.ProjectPath, StringComparison.OrdinalIgnoreCase)));
+    private TerminalTile? LiveTerminal(SessionRow row) =>
+        string.IsNullOrEmpty(row.SessionId)
+            ? null
+            : App.Terminals.FirstOrDefault(t => !t.HasExited && t.SessionId == row.SessionId);
 
     /// <summary>The live session behind a tile, when the launcher owns it.</summary>
     private StreamSession? Live(SessionRow row) => App.Chats.FirstOrDefault(c =>
@@ -137,6 +137,18 @@ public sealed class TerminalsScreen : ScreenBase
         var panes = Panes;
         var index = panes.FindIndex(p => ReferenceEquals(LiveTerminal(p), focus));
         if (index >= 0) _focus = index;
+        _released = false;
+    }
+
+    /// <summary>Opens the wall focused on one session, by id.</summary>
+    public TerminalsScreen(App app, SessionService service, string sessionId) : this(app, service)
+    {
+        if (string.IsNullOrEmpty(sessionId)) return;
+
+        var index = Panes.FindIndex(p => p.SessionId == sessionId);
+        if (index < 0) return;
+
+        _focus = index;
         _released = false;
     }
 
@@ -220,15 +232,7 @@ public sealed class TerminalsScreen : ScreenBase
                 if (terminal.HasExited) continue;
                 if (_hidden.Contains(terminal.SessionId)) continue;
 
-                if (!string.IsNullOrEmpty(terminal.SessionId))
-                {
-                    if (rows.Any(r => r.SessionId == terminal.SessionId)) continue;
-                }
-                else if (rows.Any(r => string.Equals(r.ProjectPath, terminal.ProjectPath,
-                             StringComparison.OrdinalIgnoreCase)))
-                {
-                    continue;
-                }
+                if (rows.Any(r => r.SessionId == terminal.SessionId)) continue;
 
                 rows.Add(new SessionRow
                 {
