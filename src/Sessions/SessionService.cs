@@ -58,6 +58,16 @@ public sealed class SessionService
                     continue;
                 }
 
+                // Claude also registers its own background work - a startup hook
+                // or a plugin - as kind "bg" while still reporting entrypoint
+                // "cli", so the check above lets it through. Starting one session
+                // then showed three panes: the real one and two of these.
+                if (string.Equals(entry.Kind, "bg", StringComparison.OrdinalIgnoreCase) &&
+                    !owned.Contains(entry.SessionId))
+                {
+                    continue;
+                }
+
                 var startedAt = DateTimeOffset.FromUnixTimeMilliseconds(entry.StartedAt).UtcDateTime;
                 if (startedAt.Date == DateTime.UtcNow.Date) sessionsToday++;
 
