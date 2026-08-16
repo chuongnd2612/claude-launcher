@@ -100,7 +100,8 @@ directly without showing the selection screens.
 | Screen  | Keys |
 | ------- | ---- |
 | Home | `↑↓` navigate · `Enter` attach · `n` new session · `t` tile · `k` stop · `p` profiles · `q` quit |
-| Terminals | `1..9` focus · `↑↓←→` move · `i` type into a chat tile · `Enter` attach · `z` zoom · `v` split right · `s` split down · `Space` layout · `w` remove tile · `Esc` back |
+| Terminals (terminal tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `v` split right · `s` split down · `Space` layout · `w` remove tile · `Esc` back |
+| Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
@@ -251,10 +252,15 @@ Home ─ n ─→ profile ─→ project ─→ Chat here ─→ type ─ Esc �
 
 A chat shows up on Home the moment it starts, before Claude has replied at all.
 
-**Typing on the wall.** Focus a chat tile and press `i` to type straight into that session without
-leaving the wall — replies, tool calls and permission prompts all render in the tile. `Esc` stops
-typing, and the wall's own keys work again. Tiles that belong to a *terminal* session stay read-only;
-pressing `i` on one says so rather than swallowing your keystrokes.
+**Typing on the wall.** Every chat tile has its **own prompt at the bottom of the tile**. Just type —
+whatever you type goes to the focused tile, no mode to enter first. Replies, tool calls, the slash
+command menu and permission prompts all render inside that tile.
+
+Because the letters belong to your message, the wall's commands move to keys a message can't contain
+while a chat tile is focused: **arrows** or **Tab** move between tiles, `Ctrl+Z` zooms, `Ctrl+L`
+cycles the layout, `Esc` clears the draft, then interrupts, then leaves. Focus a *terminal* tile and
+the single-letter keys come back, since there is nothing to type into. The wall opens focused on a
+chat tile when there is one.
 
 **Slash commands work here.** Type `/` and the commands this session offers are listed — all of them,
 read from the session itself rather than hardcoded, so your own project and plugin commands appear

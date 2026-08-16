@@ -28,6 +28,9 @@ public static class Widgets
 
     public const string AuthorHandle = "chuongnd2612";
 
+    /// <summary>Stamped from the assembly at startup and shown on every footer.</summary>
+    public static string Version { get; set; } = string.Empty;
+
     public static int Margin(ScreenBuffer buffer) => buffer.Width >= 110 ? 4 : 2;
 
     /// <summary>
@@ -290,6 +293,16 @@ public static class Widgets
         var total = text + spacing * gaps;
         var x = margin + Math.Max(2, (width - total) / 2);
         var limit = margin + width - 2;
+
+        // Version sits at the right end of the bar, and only when it cannot
+        // crowd the hints - a hint that vanishes matters more than the number.
+        if (Version.Length > 0)
+        {
+            var label = "v" + Version;
+            var free = margin + width - 2 - (x + total);
+            if (free >= label.Length + 3)
+                buffer.WriteRight(margin + width - 3, y + 1, label, new Sty(Theme.Dim, Theme.BgSoft));
+        }
 
         foreach (var hint in hints)
         {
