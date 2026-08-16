@@ -256,6 +256,10 @@ A chat shows up on Home the moment it starts, before Claude has replied at all.
 whatever you type goes to the focused tile, no mode to enter first. Replies, tool calls, the slash
 command menu and permission prompts all render inside that tile.
 
+Typing `/` opens a command dropdown inside the tile — one command per row with its description and
+argument hint, `↑↓` to pick, `Tab` or `Enter` to complete. The list comes from the session itself, so
+your project and plugin commands are in it.
+
 Because the letters belong to your message, the wall's commands move to keys a message can't contain
 while a chat tile is focused: **arrows** or **Tab** move between tiles, `Ctrl+Z` zooms, `Ctrl+L`
 cycles the layout, `Esc` clears the draft, then interrupts, then leaves. Focus a *terminal* tile and
@@ -341,7 +345,10 @@ wrong dollar figure is worse than none. Tokens are shown instead, and those are 
 ```
 
 A tile's border turns **amber** when that session may be waiting for you, and blue when it is the
-focused one. `Space` cycles three layouts:
+focused one. **Tile order is fixed** — a pane keeps its number for as long as it exists, so nothing
+shuffles under your hands while you type. New sessions join at the end.
+
+`Space` cycles three layouts:
 
 | Layout | Shape |
 | ------ | ----- |

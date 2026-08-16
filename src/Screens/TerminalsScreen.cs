@@ -101,6 +101,13 @@ public sealed class TerminalsScreen : ScreenBase
         return true;
     }
 
+    /// <summary>
+    /// Tile order, fixed as tiles first appear. The underlying list re-sorts as
+    /// states change, which would renumber panes under the user's hands while
+    /// they type - a pane keeps its number until it goes away.
+    /// </summary>
+    private readonly List<string> _order = new();
+
     private List<SessionRow> Panes
     {
         get
@@ -137,8 +144,32 @@ public sealed class TerminalsScreen : ScreenBase
                 });
             }
 
-            return rows;
+            return Stable(rows);
         }
+    }
+
+    /// <summary>Returns rows in the order tiles were first seen, newcomers last.</summary>
+    private List<SessionRow> Stable(List<SessionRow> rows)
+    {
+        foreach (var row in rows)
+        {
+            var key = DraftKey(row);
+            if (_order.Contains(key)) continue;
+
+            // A chat is keyed by project until Claude assigns an id; adopt the
+            // id in the same slot so the tile does not jump when it arrives.
+            var provisional = _order.IndexOf(row.ProjectPath);
+            if (!string.IsNullOrEmpty(row.SessionId) && provisional >= 0) _order[provisional] = key;
+            else _order.Add(key);
+        }
+
+        return rows
+            .OrderBy(r =>
+            {
+                var index = _order.IndexOf(DraftKey(r));
+                return index < 0 ? int.MaxValue : index;
+            })
+            .ToList();
     }
 
     public override void Render(ScreenBuffer buffer)
@@ -315,21 +346,50 @@ public sealed class TerminalsScreen : ScreenBase
         if (focused) buffer.Write(caret, y, "▏", new Sty(Theme.Blue, fill, bold: true));
     }
 
-    /// <summary>Slash-command names for the focused tile, on the row above its prompt.</summary>
-    private void TileMenu(ScreenBuffer buffer, int x, int y, int width, List<SlashCommand> matches)
+    /// <summary>
+    /// Command dropdown above the prompt: one command per row with its
+    /// description, the way Claude's own menu reads.
+    /// </summary>
+    private void TileMenu(ScreenBuffer buffer, int x, int y, int width, int rows,
+        List<SlashCommand> matches)
     {
         _menuIndex = Math.Clamp(_menuIndex, 0, Math.Max(0, matches.Count - 1));
 
-        var cursor = x;
-        for (var i = _menuIndex; i < matches.Count && cursor < x + width - 6; i++)
-        {
-            var selected = i == _menuIndex;
-            cursor = buffer.Write(cursor, y, "/" + matches[i].Name + " ",
-                new Sty(selected ? Theme.Blue : Theme.Dim, Theme.Panel, bold: selected));
-        }
+        // Keep the selection in view when the list is longer than the space.
+        var start = Math.Max(0, Math.Min(_menuIndex - rows + 1, matches.Count - rows));
+        if (start < 0) start = 0;
 
-        if (matches.Count > 1)
-            buffer.WriteRight(x + width - 1, y, $"↑↓ tab  {matches.Count}", new Sty(Theme.Dim, Theme.Panel));
+        var nameWidth = Math.Clamp(width / 3, 12, 24);
+
+        for (var i = 0; i < rows; i++)
+        {
+            var index = start + i;
+            if (index >= matches.Count) break;
+
+            var command = matches[index];
+            var selected = index == _menuIndex;
+            var rowY = y + i;
+            var bg = selected ? Theme.PanelSelected : Theme.BgSoft;
+
+            buffer.Fill(x, rowY, width, 1, bg);
+            buffer.Write(x, rowY, selected ? "▸ " : "  ", new Sty(Theme.Blue, bg, bold: true));
+            buffer.WriteClipped(x + 2, rowY, "/" + command.Name, nameWidth,
+                new Sty(selected ? Theme.Blue : Theme.Text, bg, bold: selected));
+
+            var detail = string.IsNullOrEmpty(command.ArgumentHint)
+                ? command.Description
+                : $"{command.ArgumentHint} · {command.Description}";
+
+            // The counter sits on the first row, so that row's detail stops short.
+            var counter = matches.Count > rows ? $"{_menuIndex + 1}/{matches.Count}" : string.Empty;
+            var reserved = i == 0 && counter.Length > 0 ? counter.Length + 2 : 0;
+            var detailWidth = width - nameWidth - 4 - reserved;
+
+            if (detail.Length > 0 && detailWidth > 4)
+                buffer.WriteClipped(x + 3 + nameWidth, rowY, detail, detailWidth, new Sty(Theme.Dim, bg));
+
+            if (reserved > 0) buffer.WriteRight(x + width - 1, rowY, counter, new Sty(Theme.Dim, bg));
+        }
     }
 
     /// <summary>The numbered pane strip, echoing the wizard's step badges.</summary>
@@ -531,8 +591,14 @@ public sealed class TerminalsScreen : ScreenBase
             ? Matches(live, Draft(row))
             : new List<SlashCommand>();
 
-        var menuRows = matches.Count > 0 && contentRows > 3 ? 1 : 0;
         var inputRows = live is not null && contentRows > 2 ? 1 : 0;
+
+        // The dropdown takes what it can up to six rows, never leaving the
+        // transcript with less than two.
+        var menuRows = matches.Count > 0
+            ? Math.Clamp(Math.Min(matches.Count, 6), 0, Math.Max(0, contentRows - inputRows - 2))
+            : 0;
+
         contentRows -= menuRows + inputRows;
 
         if (!string.IsNullOrEmpty(row.Branch) && contentRows > 3)
@@ -549,7 +615,7 @@ public sealed class TerminalsScreen : ScreenBase
         if (inputRows == 0 || live is null) return;
 
         var inputY = y + height - 2;
-        if (menuRows > 0) TileMenu(buffer, x + 2, inputY - 1, inner, matches);
+        if (menuRows > 0) TileMenu(buffer, x + 2, inputY - menuRows, inner, menuRows, matches);
         TileInput(buffer, x + 2, inputY, inner, live, row, focused, fill);
     }
 
