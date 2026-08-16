@@ -105,5 +105,12 @@ public sealed class UiSettings
     /// </summary>
     public bool RemoteControl { get; set; }
 
+    /// <summary>
+    /// Run in-launcher sessions under a pseudo console, showing Claude's own
+    /// interface, instead of the launcher's styled chat view. On by default:
+    /// exact rendering beats our own styling for anything Claude draws itself.
+    /// </summary>
+    public bool TerminalTiles { get; set; } = true;
+
     public static readonly string[] Modes = { "new", "continue", "resume" };
 }

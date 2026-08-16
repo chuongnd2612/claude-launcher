@@ -5,7 +5,7 @@ namespace ClaudeLauncher.Screens;
 /// <summary>UI preferences, persisted to ~/.claude-launcher/ui.json.</summary>
 public sealed class SettingsScreen : ScreenBase
 {
-    private const int ItemCount = 5;
+    private const int ItemCount = 6;
 
     private int _index;
 
@@ -45,6 +45,10 @@ public sealed class SettingsScreen : ScreenBase
         Toggle(buffer, margin + 2, y + 5, panelWidth - 4, 4, "Remote control",
             App.Settings.RemoteControl ? "on" : "off",
             "New sessions accept input from claude.ai");
+
+        Toggle(buffer, margin + 2, y + 6, panelWidth - 4, 5, "Terminal tiles",
+            App.Settings.TerminalTiles ? "on" : "off",
+            "Claude's own UI instead of our chat view");
 
         var infoY = y + ItemCount + 3;
         if (infoY + 6 <= buffer.Height - 4)
@@ -131,8 +135,11 @@ public sealed class SettingsScreen : ScreenBase
             case 3:
                 App.Settings.DefaultOpenIn = LaunchTarget.Next(App.Settings.DefaultOpenIn, direction);
                 break;
-            default:
+            case 4:
                 App.Settings.RemoteControl = !App.Settings.RemoteControl;
+                break;
+            default:
+                App.Settings.TerminalTiles = !App.Settings.TerminalTiles;
                 break;
         }
 
