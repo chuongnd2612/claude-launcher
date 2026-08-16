@@ -159,6 +159,10 @@ public sealed class StreamSession : IDisposable
         {
             info.ArgumentList.Add("--resume");
             info.ArgumentList.Add(resumeSessionId!);
+
+            // Known up front when resuming, so handing the conversation back to
+            // a terminal works before the first message of this sitting.
+            SessionId = resumeSessionId;
         }
 
         info.EnvironmentVariables["CLAUDE_CONFIG_DIR"] = StateStore.ExpandHome(Profile.ConfigDir);
@@ -191,7 +195,10 @@ public sealed class StreamSession : IDisposable
         // after the first message arrives, so waiting for that would leave the
         // screen saying "starting" with no way to type the message that ends it.
         lock (_gate) State = ChatState.Idle;
-        Add(ChatLineKind.Notice, $"Claude is ready in {ProjectName}. Type a message.");
+
+        Add(ChatLineKind.Notice, string.IsNullOrWhiteSpace(resumeSessionId)
+            ? $"Claude is ready in {ProjectName}. Type a message."
+            : $"Continuing an earlier conversation in {ProjectName}. Its history is loaded; the messages above are from this sitting only.");
     }
 
     public void Send(string text)

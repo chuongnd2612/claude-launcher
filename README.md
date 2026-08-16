@@ -106,7 +106,7 @@ directly without showing the selection screens.
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
 | Session | `↑↓` navigate · `Enter` launch · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `h` chat here · `Esc` back |
 | Chat | type · `Enter` send · `/` commands (`↑↓` pick, `Tab` complete) · `y`/`a`/`n` answer a permission request · `Ctrl+D` detach to a pane · `Esc` stop a turn, then back · `PgUp/PgDn` scroll · `End` follow |
-| Resume | `↑↓` navigate · `Enter` resume · `/` filter · `l` logs · `d` delete · `Esc` back |
+| Resume | `↑↓` navigate · `Enter` resume in a terminal · `c` resume in the chat screen · `/` filter · `l` logs · `d` delete · `Esc` back |
 | Session detail | `↑↓` scroll · `PgUp/PgDn` page · `Home/End` jump · `Esc` back |
 | Delete session | `←→` / `Tab` choose · `Enter` confirm · `y` delete · `n` / `Esc` cancel |
 | Add / Edit profile | `Tab` / `↑↓` next field · `Enter` save · `Esc` cancel |
@@ -284,6 +284,11 @@ straight into a split pane. With no transcripts for the project, `r` falls throu
 
 Rows load lazily — only the ones on screen are read — so a project with dozens of sessions still
 opens instantly.
+
+`c` picks the conversation up in the **chat screen** instead of a terminal. Claude reloads the whole
+history either way; what differs is where you type. The chat screen shows only the messages from this
+sitting, with a note saying so — it is not a transcript viewer, and `l` remains the way to read back
+what was said before.
 
 `l` opens **session detail**: turns, tool calls, files touched, and a scrollable transcript. That one
 is a full pass over the file, which is why it is behind an explicit keypress; a 35 MB transcript
