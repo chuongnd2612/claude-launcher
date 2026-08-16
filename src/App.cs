@@ -78,6 +78,13 @@ public sealed class App
 
     public ProjectEntry? Project { get; set; }
 
+    /// <summary>
+    /// Chat sessions this launcher owns and can be returned to. They keep
+    /// running when their screen is closed, which is what makes several of them
+    /// usable at once - so they are tracked here rather than by the screen.
+    /// </summary>
+    public List<Sessions.StreamSession> Chats { get; } = new();
+
     /// <summary>Set once a launch mode has been chosen.</summary>
     public string? LaunchMode { get; private set; }
 
@@ -105,6 +112,12 @@ public sealed class App
         finally
         {
             Console.CancelKeyPress -= OnCancel;
+
+            // Chat sessions are our children; leaving them behind would orphan a
+            // Claude process the user has no way to find again.
+            foreach (var chat in Chats) chat.Dispose();
+            Chats.Clear();
+
             Term.Restore();
         }
     }

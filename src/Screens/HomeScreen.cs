@@ -19,6 +19,11 @@ public sealed class HomeScreen : ScreenBase
     public HomeScreen(App app, SessionService service) : base(app)
     {
         _service = service;
+        _service.OwnedSessionIds = () => app.Chats
+            .Where(c => c.SessionId is not null)
+            .Select(c => c.SessionId!)
+            .ToArray();
+
         _snapshot = service.Build();
     }
 
@@ -165,6 +170,15 @@ public sealed class HomeScreen : ScreenBase
 
             var row = Rows[itemIndex];
             var selected = itemIndex == _index;
+
+            // Claude records no status for SDK sessions, so a chat we own would
+            // read "unknown" while it is plainly working. Ask the session itself.
+            var chat = App.Chats.FirstOrDefault(c => c.SessionId == row.SessionId && c.State != ChatState.Ended);
+            var state = chat is null
+                ? row.State
+                : chat.Pending is not null ? SessionState.Waiting
+                : chat.State == ChatState.Working ? SessionState.Running
+                : SessionState.Idle;
             var rowY = top + i;
             var bg = selected ? Theme.PanelSelected : Theme.Panel;
 
@@ -176,7 +190,7 @@ public sealed class HomeScreen : ScreenBase
 
             buffer.WriteClipped(c.TaskX, rowY, row.Task, c.TaskWidth, new Sty(Theme.TextSoft, bg));
 
-            var stateColor = row.State switch
+            var stateColor = state switch
             {
                 SessionState.Running => Theme.Green,
                 SessionState.Waiting => Theme.Amber,
@@ -184,8 +198,11 @@ public sealed class HomeScreen : ScreenBase
                 _ => Theme.Muted
             };
 
-            buffer.WriteClipped(c.StateX, rowY, Format.State(row.State, row.StateAge), c.StateWidth,
-                new Sty(stateColor, bg));
+            var stateText = chat is null
+                ? Format.State(state, row.StateAge)
+                : $"{Format.State(state, row.StateAge)} · chat";
+
+            buffer.WriteClipped(c.StateX, rowY, stateText, c.StateWidth, new Sty(stateColor, bg));
 
             var right = c.ShowModel
                 ? $"{Format.Tokens(row.ContextTokens),7}   {row.Model ?? "-",-10}"
@@ -249,6 +266,11 @@ public sealed class HomeScreen : ScreenBase
         if (Rows.Count == 0) return ScreenAction.Push(new ProfileScreen(App));
 
         var row = Rows[_index];
+
+        // A chat the launcher owns reopens where it left off; there is no
+        // terminal to raise for it.
+        var chat = App.Chats.FirstOrDefault(c => c.SessionId == row.SessionId && c.State != ChatState.Ended);
+        if (chat is not null) return ScreenAction.Push(new ChatScreen(App, chat));
 
         if (!TerminalWindow.Raise())
         {

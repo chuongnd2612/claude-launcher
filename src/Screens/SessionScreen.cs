@@ -174,6 +174,10 @@ public sealed class SessionScreen : ScreenBase
         {
             var session = new Sessions.StreamSession(App.Profile!, App.Project!.Path);
             session.Start();
+
+            // Registered so it survives leaving the screen and can be found
+            // again from Home or the terminal wall.
+            App.Chats.Add(session);
             return ScreenAction.Push(new ChatScreen(App, session));
         }
 

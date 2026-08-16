@@ -237,6 +237,7 @@ public sealed class ResumeScreen : ScreenBase
         {
             var session = new Sessions.StreamSession(App.Profile!, App.Project!.Path);
             session.Start(items[_index].SessionId);
+            App.Chats.Add(session);
             return ScreenAction.Push(new ChatScreen(App, session));
         }
 
