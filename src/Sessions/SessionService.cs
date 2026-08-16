@@ -24,10 +24,18 @@ public sealed class SessionService
     /// </summary>
     public bool WithEntries { get; set; }
 
+    /// <summary>
+    /// Sessions the launcher owns. They run through the SDK entrypoint, which is
+    /// otherwise filtered out - but ours are exactly the ones worth listing,
+    /// because the user can step straight back into them.
+    /// </summary>
+    public Func<IReadOnlyCollection<string>>? OwnedSessionIds { get; set; }
+
     public SessionSnapshot Build()
     {
         var rows = new List<SessionRow>();
         var sessionsToday = 0;
+        var owned = OwnedSessionIds?.Invoke() ?? (IReadOnlyCollection<string>)Array.Empty<string>();
         var recent = new List<RecentProject>();
 
         foreach (var profile in _state.Profiles)
@@ -41,8 +49,11 @@ public sealed class SessionService
                 // Background agents driven by the SDK are not terminals anyone can
                 // go back to, so they do not belong on this list. An unrecognised
                 // or missing entrypoint is kept: better an extra row than a hidden one.
+                // Our own chat sessions use that entrypoint too, so they are let
+                // through by id - they are the ones you can step straight back into.
                 if (!string.IsNullOrEmpty(entry.Entrypoint) &&
-                    !string.Equals(entry.Entrypoint, "cli", StringComparison.OrdinalIgnoreCase))
+                    !string.Equals(entry.Entrypoint, "cli", StringComparison.OrdinalIgnoreCase) &&
+                    !owned.Contains(entry.SessionId))
                 {
                     continue;
                 }

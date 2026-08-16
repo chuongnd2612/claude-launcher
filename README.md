@@ -100,7 +100,7 @@ directly without showing the selection screens.
 | Screen  | Keys |
 | ------- | ---- |
 | Home | `↑↓` navigate · `Enter` attach · `n` new session · `t` tile · `k` stop · `p` profiles · `q` quit |
-| Terminals | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `v` split right · `s` split down · `Space` layout · `w` remove tile · `Esc` back |
+| Terminals | `1..9` focus · `↑↓←→` move · `i` type into a chat tile · `Enter` attach · `z` zoom · `v` split right · `s` split down · `Space` layout · `w` remove tile · `Esc` back |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
@@ -237,6 +237,15 @@ Under the hood the launcher talks to Claude over its `stream-json` interface rat
 to be a terminal, which is what makes approve and deny possible at all. It is the same Claude — same
 tools, hooks, settings, MCP servers, and the same transcript on disk, so these sessions appear on
 Home and in the terminal wall like any other.
+
+**Several chats at once.** Leaving a chat with `Esc` keeps it running. It appears on Home marked
+`· chat` and as a tile on the terminal wall, and `Enter` on it from Home reopens the conversation
+where you left off. Start another from any project the same way.
+
+**Typing on the wall.** Focus a chat tile and press `i` to type straight into that session without
+leaving the wall — replies, tool calls and permission prompts all render in the tile. `Esc` stops
+typing, and the wall's own keys work again. Tiles that belong to a *terminal* session stay read-only;
+pressing `i` on one says so rather than swallowing your keystrokes.
 
 **Slash commands work here.** Type `/` and the commands this session offers are listed — all of them,
 read from the session itself rather than hardcoded, so your own project and plugin commands appear

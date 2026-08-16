@@ -155,6 +155,7 @@ public sealed class ChatScreen : ScreenBase
         }
 
         _session.Dispose();
+        App.Chats.Remove(_session);
         return ScreenAction.Back;
     }
 

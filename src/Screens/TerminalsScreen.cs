@@ -32,13 +32,25 @@ public sealed class TerminalsScreen : ScreenBase
     private bool _zoom;
     private string? _notice;
 
+    private bool _typing;
+    private string _input = string.Empty;
+
     public TerminalsScreen(App app, SessionService service) : base(app)
     {
         _service = service;
         _service.WithEntries = true;
+        _service.OwnedSessionIds = () => App.Chats
+            .Where(c => c.SessionId is not null)
+            .Select(c => c.SessionId!)
+            .ToArray();
+
         _snapshot = service.Build();
         _mode = Parse(app.Settings.TerminalLayout);
     }
+
+    /// <summary>The live session behind a tile, when the launcher owns it.</summary>
+    private StreamSession? Live(SessionRow row) =>
+        App.Chats.FirstOrDefault(c => c.SessionId == row.SessionId && c.State != ChatState.Ended);
 
     /// <summary>Fixture constructor for --selftest.</summary>
     public TerminalsScreen(App app, SessionSnapshot snapshot) : base(app)
@@ -91,8 +103,13 @@ public sealed class TerminalsScreen : ScreenBase
         var compactStrip = buffer.Height < 30;
         y = Strip(buffer, y, panes, compactStrip);
 
-        var wantTips = App.Settings.ShowTips && buffer.Height >= 40;
-        var bottom = buffer.Height - 4 - (wantTips ? 6 : 0);
+        // A tile the launcher owns can be typed into, so it gets an input row.
+        var focused = panes[_focus];
+        var live = Live(focused);
+        var inputRows = live is null ? 0 : 2;
+
+        var wantTips = App.Settings.ShowTips && buffer.Height >= 40 && live is null;
+        var bottom = buffer.Height - 4 - (wantTips ? 6 : 0) - inputRows;
         var gridHeight = bottom - y;
 
         if (gridHeight < 3)
@@ -103,13 +120,15 @@ public sealed class TerminalsScreen : ScreenBase
         else
         {
             Grid(buffer, margin, y, width, gridHeight, panes);
-            if (wantTips)
+
+            if (live is not null) ChatInput(buffer, margin, bottom + 1, width, live);
+            else if (wantTips)
             {
                 Widgets.Tips(buffer, bottom + 1, new[]
                 {
                     "Numbers focus a pane, z zooms it full screen and back",
                     "A pane turns amber when that session may be waiting for you",
-                    "These tiles are read-only - press enter to jump to the real terminal"
+                    "Tiles from a terminal are read-only - press enter to jump to it"
                 });
             }
         }
@@ -123,6 +142,36 @@ public sealed class TerminalsScreen : ScreenBase
     private void Footer(ScreenBuffer buffer, int count)
     {
         var focus = count > 4 ? "1-9" : "1-4";
+
+        if (_typing)
+        {
+            Widgets.Footer(buffer, new[]
+            {
+                new KeyHint("type", "Message"),
+                new KeyHint("↵", "Send"),
+                new KeyHint("esc", "Stop typing")
+            });
+
+            return;
+        }
+
+        var panes = Panes;
+        var live = panes.Count > 0 ? Live(panes[_focus]) : null;
+
+        if (live is not null)
+        {
+            Widgets.Footer(buffer, new[]
+            {
+                new KeyHint(focus, "Focus"),
+                new KeyHint("i", "Type"),
+                new KeyHint("z", "Zoom"),
+                new KeyHint("space", "Layout"),
+                new KeyHint("w", "Remove"),
+                new KeyHint("esc", "Back")
+            });
+
+            return;
+        }
 
         // Widgets.Footer drops hints that would overflow the bar, and the ones
         // it drops are the last - which would be Back. Shorten instead.
@@ -150,6 +199,59 @@ public sealed class TerminalsScreen : ScreenBase
             };
 
         Widgets.Footer(buffer, hints);
+    }
+
+    /// <summary>
+    /// Prompt line for the focused tile when it is a chat the launcher owns.
+    /// Typing is a mode, entered with i, because the wall's own keys are single
+    /// letters and would otherwise be swallowed by the message.
+    /// </summary>
+    private void ChatInput(ScreenBuffer buffer, int x, int y, int width, StreamSession live)
+    {
+        if (live.Pending is not null)
+        {
+            var ask = live.Pending;
+            buffer.Fill(x, y, width, 1, Theme.Panel);
+            buffer.WriteClipped(x + 1, y, $"◆ {ask.Tool} {ask.Description}", width - 2,
+                new Sty(Theme.Amber, Theme.Panel, bold: true));
+
+            var cursor = buffer.Write(x + 1, y + 1, "y", new Sty(Theme.Green, Theme.Bg, bold: true));
+            cursor = buffer.Write(cursor, y + 1, " allow   ", new Sty(Theme.Muted, Theme.Bg));
+            cursor = buffer.Write(cursor, y + 1, "a", new Sty(Theme.Blue, Theme.Bg, bold: true));
+            cursor = buffer.Write(cursor, y + 1, " always   ", new Sty(Theme.Muted, Theme.Bg));
+            cursor = buffer.Write(cursor, y + 1, "n", new Sty(Theme.Red, Theme.Bg, bold: true));
+            buffer.Write(cursor, y + 1, " deny", new Sty(Theme.Muted, Theme.Bg));
+            return;
+        }
+
+        var busy = live.State == ChatState.Working;
+        var bg = _typing ? Theme.PanelSelected : Theme.BgSoft;
+
+        buffer.Fill(x, y + 1, width, 1, bg);
+        buffer.Write(x + 1, y + 1, "›", new Sty(_typing ? Theme.Blue : Theme.Dim, bg, bold: true));
+
+        if (busy)
+        {
+            var tool = live.ActiveTool;
+            var text = tool is null
+                ? "Claude is working — esc to stop"
+                : $"{tool.Description} · running {Sessions.Format.Duration(tool.Elapsed)}";
+
+            buffer.WriteClipped(x + 3, y + 1, text, width - 4, new Sty(Theme.Amber, bg, italic: tool is null));
+            return;
+        }
+
+        if (!_typing)
+        {
+            buffer.WriteClipped(x + 3, y + 1, "press i to type to this session", width - 4,
+                new Sty(Theme.Dim, bg, italic: true));
+            return;
+        }
+
+        var room = width - 6;
+        var shown = _input.Length <= room ? _input : _input.Substring(_input.Length - room);
+        var caret = buffer.Write(x + 3, y + 1, shown, new Sty(Theme.Text, bg));
+        buffer.Write(caret, y + 1, "▏", new Sty(Theme.Blue, bg, bold: true));
     }
 
     /// <summary>The numbered pane strip, echoing the wizard's step badges.</summary>
@@ -257,6 +359,19 @@ public sealed class TerminalsScreen : ScreenBase
         }
     }
 
+    private static TranscriptEntry ToEntry(ChatLine line) => new()
+    {
+        Kind = line.Kind switch
+        {
+            ChatLineKind.UserPrompt => EntryKind.UserPrompt,
+            ChatLineKind.ToolCall => EntryKind.ToolCall,
+            ChatLineKind.Thinking => EntryKind.Thinking,
+            _ => EntryKind.AssistantText
+        },
+        Text = line.Text,
+        Target = line.Detail
+    };
+
     private static (int Columns, int Rows) Shape(int count, int width, int height)
     {
         var maxColumns = Math.Max(1, (width + GutterX) / (MinPaneWidth + GutterX));
@@ -285,10 +400,32 @@ public sealed class TerminalsScreen : ScreenBase
         }
     }
 
-    private static void Tile(ScreenBuffer buffer, int x, int y, int width, int height,
+    private void Tile(ScreenBuffer buffer, int x, int y, int width, int height,
         SessionRow row, int index, bool focused)
     {
         if (width < 12 || height < 3) return;
+
+        // A session we own reports itself directly, which is both fresher than
+        // the transcript on disk and the only way to see a pending permission.
+        var live = Live(row);
+        if (live is not null)
+        {
+            row = new SessionRow
+            {
+                SessionId = row.SessionId,
+                ProjectName = row.ProjectName,
+                ProjectPath = row.ProjectPath,
+                Task = row.Task,
+                Branch = row.Branch,
+                Model = live.Model ?? row.Model,
+                ContextTokens = row.ContextTokens,
+                StateAge = row.StateAge,
+                State = live.Pending is not null ? SessionState.Waiting
+                    : live.State == ChatState.Working ? SessionState.Running
+                    : SessionState.Idle,
+                Entries = live.Snapshot().Select(ToEntry).ToArray()
+            };
+        }
 
         var border = row.State == SessionState.Waiting
             ? Theme.Amber
@@ -386,6 +523,47 @@ public sealed class TerminalsScreen : ScreenBase
     {
         _notice = null;
         var panes = Panes;
+        var live = panes.Count > 0 ? Live(panes[_focus]) : null;
+
+        // A pending permission owns the keyboard until it is answered.
+        if (live?.Pending is not null)
+        {
+            switch (char.ToLowerInvariant(key.KeyChar))
+            {
+                case 'y': live.Answer(allow: true); return ScreenAction.None;
+                case 'a': live.Answer(allow: true, always: true); return ScreenAction.None;
+                case 'n': live.Answer(allow: false); return ScreenAction.None;
+            }
+
+            if (key.Key == ConsoleKey.Escape) return ScreenAction.Back;
+            return ScreenAction.None;
+        }
+
+        if (_typing && live is not null)
+        {
+            switch (key.Key)
+            {
+                case ConsoleKey.Escape:
+                    _typing = false;
+                    return ScreenAction.None;
+
+                case ConsoleKey.Enter:
+                    if (_input.Trim().Length > 0 && live.State != ChatState.Working)
+                    {
+                        live.Send(_input.Trim());
+                        _input = string.Empty;
+                    }
+
+                    return ScreenAction.None;
+
+                case ConsoleKey.Backspace:
+                    if (_input.Length > 0) _input = _input.Substring(0, _input.Length - 1);
+                    return ScreenAction.None;
+            }
+
+            if (!char.IsControl(key.KeyChar)) _input += key.KeyChar;
+            return ScreenAction.None;
+        }
 
         switch (key.Key)
         {
@@ -418,6 +596,11 @@ public sealed class TerminalsScreen : ScreenBase
 
         switch (char.ToLowerInvariant(ch))
         {
+            case 'i':
+                if (live is not null) { _typing = true; return ScreenAction.None; }
+                _notice = "That session runs in a terminal, so it cannot be typed into here.";
+                return ScreenAction.None;
+
             case 'z':
                 if (panes.Count > 0) _zoom = !_zoom;
                 return ScreenAction.None;
