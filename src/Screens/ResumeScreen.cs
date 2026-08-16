@@ -152,7 +152,7 @@ public sealed class ResumeScreen : ScreenBase
             {
                 new KeyHint("↑↓", "Navigate"),
                 new KeyHint("↵", "Resume"),
-                new KeyHint("c", "Chat here"),
+                new KeyHint("c", "Chat view"),
                 new KeyHint("/", "Filter"),
                 new KeyHint("l", "Logs"),
                 new KeyHint("d", "Delete"),
@@ -219,6 +219,15 @@ public sealed class ResumeScreen : ScreenBase
                 return ScreenAction.None;
             case ConsoleKey.Enter:
                 if (items.Count == 0) return ScreenAction.None;
+
+                // With tiles on and this console as the target, resuming lands
+                // on Claude here rather than handing the session to the wrapper.
+                if (App.Settings.TerminalTiles && _openIn == LaunchTarget.Current)
+                {
+                    var resumed = OpenTile(items[_index].SessionId);
+                    if (resumed is not null) return resumed;
+                }
+
                 return ScreenAction.Resume(items[_index].SessionId, _openIn);
             case ConsoleKey.Escape:
             case ConsoleKey.Backspace:
@@ -231,8 +240,9 @@ public sealed class ResumeScreen : ScreenBase
 
         if (items.Count == 0) return ScreenAction.None;
 
-        // Pick the conversation back up inside the launcher rather than in a
-        // terminal. Claude reloads it from disk, so nothing is lost either way.
+        // Pick the conversation back up in the launcher's own chat view, even
+        // when tiles are on - the one way to get the styled transcript for a
+        // session without changing the setting.
         if (ch == 'c')
         {
             var session = new Sessions.StreamSession(App.Profile!, App.Project!.Path);
@@ -242,6 +252,12 @@ public sealed class ResumeScreen : ScreenBase
         }
 
         if (ch == 'l') return ScreenAction.Push(new SessionDetailScreen(App, items[_index]));
+
+        if (ch == 't')
+        {
+            var tile = OpenTile(items[_index].SessionId);
+            if (tile is not null) return tile;
+        }
 
         if (ch == 'd')
         {
@@ -256,5 +272,26 @@ public sealed class ResumeScreen : ScreenBase
     {
         if (count == 0) return;
         _index = Math.Clamp(_index + delta, 0, count - 1);
+    }
+
+    /// <summary>
+    /// Resumes into a terminal tile, or returns null when a pseudo console is
+    /// unavailable so the caller can hand the session to the wrapper instead.
+    /// </summary>
+    private ScreenAction? OpenTile(string sessionId)
+    {
+        try
+        {
+            var tile = Terminal.TerminalTile.Start(
+                App.Project!.Path, App.Project!.Name,
+                StateStore.ExpandHome(App.Profile!.ConfigDir), 100, 30, sessionId);
+
+            App.Terminals.Add(tile);
+            return ScreenAction.Push(new TerminalSessionScreen(App, tile));
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 }

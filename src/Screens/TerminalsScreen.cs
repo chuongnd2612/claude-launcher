@@ -111,11 +111,15 @@ public sealed class TerminalsScreen : ScreenBase
     /// </summary>
     private bool _released;
 
-    /// <summary>The terminal tile behind a row, when there is one.</summary>
-    private TerminalTile? LiveTerminal(SessionRow row) =>
-        string.IsNullOrEmpty(row.SessionId)
-            ? null
-            : App.Terminals.FirstOrDefault(t => t.SessionId == row.SessionId);
+    /// <summary>
+    /// The terminal tile behind a row. A --continue tile has no id until Claude
+    /// writes one, so it is matched by project until then.
+    /// </summary>
+    private TerminalTile? LiveTerminal(SessionRow row) => App.Terminals.FirstOrDefault(t =>
+        !t.HasExited &&
+        (!string.IsNullOrEmpty(t.SessionId) && t.SessionId == row.SessionId ||
+         string.IsNullOrEmpty(t.SessionId) &&
+         string.Equals(t.ProjectPath, row.ProjectPath, StringComparison.OrdinalIgnoreCase)));
 
     /// <summary>The live session behind a tile, when the launcher owns it.</summary>
     private StreamSession? Live(SessionRow row) => App.Chats.FirstOrDefault(c =>
@@ -202,8 +206,17 @@ public sealed class TerminalsScreen : ScreenBase
             foreach (var terminal in App.Terminals)
             {
                 if (terminal.HasExited) continue;
-                if (rows.Any(r => r.SessionId == terminal.SessionId)) continue;
                 if (_hidden.Contains(terminal.SessionId)) continue;
+
+                if (!string.IsNullOrEmpty(terminal.SessionId))
+                {
+                    if (rows.Any(r => r.SessionId == terminal.SessionId)) continue;
+                }
+                else if (rows.Any(r => string.Equals(r.ProjectPath, terminal.ProjectPath,
+                             StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
 
                 rows.Add(new SessionRow
                 {

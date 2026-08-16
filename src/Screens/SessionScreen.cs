@@ -7,7 +7,7 @@ public sealed class SessionScreen : ScreenBase
 {
     private sealed record Option(string Mode, string Glyph, string Title, string Detail, string Hint);
 
-    private static readonly Option[] Options =
+    private static readonly Option[] Launching =
     {
         new("new", "▶", "New session", "Start a fresh conversation in this project", "claude"),
         new("continue", "→", "Continue", "Pick up the most recent conversation", "claude --continue"),
@@ -15,16 +15,40 @@ public sealed class SessionScreen : ScreenBase
         new("chat", "▣", "Chat here", "Type to Claude inside the launcher, no new window", "stream")
     };
 
+    /// <summary>
+    /// With terminal tiles on, every option already opens inside the launcher,
+    /// so a separate "Chat here" row would be the same thing under a second
+    /// name. Three rows, and Enter lands on Claude straight away.
+    /// </summary>
+    private static readonly Option[] Tiled =
+    {
+        new("new", "▶", "New session", "Start a fresh conversation in this project", "claude"),
+        new("continue", "→", "Continue", "Pick up the most recent conversation", "claude --continue"),
+        new("resume", "↻", "Resume", "Choose from earlier sessions to resume", "claude --resume")
+    };
+
+    private readonly Option[] Options;
+
     private int _index;
     private string _openIn;
     private string? _notice;
 
     public SessionScreen(App app) : base(app)
     {
+        _openIn = LaunchTarget.Normalize(app.Settings.DefaultOpenIn);
+        Options = InLauncher(app, _openIn) ? Tiled : Launching;
+
         var preferred = Array.FindIndex(Options, o => o.Mode == app.Settings.DefaultMode);
         _index = preferred >= 0 ? preferred : 0;
-        _openIn = LaunchTarget.Normalize(app.Settings.DefaultOpenIn);
     }
+
+    /// <summary>
+    /// A session opens inside the launcher only when tiles are on *and* the
+    /// target is this console. Choosing a tab or a pane is an explicit ask for
+    /// a real window, and must keep winning.
+    /// </summary>
+    private static bool InLauncher(App app, string openIn) =>
+        app.Settings.TerminalTiles && openIn == LaunchTarget.Current;
 
     public override void Render(ScreenBuffer buffer)
     {
@@ -42,10 +66,13 @@ public sealed class SessionScreen : ScreenBase
         // Every option has to stay visible: an option you cannot see is one you
         // do not know exists. Cards lose their gaps first, then their boxes.
         // The summary is counted in, so gaps go before it does.
+        // A card is 3 rows and each one after the first starts a stride later,
+        // so n cards need (n-1)*stride + 3 - counting one row short drops the
+        // last option instead of switching to the compact list.
         const int summaryRows = 8;
         var room = buffer.Height - 4 - y;
-        var stride = room >= Options.Length * 4 - 1 + summaryRows ? 4 : 3;
-        var compact = room < Options.Length * 3 - 1;
+        var stride = room >= (Options.Length - 1) * 4 + 3 + summaryRows ? 4 : 3;
+        var compact = room < (Options.Length - 1) * 3 + 3;
 
         if (compact)
         {
@@ -166,37 +193,52 @@ public sealed class SessionScreen : ScreenBase
     }
 
     /// <summary>
+    /// Starts a tile for this project, or returns null and leaves a notice when
+    /// a pseudo console is unavailable, so the caller can fall back.
+    /// </summary>
+    private ScreenAction? OpenTile(bool continueLatest = false, string? resumeSessionId = null)
+    {
+        try
+        {
+            var tile = Terminal.TerminalTile.Start(
+                App.Project!.Path, App.Project!.Name,
+                StateStore.ExpandHome(App.Profile!.ConfigDir), 100, 30,
+                resumeSessionId, continueLatest);
+
+            App.Terminals.Add(tile);
+            return ScreenAction.Push(new TerminalSessionScreen(App, tile));
+        }
+        catch (Exception ex)
+        {
+            // A pseudo console needs Windows 10 1809 or newer. Falling back
+            // beats refusing to open a session.
+            _notice = "terminal unavailable: " + ex.Message;
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Resume shows the picker when this project has transcripts, so the choice
     /// is made against titles and prompts rather than inside Claude's own list.
     /// With none to show, it falls through to a bare --resume.
     /// </summary>
     private ScreenAction Choose(string mode)
     {
-        // Chat keeps the launcher running and owns the process, so it never
-        // writes result.json - there is nothing for the wrapper to launch.
+        // A session opened inside the launcher keeps the launcher running and
+        // owns the process, so it never writes result.json - there is nothing
+        // for the wrapper to launch.
+        //
+        // New, Continue and Resume all land straight on Claude when tiles are
+        // on and the target is this console. Resume still shows its picker
+        // first, because choosing which conversation is the point of it.
+        if (InLauncher(App, _openIn) && mode is "new" or "continue")
+        {
+            var tile = OpenTile(continueLatest: mode == "continue");
+            if (tile is not null) return tile;
+        }
+
         if (mode == "chat")
         {
-            // Two engines behind one entry point: a pseudo console showing
-            // Claude's own interface, or the launcher's styled chat view.
-            if (App.Settings.TerminalTiles)
-            {
-                try
-                {
-                    var tile = Terminal.TerminalTile.Start(
-                        App.Project!.Path, App.Project!.Name,
-                        StateStore.ExpandHome(App.Profile!.ConfigDir), 100, 30);
-
-                    App.Terminals.Add(tile);
-                    return ScreenAction.Push(new TerminalSessionScreen(App, tile));
-                }
-                catch (Exception ex)
-                {
-                    // A pseudo console needs Windows 10 1809 or newer. Falling
-                    // back to the chat view beats refusing to open a session.
-                    _notice = "terminal unavailable, using chat view: " + ex.Message;
-                }
-            }
-
             var session = new Sessions.StreamSession(App.Profile!, App.Project!.Path);
             session.Start();
 
@@ -207,6 +249,24 @@ public sealed class SessionScreen : ScreenBase
         }
 
         if (mode != "resume") return ScreenAction.Finish(mode, _openIn);
+
+        if (InLauncher(App, _openIn))
+        {
+            var recorded = Sessions.SessionReader.ListProjectSessions(
+                StateStore.ExpandHome(App.Profile!.ConfigDir), App.Project!.Path);
+
+            // Nothing recorded yet, so there is nothing to pick from: a bare
+            // --continue is the closest honest answer.
+            if (recorded.Count == 0)
+            {
+                var latest = OpenTile(continueLatest: true);
+                if (latest is not null) return latest;
+            }
+            else
+            {
+                return ScreenAction.Push(new ResumeScreen(App, _openIn));
+            }
+        }
 
         var sessions = Sessions.SessionReader.ListProjectSessions(
             StateStore.ExpandHome(App.Profile!.ConfigDir), App.Project!.Path);

@@ -58,17 +58,25 @@ public sealed class TerminalTile : IDisposable
     public string SessionId { get; private init; } = string.Empty;
 
     public static TerminalTile Start(string projectPath, string projectName, string configDir,
-        int cols, int rows, string? resumeSessionId = null)
+        int cols, int rows, string? resumeSessionId = null, bool continueLatest = false)
     {
         cols = Math.Max(20, cols);
         rows = Math.Max(4, rows);
 
         var resuming = !string.IsNullOrWhiteSpace(resumeSessionId);
-        var sessionId = resuming ? resumeSessionId! : Guid.NewGuid().ToString();
+
+        // --continue picks a conversation we cannot name in advance, so that
+        // tile has no id until Claude writes one; it is keyed by project until
+        // then, the same way a chat is.
+        var sessionId = continueLatest ? string.Empty
+            : resuming ? resumeSessionId!
+            : Guid.NewGuid().ToString();
 
         var command = new StringBuilder();
         command.Append('"').Append(Executable()).Append('"');
-        command.Append(resuming ? " --resume " : " --session-id ").Append(sessionId);
+
+        if (continueLatest) command.Append(" --continue");
+        else command.Append(resuming ? " --resume " : " --session-id ").Append(sessionId);
 
         var env = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
         {

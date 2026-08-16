@@ -106,10 +106,10 @@ directly without showing the selection screens.
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
-| Session | `↑↓` navigate · `Enter` launch · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `h` chat here · `Esc` back |
+| Session | `↑↓` navigate · `Enter` launch · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `h` chat view (only with terminal tiles off) · `Esc` back |
 | Chat | type · `Enter` send · `/` commands (`↑↓` pick, `Tab` complete) · `y`/`a`/`n` answer a permission request · `Ctrl+D` detach to a pane · `Esc` stop a turn, then back · `PgUp/PgDn` scroll · `End` follow |
 | Terminal session (`Chat here` with terminal tiles on) | every key goes to Claude · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` type again · `t` wall · `Esc` Home |
-| Resume | `↑↓` navigate · `Enter` resume in a terminal · `c` resume in the chat screen · `/` filter · `l` logs · `d` delete · `Esc` back |
+| Resume | `↑↓` navigate · `Enter` resume (a terminal tile, or a real terminal when tiles are off) · `t` force a terminal tile · `c` resume in the chat view · `/` filter · `l` logs · `d` delete · `Esc` back |
 | Session detail | `↑↓` scroll · `PgUp/PgDn` page · `Home/End` jump · `Esc` back |
 | Delete session | `←→` / `Tab` choose · `Enter` confirm · `y` delete · `n` / `Esc` cancel |
 | Add / Edit profile | `Tab` / `↑↓` next field · `Enter` save · `Esc` cancel |
@@ -371,10 +371,20 @@ that could paste a prompt into the *wrong* session is worse than no key.
 ### Terminal tiles — Claude's own interface, inside the wall
 
 **Which engine runs an in-launcher session is a setting.** `Terminal tiles` in settings (`s`) is
-**on by default**: `Chat here` opens the session under a pseudo console showing Claude's own
-interface. Turn it off to get the launcher's styled chat view instead — blue prompts, muted tool
-lines, the amber permission box — at the cost of rich screens arriving as plain text. The setting
-only chooses a default; both kinds can coexist on the wall.
+**on by default**. With it on, step 3 drops to three options — **New session**, **Continue**,
+**Resume** — and each one lands straight on Claude's own interface inside the launcher. There is no
+separate `Chat here` row, because every option already opens here.
+
+Turn the setting off to get the old behaviour: `New`/`Continue`/`Resume` hand the session to the
+wrapper, and `Chat here` opens the launcher's styled chat view — blue prompts, muted tool lines, the
+amber permission box — at the cost of rich screens arriving as plain text.
+
+**Choosing a tab or a pane still wins.** The in-launcher path applies only when `Opens in` is this
+console; picking `tab`, `right` or `down` is an explicit ask for a real window and behaves exactly
+as before, setting or no setting.
+
+Both kinds of tile can coexist on the wall regardless of the setting: `c` on the resume picker opens
+a conversation in the chat view, and `t` there forces a terminal tile.
 
 Press `t` on the wall to open a **terminal tile** — or **`Ctrl+T`** when a chat tile is focused,
 because a focused chat tile takes every printable key for its own prompt and would otherwise type a
