@@ -283,6 +283,8 @@ public sealed class TerminalsScreen : ScreenBase
         var width = buffer.Width - margin * 2;
         var panes = Panes;
 
+        _rects.Clear();
+
         if (_focus >= panes.Count) _focus = Math.Max(0, panes.Count - 1);
 
         // Breadcrumb, with the right-hand status shortened rather than wrapped.
@@ -632,10 +634,18 @@ public sealed class TerminalsScreen : ScreenBase
         }
     }
 
+    /// <summary>
+    /// Where each pane was last drawn, so a click can be resolved back to it.
+    /// Rebuilt every frame; the layout is the only thing that knows the rects.
+    /// </summary>
+    private readonly List<(int X, int Y, int W, int H, int Index)> _rects = new();
+
     private void Tile(ScreenBuffer buffer, int x, int y, int width, int height,
         SessionRow row, int index, bool focused)
     {
         if (width < 12 || height < 3) return;
+
+        _rects.Add((x, y, width, height, index));
 
         var terminal = LiveTerminal(row);
         if (terminal is not null)
@@ -850,8 +860,27 @@ public sealed class TerminalsScreen : ScreenBase
                 return ScreenAction.None;
             }
 
+            // Switching panes has to work mid-sentence, so a few Alt chords are
+            // kept back from the child. Alt is the safe half of the keyboard:
+            // Claude's own UI uses Esc, Tab, the arrows and Ctrl, all of which
+            // stay its own.
+            if (Switch(key, panes.Count)) return ScreenAction.None;
+
+            // Shift+PageUp/PageDown reads back through the scrollback, the way
+            // any terminal does it. Plain PageUp belongs to Claude.
+            if ((key.Modifiers & ConsoleModifiers.Shift) != 0 &&
+                key.Key is ConsoleKey.PageUp or ConsoleKey.PageDown)
+            {
+                var lines = key.Key == ConsoleKey.PageUp ? 10 : -10;
+                terminal.Read(screen => screen.ScrollBy(lines));
+                return ScreenAction.None;
+            }
+
             if (!_released)
             {
+                // Typing means you want to be back at the prompt, not still
+                // reading history.
+                terminal.Read(screen => screen.ScrollToBottom());
                 terminal.Send(key);
                 return ScreenAction.None;
             }
@@ -1044,6 +1073,74 @@ public sealed class TerminalsScreen : ScreenBase
     /// </summary>
     private ScreenAction Leave() =>
         ScreenAction.Root(new HomeScreen(App, new SessionService(App.State)));
+
+    /// <summary>
+    /// Alt+1..9 jumps to a pane and Alt+arrow steps between them, whether or not
+    /// a terminal currently owns the keyboard. Returns true when it handled the
+    /// key, so it is not also sent to the child.
+    /// </summary>
+    private bool Switch(ConsoleKeyInfo key, int count)
+    {
+        if ((key.Modifiers & ConsoleModifiers.Alt) == 0 || count == 0) return false;
+
+        if (key.Key >= ConsoleKey.D1 && key.Key <= ConsoleKey.D9)
+        {
+            var wanted = key.Key - ConsoleKey.D1;
+            if (wanted >= count) return true;
+
+            Focus(wanted);
+            return true;
+        }
+
+        switch (key.Key)
+        {
+            case ConsoleKey.RightArrow:
+            case ConsoleKey.DownArrow:
+                Focus((_focus + 1) % count);
+                return true;
+            case ConsoleKey.LeftArrow:
+            case ConsoleKey.UpArrow:
+                Focus((_focus - 1 + count) % count);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Moves focus and hands the keyboard straight to the new pane, so switching
+    /// while typing lands you typing rather than in a released state.
+    /// </summary>
+    private void Focus(int index)
+    {
+        _focus = index;
+        _released = false;
+        _notice = null;
+        _menuIndex = 0;
+    }
+
+    public override ScreenAction HandleInput(InputEvent input)
+    {
+        if (input.Kind == InputKind.Key) return HandleKey(input.Key);
+
+        var panes = Panes;
+        var hit = _rects.FirstOrDefault(r =>
+            input.X >= r.X && input.X < r.X + r.W &&
+            input.Y >= r.Y && input.Y < r.Y + r.H);
+
+        if (hit.W == 0 || hit.Index >= panes.Count) return ScreenAction.None;
+
+        if (input.Kind == InputKind.MouseDown)
+        {
+            Focus(hit.Index);
+            return ScreenAction.None;
+        }
+
+        // The wheel scrolls whichever pane is under the pointer, focused or not -
+        // looking back at a pane should not mean taking the keyboard off another.
+        LiveTerminal(panes[hit.Index])?.Read(screen => screen.ScrollBy(input.Delta * 3));
+        return ScreenAction.None;
+    }
 
     private void Cycle()
     {

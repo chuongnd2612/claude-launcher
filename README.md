@@ -102,7 +102,7 @@ directly without showing the selection screens.
 | Home | `↑↓` navigate · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` new session · `t` tile · `k` stop · `p` profiles · `q` quit |
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` open a terminal there · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
 | Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `v` split right · `s` split down · `Space` layout · `t` new terminal · `w` remove tile · `Esc` back |
-| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` resume typing |
+| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll history · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` resume typing |
 | Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` new terminal · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
@@ -411,6 +411,19 @@ no interpretation left to get wrong. Anything Anthropic adds later works the sam
 While a terminal tile is focused it takes **every** key, including `Esc`, `Tab` and the arrows,
 because Claude's own UI needs them. `Ctrl+]` hands the keyboard back to the wall; `Ctrl+]` again (or
 `Enter`) starts typing into it once more. The tile header shows which mode you are in.
+
+**Switching panes mid-sentence.** `Alt+1..9` jumps straight to a pane and `Alt+←→↑↓` steps between
+them, without releasing the keyboard first — you land typing in the new pane. Alt is reserved for
+this because Claude's own interface uses `Esc`, `Tab`, the arrows and `Ctrl`, which all stay its own.
+
+**The mouse works too.** Click any tile to focus it, and the wheel scrolls whichever tile is under
+the pointer — focused or not, so reading one pane never takes the keyboard off another. This needs
+the console's *Quick Edit* mode off, which the launcher turns off while it runs and restores on exit.
+
+**Scrollback.** Each terminal tile keeps 2000 lines. `Shift+PgUp` / `Shift+PgDn` read back through
+it (plain `PgUp` belongs to Claude), and the wheel does the same. A scrolled tile shows `↑ n` in its
+top-right and stays put while Claude keeps printing; **typing snaps it back to live**. The `/usage`
+screen and anything else on the alternate screen has no scrollback of its own, by design.
 
 The trade, stated plainly:
 

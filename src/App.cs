@@ -54,6 +54,14 @@ public abstract class ScreenBase
     public abstract ScreenAction HandleKey(ConsoleKeyInfo key);
 
     /// <summary>
+    /// Routes one input event. Screens that care about the mouse override this;
+    /// everything else keeps handling keys and ignores the rest, so adding the
+    /// mouse changed no existing screen.
+    /// </summary>
+    public virtual ScreenAction HandleInput(InputEvent input) =>
+        input.Kind == InputKind.Key ? HandleKey(input.Key) : ScreenAction.None;
+
+    /// <summary>
     /// Non-null for screens whose content changes on its own. Screens that only
     /// react to keys leave this null and the loop stays event driven, as before.
     /// </summary>
@@ -114,6 +122,7 @@ public sealed class App
         if (_stack.Count == 0) return;
 
         Term.Setup("⚡ CLAUDE LAUNCHER");
+        ConsoleInput.Start();
         Console.CancelKeyPress += OnCancel;
         AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
 
@@ -125,6 +134,7 @@ public sealed class App
         {
             Console.CancelKeyPress -= OnCancel;
             AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
+            ConsoleInput.Stop();
 
             // These are our children; leaving them behind would orphan a Claude
             // process the user has no way to find again.
@@ -192,39 +202,41 @@ public sealed class App
             Current.Render(_buffer);
             _buffer.Flush();
 
-            var key = WaitForKey(width, height, Current);
-            if (key is null) continue; // resized, or the screen asked for a repaint
+            var input = WaitForInput(width, height, Current);
+            if (input is null) continue; // resized, or the screen asked for a repaint
 
-            Apply(Current.HandleKey(key.Value));
+            Apply(Current.HandleInput(input.Value));
         }
     }
 
-    private static ConsoleKeyInfo? WaitForKey(int width, int height, ScreenBase screen)
+    /// <summary>
+    /// Blocks until something happens: input, a tile drawing, a resize, or the
+    /// screen's own refresh falling due.
+    ///
+    /// This used to poll every 35ms, which sat in front of every keystroke. It
+    /// now waits on the input thread and on a tile signalling new output, so a
+    /// key is handled as soon as Windows has it and an echo is painted as soon
+    /// as the child produces it.
+    /// </summary>
+    private static InputEvent? WaitForInput(int width, int height, ScreenBase screen)
     {
         var interval = screen.RefreshInterval;
         var next = interval is null ? DateTime.MaxValue : DateTime.UtcNow + interval.Value;
 
         while (true)
         {
-            try
-            {
-                if (Console.KeyAvailable) return Console.ReadKey(intercept: true);
-            }
-            catch (InvalidOperationException)
-            {
-                return Console.ReadKey(intercept: true);
-            }
+            // Long enough to cost nothing while idle; the wake-up is what makes
+            // it responsive, not this number.
+            var slice = interval is null ? TimeSpan.FromMilliseconds(120) : interval.Value;
+            if (ConsoleInput.Wait(slice, out var input)) return input;
 
             if (Term.Width != width || Term.Height != height) return null;
 
-            if (DateTime.UtcNow >= next)
-            {
-                // null already means "redraw" to the caller, same as a resize.
-                if (screen.NeedsRedraw()) return null;
-                next = DateTime.UtcNow + interval!.Value;
-            }
+            // A tile that produced output asks for the repaint directly, so this
+            // is no longer the only thing keeping the screen current.
+            if (screen.NeedsRedraw()) return null;
 
-            Thread.Sleep(35);
+            if (DateTime.UtcNow >= next && interval is not null) next = DateTime.UtcNow + interval.Value;
         }
     }
 
