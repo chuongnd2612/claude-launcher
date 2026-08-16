@@ -59,6 +59,31 @@ public sealed class TerminalsScreen : ScreenBase
             .ToList();
     }
 
+    /// <summary>
+    /// Values offered once a command is chosen, for commands that document
+    /// them - so "/effort " picks from low, medium, high rather than being typed.
+    /// </summary>
+    private List<string> ValueMatches(StreamSession live, string draft)
+    {
+        if (!draft.StartsWith('/')) return new List<string>();
+
+        var space = draft.IndexOf(' ');
+        if (space < 0) return new List<string>();
+
+        var name = draft.Substring(1, space - 1);
+        var command = live.Commands.FirstOrDefault(c =>
+            string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        if (command is null || command.Options.Count == 0) return new List<string>();
+
+        var typed = draft.Substring(space + 1);
+        if (typed.Contains(' ')) return new List<string>();
+
+        return command.Options
+            .Where(o => o.StartsWith(typed, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
     public TerminalsScreen(App app, SessionService service) : base(app)
     {
         _service = service;
@@ -350,8 +375,13 @@ public sealed class TerminalsScreen : ScreenBase
     /// Command dropdown above the prompt: one command per row with its
     /// description, the way Claude's own menu reads.
     /// </summary>
+    private static string Detail(SlashCommand command) =>
+        string.IsNullOrEmpty(command.ArgumentHint)
+            ? command.Description
+            : $"{command.ArgumentHint} · {command.Description}";
+
     private void TileMenu(ScreenBuffer buffer, int x, int y, int width, int rows,
-        List<SlashCommand> matches)
+        List<(string Label, string Detail)> matches)
     {
         _menuIndex = Math.Clamp(_menuIndex, 0, Math.Max(0, matches.Count - 1));
 
@@ -366,19 +396,15 @@ public sealed class TerminalsScreen : ScreenBase
             var index = start + i;
             if (index >= matches.Count) break;
 
-            var command = matches[index];
+            var (label, detail) = matches[index];
             var selected = index == _menuIndex;
             var rowY = y + i;
             var bg = selected ? Theme.PanelSelected : Theme.BgSoft;
 
             buffer.Fill(x, rowY, width, 1, bg);
             buffer.Write(x, rowY, selected ? "▸ " : "  ", new Sty(Theme.Blue, bg, bold: true));
-            buffer.WriteClipped(x + 2, rowY, "/" + command.Name, nameWidth,
+            buffer.WriteClipped(x + 2, rowY, label, nameWidth,
                 new Sty(selected ? Theme.Blue : Theme.Text, bg, bold: selected));
-
-            var detail = string.IsNullOrEmpty(command.ArgumentHint)
-                ? command.Description
-                : $"{command.ArgumentHint} · {command.Description}";
 
             // The counter sits on the first row, so that row's detail stops short.
             var counter = matches.Count > rows ? $"{_menuIndex + 1}/{matches.Count}" : string.Empty;
@@ -587,16 +613,19 @@ public sealed class TerminalsScreen : ScreenBase
 
         // A chat tile keeps its last rows for its own prompt, and one more for
         // the command menu while a slash command is being typed.
-        var matches = live is not null && focused
-            ? Matches(live, Draft(row))
-            : new List<SlashCommand>();
+        var draftText = live is not null && focused ? Draft(row) : string.Empty;
+        var matches = live is not null && focused ? Matches(live, draftText) : new List<SlashCommand>();
+        var values = live is not null && focused && matches.Count == 0
+            ? ValueMatches(live, draftText)
+            : new List<string>();
 
         var inputRows = live is not null && contentRows > 2 ? 1 : 0;
+        var listCount = matches.Count > 0 ? matches.Count : values.Count;
 
         // The dropdown takes what it can up to six rows, never leaving the
         // transcript with less than two.
-        var menuRows = matches.Count > 0
-            ? Math.Clamp(Math.Min(matches.Count, 6), 0, Math.Max(0, contentRows - inputRows - 2))
+        var menuRows = listCount > 0
+            ? Math.Clamp(Math.Min(listCount, 6), 0, Math.Max(0, contentRows - inputRows - 2))
             : 0;
 
         contentRows -= menuRows + inputRows;
@@ -615,7 +644,18 @@ public sealed class TerminalsScreen : ScreenBase
         if (inputRows == 0 || live is null) return;
 
         var inputY = y + height - 2;
-        if (menuRows > 0) TileMenu(buffer, x + 2, inputY - menuRows, inner, menuRows, matches);
+
+        if (menuRows > 0)
+        {
+            // Values are shown in the same dropdown, so choosing a command and
+            // then its value is one continuous motion.
+            var entries = matches.Count > 0
+                ? matches.Select(m => (Label: "/" + m.Name, Detail: Detail(m))).ToList()
+                : values.Select(v => (Label: v, Detail: string.Empty)).ToList();
+
+            TileMenu(buffer, x + 2, inputY - menuRows, inner, menuRows, entries);
+        }
+
         TileInput(buffer, x + 2, inputY, inner, live, row, focused, fill);
     }
 
