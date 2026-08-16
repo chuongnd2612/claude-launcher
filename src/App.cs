@@ -89,6 +89,13 @@ public sealed class App
     /// </summary>
     public List<Sessions.StreamSession> Chats { get; } = new();
 
+    /// <summary>
+    /// Terminal tiles: the same sessions seen through a pseudo console instead
+    /// of a parsed conversation. Tracked alongside chats, and torn down the same
+    /// way, because they are children of this process too.
+    /// </summary>
+    public List<Terminal.TerminalTile> Terminals { get; } = new();
+
     /// <summary>Set once a launch mode has been chosen.</summary>
     public string? LaunchMode { get; private set; }
 
@@ -121,6 +128,9 @@ public sealed class App
             // Claude process the user has no way to find again.
             foreach (var chat in Chats) chat.Dispose();
             Chats.Clear();
+
+            foreach (var terminal in Terminals) terminal.Dispose();
+            Terminals.Clear();
 
             Term.Restore();
         }

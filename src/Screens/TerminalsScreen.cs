@@ -1,4 +1,5 @@
 using ClaudeLauncher.Sessions;
+using ClaudeLauncher.Terminal;
 using ClaudeLauncher.Tui;
 
 namespace ClaudeLauncher.Screens;
@@ -103,6 +104,19 @@ public sealed class TerminalsScreen : ScreenBase
         if (firstChat >= 0) _focus = firstChat;
     }
 
+    /// <summary>
+    /// True while a focused terminal tile has given the keyboard back, so wall
+    /// commands work again. A terminal needs Esc, Tab and the arrows for itself,
+    /// so unlike a chat tile it cannot share them.
+    /// </summary>
+    private bool _released;
+
+    /// <summary>The terminal tile behind a row, when there is one.</summary>
+    private TerminalTile? LiveTerminal(SessionRow row) =>
+        string.IsNullOrEmpty(row.SessionId)
+            ? null
+            : App.Terminals.FirstOrDefault(t => t.SessionId == row.SessionId);
+
     /// <summary>The live session behind a tile, when the launcher owns it.</summary>
     private StreamSession? Live(SessionRow row) => App.Chats.FirstOrDefault(c =>
         c.State != ChatState.Ended &&
@@ -117,11 +131,25 @@ public sealed class TerminalsScreen : ScreenBase
         _snapshot = snapshot;
     }
 
-    public override TimeSpan? RefreshInterval => _service is null ? null : TimeSpan.FromMilliseconds(500);
+    // A terminal tile has to keep up with a program drawing itself, not with a
+    // transcript on disk, so the wall ticks faster once one is open.
+    public override TimeSpan? RefreshInterval =>
+        App.Terminals.Count > 0 ? TimeSpan.FromMilliseconds(80)
+        : _service is null ? null
+        : TimeSpan.FromMilliseconds(500);
+
+    private long _terminalRevision;
 
     public override bool NeedsRedraw()
     {
-        if (_service is null) return false;
+        var revision = 0L;
+        foreach (var terminal in App.Terminals) revision += terminal.Revision;
+
+        var moved = revision != _terminalRevision;
+        _terminalRevision = revision;
+
+        if (_service is null) return moved;
+
         _snapshot = _service.Build();
         return true;
     }
@@ -165,6 +193,24 @@ public sealed class TerminalsScreen : ScreenBase
                     ProjectPath = chat.ProjectPath,
                     Task = "chat session",
                     Model = chat.Model,
+                    State = SessionState.Idle
+                });
+            }
+
+            // A terminal tile knows its session id before Claude writes anything,
+            // so it can be on the wall from the first frame.
+            foreach (var terminal in App.Terminals)
+            {
+                if (terminal.HasExited) continue;
+                if (rows.Any(r => r.SessionId == terminal.SessionId)) continue;
+                if (_hidden.Contains(terminal.SessionId)) continue;
+
+                rows.Add(new SessionRow
+                {
+                    SessionId = terminal.SessionId,
+                    ProjectName = terminal.ProjectName,
+                    ProjectPath = terminal.ProjectPath,
+                    Task = "terminal",
                     State = SessionState.Idle
                 });
             }
@@ -267,6 +313,21 @@ public sealed class TerminalsScreen : ScreenBase
         var focus = count > 4 ? "1-9" : "1-4";
 
         var panes = Panes;
+        var terminal = panes.Count > 0 && _focus < panes.Count ? LiveTerminal(panes[_focus]) : null;
+
+        // A terminal takes every key, so the only hint that can be honest is the
+        // one that gets the keyboard back.
+        if (terminal is not null && !terminal.HasExited && !_released)
+        {
+            Widgets.Footer(buffer, new[]
+            {
+                new KeyHint("type", "Claude's own UI"),
+                new KeyHint("^]", "Release keyboard")
+            });
+
+            return;
+        }
+
         var live = panes.Count > 0 ? Live(panes[_focus]) : null;
 
         // A focused chat takes the letters, so its hints show the keys that
@@ -305,6 +366,7 @@ public sealed class TerminalsScreen : ScreenBase
                 new KeyHint("v", "Split right"),
                 new KeyHint("s", "Split down"),
                 new KeyHint("space", "Layout"),
+                new KeyHint("t", "Terminal"),
                 new KeyHint("w", "Remove tile"),
                 new KeyHint("esc", "Back")
             }
@@ -315,6 +377,7 @@ public sealed class TerminalsScreen : ScreenBase
                 new KeyHint("z", "Zoom"),
                 new KeyHint("v/s", "Split"),
                 new KeyHint("space", "Layout"),
+                new KeyHint("t", "Terminal"),
                 new KeyHint("w", "Remove"),
                 new KeyHint("esc", "Back")
             };
@@ -569,6 +632,13 @@ public sealed class TerminalsScreen : ScreenBase
     {
         if (width < 12 || height < 3) return;
 
+        var terminal = LiveTerminal(row);
+        if (terminal is not null)
+        {
+            TerminalPane(buffer, x, y, width, height, row, index, focused, terminal);
+            return;
+        }
+
         // A session we own reports itself directly, which is both fresher than
         // the transcript on disk and the only way to see a pending permission.
         var live = Live(row);
@@ -660,6 +730,42 @@ public sealed class TerminalsScreen : ScreenBase
     }
 
     /// <summary>
+    /// A tile showing Claude's own screen. The pty is resized to the interior, so
+    /// Claude lays itself out for the space it actually has rather than being
+    /// clipped to it.
+    /// </summary>
+    private void TerminalPane(ScreenBuffer buffer, int x, int y, int width, int height,
+        SessionRow row, int index, bool focused, TerminalTile terminal)
+    {
+        var typing = focused && !_released;
+
+        var border = terminal.HasExited
+            ? Theme.Dim
+            : typing ? Theme.Blue : focused ? Theme.BorderAccent : Theme.Border;
+
+        var fill = focused ? Theme.PanelSelected : Theme.Panel;
+        buffer.Box(x, y, width, height, new Sty(border, fill), BoxStyle.Rounded, fill);
+
+        var title = $" {index + 1} · {row.ProjectName} ";
+        buffer.WriteClipped(x + 2, y, title, width - 4, new Sty(border, fill, bold: true));
+
+        var badge = terminal.HasExited ? " ended " : typing ? " typing " : " terminal ";
+        if (title.Length + badge.Length + 6 <= width)
+            buffer.WriteRight(x + width - 3, y, badge, new Sty(typing ? Theme.Blue : Theme.Dim, fill));
+
+        var inner = width - 4;
+        var innerRows = height - 2;
+        if (inner < 20 || innerRows < 4)
+        {
+            buffer.WriteClipped(x + 2, y + 1, "too small", Math.Max(0, width - 4), new Sty(Theme.Dim, fill));
+            return;
+        }
+
+        terminal.Resize(inner, innerRows);
+        terminal.Read(screen => TerminalRender.Draw(buffer, screen, x + 2, y + 1, inner, innerRows, fill, typing));
+    }
+
+    /// <summary>
     /// Builds the visible lines newest first, then reverses - so the cost is the
     /// size of the tile, never the length of the conversation.
     /// </summary>
@@ -723,6 +829,35 @@ public sealed class TerminalsScreen : ScreenBase
     {
         _notice = null;
         var panes = Panes;
+
+        // A focused terminal tile takes every key, because Claude's own UI needs
+        // Esc, Tab and the arrows. Ctrl+] hands the keyboard back to the wall -
+        // the one key a terminal will never want.
+        var terminal = panes.Count > 0 && _focus < panes.Count ? LiveTerminal(panes[_focus]) : null;
+        if (terminal is not null && !terminal.HasExited)
+        {
+            var ctrlKey = (key.Modifiers & ConsoleModifiers.Control) != 0;
+
+            if (ctrlKey && key.Key == ConsoleKey.Oem6)
+            {
+                _released = !_released;
+                _notice = _released ? "keyboard released · ctrl+] to type" : null;
+                return ScreenAction.None;
+            }
+
+            if (!_released)
+            {
+                terminal.Send(key);
+                return ScreenAction.None;
+            }
+
+            if (key.Key == ConsoleKey.Enter)
+            {
+                _released = false;
+                return ScreenAction.None;
+            }
+        }
+
         var live = panes.Count > 0 ? Live(panes[_focus]) : null;
 
         // A pending permission owns the keyboard until it is answered.
@@ -883,11 +1018,73 @@ public sealed class TerminalsScreen : ScreenBase
                 return Split(panes, vertical: false);
             case 'n':
                 return ScreenAction.Push(new ProfileScreen(App));
+            case 't':
+                OpenTerminal(panes);
+                return ScreenAction.None;
             case 'q':
                 return ScreenAction.Exit;
         }
 
         return ScreenAction.None;
+    }
+
+    /// <summary>
+    /// Opens Claude's own interface for the focused tile's project, in a pseudo
+    /// console. This is the tile to reach for when /usage, the model picker or
+    /// plan mode are the point; the chat tile stays the better default for
+    /// watching several sessions at once.
+    /// </summary>
+    private void OpenTerminal(List<SessionRow> panes)
+    {
+        if (panes.Count == 0 || _focus >= panes.Count)
+        {
+            _notice = "no project to open a terminal for";
+            return;
+        }
+
+        var row = panes[_focus];
+        if (LiveTerminal(row) is not null)
+        {
+            _notice = "this tile is already a terminal";
+            return;
+        }
+
+        try
+        {
+            var terminal = TerminalTile.Start(row.ProjectPath, row.ProjectName,
+                ConfigDirFor(row), 80, 24);
+
+            App.Terminals.Add(terminal);
+            _released = false;
+            _notice = "terminal opened · ctrl+] releases the keyboard";
+        }
+        catch (Exception ex)
+        {
+            // A pseudo console needs Windows 10 1809 or newer; say so rather
+            // than leaving an empty tile.
+            _notice = "terminal failed: " + ex.Message;
+        }
+    }
+
+    /// <summary>
+    /// Which Claude config a terminal should use: the profile the tile already
+    /// belongs to, otherwise whatever this launcher was started with. Getting
+    /// this wrong would silently open the session under the wrong account.
+    /// </summary>
+    private string ConfigDirFor(SessionRow row)
+    {
+        var chat = Live(row);
+        if (chat is not null && !string.IsNullOrWhiteSpace(chat.Profile.ConfigDir))
+            return StateStore.ExpandHome(chat.Profile.ConfigDir);
+
+        var profile = App.State.Profiles.FirstOrDefault(p =>
+            string.Equals(p.DisplayLabel, row.ProfileName, StringComparison.OrdinalIgnoreCase));
+
+        if (profile is not null && !string.IsNullOrWhiteSpace(profile.ConfigDir))
+            return StateStore.ExpandHome(profile.ConfigDir);
+
+        return Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR")
+               ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
     }
 
     private void Cycle()
