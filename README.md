@@ -392,8 +392,12 @@ toward the panel background so the focused one still reads at a glance. If you w
 in the launcher's own colours, the chat tile is the one that does that — which is why both kinds
 exist rather than one replacing the other.
 
-Terminal tiles are children of the launcher and stop when it exits. To keep one, press `Enter` to
-hand it to a real Windows Terminal pane via `--resume`.
+Terminal tiles are children of the launcher and **stop when it exits** — there is no handoff to a
+Windows Terminal pane from inside a terminal tile, because the tile owns every key including `Enter`.
+The conversation is not lost: each terminal tile is started with its own `--session-id`, so it is
+recorded like any other session and can be picked up afterwards from the resume picker (`r`) or with
+`claude --resume <id>` in a real terminal. Use a chat tile and `Ctrl+D` if you want to hand a running
+session to a pane without stopping it.
 
 **Typing from your phone instead.** Turn on **Remote control** in settings and every session the
 launcher starts runs `claude --remote-control <project>`. That session then accepts input from
