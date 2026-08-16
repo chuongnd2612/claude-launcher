@@ -48,7 +48,13 @@ jobs:
           # Present at every size.
           # ASCII-only needles: the workflow file is asserted as ASCII, and the
           # box-drawing and bullet glyphs the screens use would break that.
-          $always = @('Select a Claude profile', 'Your intelligent CLI companion', 'Andrew Nguyen - chuongnd2612', 'Projects', 'New profile', 'Appearance', 'Running sessions', 'Stop session', 'Terminals', 'Focus', 'Zoom', 'Layout', 'Which session?', 'Transcript', 'Delete session', 'Remote control', 'Chat here', 'Permission', 'always allow')
+          $always = @('Select a Claude profile', 'Your intelligent CLI companion', 'Andrew Nguyen - chuongnd2612', 'Projects', 'New profile', 'Appearance', 'Running sessions', 'Stop session', 'Terminals', 'Focus', 'Zoom', 'Layout', 'Which session?', 'Transcript', 'Delete session', 'Remote control', 'Chat here', 'Permission', 'always allow', 'Terminal preview')
+          # The terminal preview replays a recorded escape sequence through the
+          # VT parser and grid, so these needles assert far more than layout:
+          # the gap is cursor-forward turned back into real spaces, and the
+          # prompt line only reads this way if erase-in-line was honoured. A
+          # pseudo console cannot run in CI, so this is how that code is covered.
+          $always += @('Tokens        38,412', 'Context       61%      of 200K', '> try /model next')
           # The launch summary and the tips box are intentionally dropped when the
           # window is too short, so only require them on roomy terminals.
           $tall = @('Launch summary', 'Tips', 'Opens in', 'Opening prompt', 'Counters')

@@ -100,7 +100,8 @@ directly without showing the selection screens.
 | Screen  | Keys |
 | ------- | ---- |
 | Home | `↑↓` navigate · `Enter` attach · `n` new session · `t` tile · `k` stop · `p` profiles · `q` quit |
-| Terminals (terminal tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `v` split right · `s` split down · `Space` layout · `w` remove tile · `Esc` back |
+| Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `v` split right · `s` split down · `Space` layout · `t` terminal tile · `w` remove tile · `Esc` back |
+| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` resume typing |
 | Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
@@ -364,6 +365,35 @@ Terminal has no CLI to close someone else's pane).
 you cannot type into them — press `Enter` to jump to the real one. This is also why the design's
 `b` broadcast key is absent: there is no way to send input to a pane Windows Terminal owns, and a key
 that could paste a prompt into the *wrong* session is worse than no key.
+
+### Terminal tiles — Claude's own interface, inside the wall
+
+Press `t` on the wall to open a **terminal tile**: the session runs under a real Windows pseudo
+console, and the launcher draws exactly what Claude draws. This is the tile to use when Claude's own
+interface is the point — the `/usage` dashboard, the `/model` picker, plan mode — because there is
+no interpretation left to get wrong. Anything Anthropic adds later works the same day.
+
+While a terminal tile is focused it takes **every** key, including `Esc`, `Tab` and the arrows,
+because Claude's own UI needs them. `Ctrl+]` hands the keyboard back to the wall; `Ctrl+]` again (or
+`Enter`) starts typing into it once more. The tile header shows which mode you are in.
+
+The trade, stated plainly:
+
+| | Chat tile (default) | Terminal tile |
+| --- | --- | --- |
+| Rich screens (`/usage`, `/model`) | plain text only | exact |
+| Styled in the launcher's palette | yes — `›` prompts, `◆` tools, amber thinking | no — Claude's own 24-bit colours |
+| Permission prompts | the launcher's amber box, `y`/`a`/`n` | Claude's own prompt |
+| Watching several at once | better — one visual language | busier |
+
+Claude emits **24-bit colour**, so a terminal tile shows its palette as sent; a colour *scheme* is
+not possible because there are no palette indices to remap. Unfocused terminal tiles are faded
+toward the panel background so the focused one still reads at a glance. If you want Claude's output
+in the launcher's own colours, the chat tile is the one that does that — which is why both kinds
+exist rather than one replacing the other.
+
+Terminal tiles are children of the launcher and stop when it exits. To keep one, press `Enter` to
+hand it to a real Windows Terminal pane via `--resume`.
 
 **Typing from your phone instead.** Turn on **Remote control** in settings and every session the
 launcher starts runs `claude --remote-control <project>`. That session then accepts input from
