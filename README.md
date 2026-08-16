@@ -102,7 +102,7 @@ directly without showing the selection screens.
 | Home | `↑↓` navigate · `Enter` attach · `n` new session · `t` tile · `k` stop · `p` profiles · `q` quit |
 | Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `v` split right · `s` split down · `Space` layout · `t` terminal tile · `w` remove tile · `Esc` back |
 | Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` resume typing |
-| Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
+| Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` terminal tile · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
@@ -368,8 +368,10 @@ that could paste a prompt into the *wrong* session is worse than no key.
 
 ### Terminal tiles — Claude's own interface, inside the wall
 
-Press `t` on the wall to open a **terminal tile**: the session runs under a real Windows pseudo
-console, and the launcher draws exactly what Claude draws. This is the tile to use when Claude's own
+Press `t` on the wall to open a **terminal tile** — or **`Ctrl+T`** when a chat tile is focused,
+because a focused chat tile takes every printable key for its own prompt and would otherwise type a
+literal `t`. The session runs under a real Windows pseudo console, and the launcher draws exactly
+what Claude draws. This is the tile to use when Claude's own
 interface is the point — the `/usage` dashboard, the `/model` picker, plan mode — because there is
 no interpretation left to get wrong. Anything Anthropic adds later works the same day.
 

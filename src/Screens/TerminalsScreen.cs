@@ -347,6 +347,7 @@ public sealed class TerminalsScreen : ScreenBase
                     new KeyHint("type", "Message"),
                     new KeyHint("↵", "Send"),
                     new KeyHint("↑↓ tab", "Tile"),
+                    new KeyHint("^t", "Terminal"),
                     new KeyHint("^z", "Zoom"),
                     new KeyHint("^l", "Layout"),
                     new KeyHint("esc", "Back")
@@ -961,6 +962,11 @@ public sealed class TerminalsScreen : ScreenBase
                     case ConsoleKey.Z: _zoom = !_zoom; return ScreenAction.None;
                     case ConsoleKey.L: Cycle(); return ScreenAction.None;
                     case ConsoleKey.W: _hidden.Add(panes[_focus].SessionId); return ScreenAction.None;
+
+                    // Plain t is a letter to a focused chat tile, so the terminal
+                    // tile needs a chord here or it cannot be reached at all from
+                    // the tile the wall opens on.
+                    case ConsoleKey.T: OpenTerminal(panes); return ScreenAction.None;
                 }
 
                 return ScreenAction.None;
