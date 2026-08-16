@@ -12,15 +12,20 @@ namespace ClaudeLauncher.Sessions;
 /// </summary>
 public static class PaneLauncher
 {
+    /// <summary>
+    /// Opens a pane running Claude. With <paramref name="resumeSessionId"/> the
+    /// pane picks up an existing conversation, which is how a chat session is
+    /// handed over to a real terminal.
+    /// </summary>
     public static bool Split(ProfileEntry profile, string projectPath, bool vertical, bool remoteControl,
-        out string error)
+        out string error, string? resumeSessionId = null)
     {
         error = string.Empty;
 
         try
         {
             var configDir = StateStore.ExpandHome(profile.ConfigDir);
-            var script = WriteStartupScript(configDir, projectPath, remoteControl);
+            var script = WriteStartupScript(configDir, projectPath, remoteControl, resumeSessionId);
 
             var info = new ProcessStartInfo("wt.exe") { UseShellExecute = true };
 
@@ -62,7 +67,8 @@ public static class PaneLauncher
     private static string TrimTrailingSeparator(string path) =>
         path.Length > 3 && (path.EndsWith('\\') || path.EndsWith('/')) ? path.TrimEnd('\\', '/') : path;
 
-    private static string WriteStartupScript(string configDir, string projectPath, bool remoteControl)
+    private static string WriteStartupScript(string configDir, string projectPath, bool remoteControl,
+        string? resumeSessionId = null)
     {
         var directory = Path.Combine(StateStore.DataDir, "panes");
         Directory.CreateDirectory(directory);
@@ -78,9 +84,9 @@ public static class PaneLauncher
         var file = Path.Combine(directory, $"pane-{Guid.NewGuid():N}.ps1");
 
         var name = Path.GetFileName(projectPath.TrimEnd('\\', '/'));
-        var claude = remoteControl
-            ? $"claude --remote-control {Literal(name)}"
-            : "claude";
+        var claude = "claude";
+        if (!string.IsNullOrWhiteSpace(resumeSessionId)) claude += $" --resume {Literal(resumeSessionId!)}";
+        if (remoteControl) claude += $" --remote-control {Literal(name)}";
 
         var lines = new[]
         {

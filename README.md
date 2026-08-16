@@ -105,7 +105,7 @@ directly without showing the selection screens.
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
 | Session | `↑↓` navigate · `Enter` launch · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `h` chat here · `Esc` back |
-| Chat | type · `Enter` send · `y`/`a`/`n` answer a permission request · `Esc` stop a turn, then back · `PgUp/PgDn` scroll · `End` follow |
+| Chat | type · `Enter` send · `/` commands (`↑↓` pick, `Tab` complete) · `y`/`a`/`n` answer a permission request · `Ctrl+D` detach to a pane · `Esc` stop a turn, then back · `PgUp/PgDn` scroll · `End` follow |
 | Resume | `↑↓` navigate · `Enter` resume · `/` filter · `l` logs · `d` delete · `Esc` back |
 | Session detail | `↑↓` scroll · `PgUp/PgDn` page · `Home/End` jump · `Esc` back |
 | Delete session | `←→` / `Tab` choose · `Enter` confirm · `y` delete · `n` / `Esc` cancel |
@@ -238,16 +238,27 @@ to be a terminal, which is what makes approve and deny possible at all. It is th
 tools, hooks, settings, MCP servers, and the same transcript on disk, so these sessions appear on
 Home and in the terminal wall like any other.
 
-Two limits worth knowing:
+**Slash commands work here.** Type `/` and the commands this session offers are listed — all of them,
+read from the session itself rather than hardcoded, so your own project and plugin commands appear
+too. `↑↓` picks, `Tab` or `Enter` completes, then `Enter` sends.
 
-- **It is a conversation view, not Claude's own terminal UI.** No slash-command menu, no plan-mode
-  interface.
-- **Tool output arrives when the tool finishes**, not while it runs. A long build shows
-  `◆ Bash` and then its result, rather than scrolling live. For watching something run, launch into a
-  pane instead and use the real terminal.
+**A running tool says so.** While a tool is working you get a live line — `◆ Echo start, sleep 6s,
+echo done · running 4s` — so a slow command never looks like a hang.
 
-The session belongs to the launcher, so closing the launcher ends it. Sessions opened into tabs or
-panes are independent and survive.
+**`Ctrl+D` hands the conversation to a real terminal.** It opens a Windows Terminal pane running
+`claude --resume` on that same conversation and closes the chat. Everything said so far is carried
+over, and the pane is independent of the launcher.
+
+Two limits remain:
+
+- **It is a conversation view, not Claude's own terminal UI.** Slash commands run, but their
+  interactive interfaces (plan mode, pickers) do not render here.
+- **Tool *output* arrives when the tool finishes.** You see what is running and for how long, but not
+  its stdout scrolling live — Claude reports the result in one piece. For watching a long build, use
+  `Ctrl+D` or launch into a pane and watch the real terminal.
+
+The session belongs to the launcher, so closing the launcher ends the *process* — but the
+conversation is on disk either way, so `Resume` (or `Ctrl+D` beforehand) always picks it back up.
 
 ## Resuming a specific conversation
 
