@@ -102,11 +102,17 @@ public sealed class ConPtySession : IDisposable
             }
 
             // The pty owns these ends now; holding them open would prevent EOF.
+            // Zeroing each handle as ownership passes keeps the failure path
+            // below from closing something twice.
             CloseHandle(inRead);
+            inRead = IntPtr.Zero;
             CloseHandle(outWrite);
+            outWrite = IntPtr.Zero;
 
             var reader = new FileStream(new SafeFileHandle(outRead, true), FileAccess.Read, 1);
+            outRead = IntPtr.Zero;
             var writer = new FileStream(new SafeFileHandle(inWrite, true), FileAccess.Write, 1);
+            inWrite = IntPtr.Zero;
 
             return new ConPtySession(pseudoConsole, attrList, pi.Process, pi.Thread, pi.ProcessId, reader, writer);
         }
@@ -115,10 +121,10 @@ public sealed class ConPtySession : IDisposable
             ClosePseudoConsole(pseudoConsole);
             DeleteProcThreadAttributeList(attrList);
             Marshal.FreeHGlobal(attrList);
-            CloseHandle(inRead);
-            CloseHandle(inWrite);
-            CloseHandle(outRead);
-            CloseHandle(outWrite);
+            if (inRead != IntPtr.Zero) CloseHandle(inRead);
+            if (inWrite != IntPtr.Zero) CloseHandle(inWrite);
+            if (outRead != IntPtr.Zero) CloseHandle(outRead);
+            if (outWrite != IntPtr.Zero) CloseHandle(outWrite);
             throw;
         }
         finally
@@ -212,7 +218,17 @@ public sealed class ConPtySession : IDisposable
             {
                 var copy = new byte[read];
                 Buffer.BlockCopy(chunk, 0, copy, 0, read);
-                Output?.Invoke(copy);
+
+                try
+                {
+                    Output?.Invoke(copy);
+                }
+                catch (Exception)
+                {
+                    // A handler that throws must not take the reader with it -
+                    // that would freeze the tile on the last frame it managed to
+                    // draw, with no sign of why.
+                }
             }
         }
         catch (IOException)
