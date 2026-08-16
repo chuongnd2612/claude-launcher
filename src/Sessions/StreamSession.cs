@@ -35,9 +35,56 @@ public sealed class ChatLine
 /// <summary>A slash command the session offers, as reported at startup.</summary>
 public sealed class SlashCommand
 {
+    private IReadOnlyList<string>? _options;
+
     public string Name { get; init; } = string.Empty;
     public string Description { get; init; } = string.Empty;
     public string ArgumentHint { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The literal values this command accepts, when it documents them - e.g.
+    /// "&lt;low|medium|high&gt;" offers three. Read from the command's own hint, so
+    /// nothing is invented: a command that does not list its values gets none,
+    /// and the user types the argument instead.
+    /// </summary>
+    public IReadOnlyList<string> Options => _options ??= ParseOptions(ArgumentHint);
+
+    private static IReadOnlyList<string> ParseOptions(string hint)
+    {
+        if (string.IsNullOrWhiteSpace(hint) || !hint.Contains('|')) return Array.Empty<string>();
+
+        // The first bracketed group that lists alternatives, else the whole hint.
+        var span = hint;
+
+        foreach (var (open, close) in new[] { ('<', '>'), ('[', ']'), ('(', ')') })
+        {
+            var start = hint.IndexOf(open);
+            if (start < 0) continue;
+
+            var end = hint.IndexOf(close, start + 1);
+            if (end < 0) continue;
+
+            var inner = hint.Substring(start + 1, end - start - 1);
+            if (!inner.Contains('|')) continue;
+
+            span = inner;
+            break;
+        }
+
+        // Stop at a nested group: "reconnect|enable|disable [<server>|all]"
+        // describes three verbs, not four.
+        var nested = span.IndexOfAny(new[] { '[', '(', '<' });
+        if (nested > 0) span = span.Substring(0, nested);
+
+        var options = span
+            .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(o => o.Length is > 0 and <= 24)
+            .Where(o => !o.Any(c => c is '<' or '>' or '[' or ']' or '(' or ')'))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return options.Length >= 2 ? options : Array.Empty<string>();
+    }
 }
 
 /// <summary>A tool that has started and not yet reported back.</summary>
@@ -467,8 +514,11 @@ public sealed class StreamSession : IDisposable
                     case "text":
                         if (block.TryGetProperty("text", out var text))
                         {
-                            var value = Clean(text.GetString());
-                            if (value is not null) _lines.Add(new ChatLine { Kind = ChatLineKind.AssistantText, Text = value });
+                            // One line per line. Collapsing them into a paragraph
+                            // destroys the shape of anything Claude formats -
+                            // tables, lists, the output of /usage and friends.
+                            foreach (var line in Split(text.GetString()))
+                                _lines.Add(new ChatLine { Kind = ChatLineKind.AssistantText, Text = line });
                         }
 
                         break;
@@ -571,7 +621,40 @@ public sealed class StreamSession : IDisposable
         return null;
     }
 
-    /// <summary>Collapses whitespace; the screen wraps, so embedded newlines only confuse it.</summary>
+    /// <summary>
+    /// Splits into display lines, keeping the shape Claude wrote: line breaks
+    /// stay, indentation stays, runs of blank lines collapse to one.
+    /// </summary>
+    private static List<string> Split(string? text)
+    {
+        var lines = new List<string>();
+        if (string.IsNullOrWhiteSpace(text)) return lines;
+
+        var blank = false;
+
+        foreach (var raw in text!.Replace("\r\n", "\n").Split('\n'))
+        {
+            var line = new string(raw.Where(c => !char.IsControl(c) || c == '\t').ToArray())
+                .Replace("\t", "  ")
+                .TrimEnd();
+
+            if (line.Trim().Length == 0)
+            {
+                if (blank || lines.Count == 0) continue;
+                blank = true;
+                lines.Add(string.Empty);
+                continue;
+            }
+
+            blank = false;
+            lines.Add(line);
+        }
+
+        while (lines.Count > 0 && lines[^1].Length == 0) lines.RemoveAt(lines.Count - 1);
+        return lines;
+    }
+
+    /// <summary>Collapses whitespace, for single-line things like a tool's target.</summary>
     private static string? Clean(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
@@ -590,14 +673,16 @@ public sealed class StreamSession : IDisposable
         return builder.Length == 0 ? null : builder.ToString();
     }
 
-    /// <summary>Moves whatever streamed in into a committed line.</summary>
+    /// <summary>Moves whatever streamed in into committed lines.</summary>
     private void Commit()
     {
         if (_streaming.Length == 0) return;
 
-        var text = Clean(_streaming.ToString());
+        var text = _streaming.ToString();
         _streaming.Clear();
-        if (text is not null) _lines.Add(new ChatLine { Kind = ChatLineKind.AssistantText, Text = text });
+
+        foreach (var line in Split(text))
+            _lines.Add(new ChatLine { Kind = ChatLineKind.AssistantText, Text = line });
     }
 
     private void Add(ChatLineKind kind, string text)
