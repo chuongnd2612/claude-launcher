@@ -23,6 +23,14 @@ public sealed class TerminalPreviewScreen : ScreenBase
         new VtParser().Feed(Encoding.UTF8.GetBytes(Fixture()), _screen);
     }
 
+    /// <summary>The same replayed grid, for any screen that needs one without a child.</summary>
+    public static TerminalScreen Demo()
+    {
+        var screen = new TerminalScreen(Cols, Rows);
+        new VtParser().Feed(Encoding.UTF8.GetBytes(Fixture()), screen);
+        return screen;
+    }
+
     /// <summary>
     /// The sequences a real capture of Claude showed it uses, in the same
     /// proportions: absolute addressing, truecolor SGR, cursor-forward instead

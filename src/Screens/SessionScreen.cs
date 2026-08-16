@@ -17,6 +17,7 @@ public sealed class SessionScreen : ScreenBase
 
     private int _index;
     private string _openIn;
+    private string? _notice;
 
     public SessionScreen(App app) : base(app)
     {
@@ -86,6 +87,9 @@ public sealed class SessionScreen : ScreenBase
             Row(buffer, margin + 3, summaryY + 4, "Path", project.Path, width);
             Row(buffer, margin + 3, summaryY + 5, "Opens in", LaunchTarget.Describe(_openIn), width);
         }
+
+        if (_notice is not null)
+            buffer.WriteClipped(margin + 1, buffer.Height - 5, _notice, width - 2, new Sty(Theme.Amber, Theme.Bg));
 
         Widgets.Footer(buffer, new[]
         {
@@ -172,6 +176,27 @@ public sealed class SessionScreen : ScreenBase
         // writes result.json - there is nothing for the wrapper to launch.
         if (mode == "chat")
         {
+            // Two engines behind one entry point: a pseudo console showing
+            // Claude's own interface, or the launcher's styled chat view.
+            if (App.Settings.TerminalTiles)
+            {
+                try
+                {
+                    var tile = Terminal.TerminalTile.Start(
+                        App.Project!.Path, App.Project!.Name,
+                        StateStore.ExpandHome(App.Profile!.ConfigDir), 100, 30);
+
+                    App.Terminals.Add(tile);
+                    return ScreenAction.Push(new TerminalSessionScreen(App, tile));
+                }
+                catch (Exception ex)
+                {
+                    // A pseudo console needs Windows 10 1809 or newer. Falling
+                    // back to the chat view beats refusing to open a session.
+                    _notice = "terminal unavailable, using chat view: " + ex.Message;
+                }
+            }
+
             var session = new Sessions.StreamSession(App.Profile!, App.Project!.Path);
             session.Start();
 

@@ -108,6 +108,7 @@ directly without showing the selection screens.
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
 | Session | `↑↓` navigate · `Enter` launch · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `h` chat here · `Esc` back |
 | Chat | type · `Enter` send · `/` commands (`↑↓` pick, `Tab` complete) · `y`/`a`/`n` answer a permission request · `Ctrl+D` detach to a pane · `Esc` stop a turn, then back · `PgUp/PgDn` scroll · `End` follow |
+| Terminal session (`Chat here` with terminal tiles on) | every key goes to Claude · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` type again · `t` wall · `Esc` Home |
 | Resume | `↑↓` navigate · `Enter` resume in a terminal · `c` resume in the chat screen · `/` filter · `l` logs · `d` delete · `Esc` back |
 | Session detail | `↑↓` scroll · `PgUp/PgDn` page · `Home/End` jump · `Esc` back |
 | Delete session | `←→` / `Tab` choose · `Enter` confirm · `y` delete · `n` / `Esc` cancel |
@@ -167,6 +168,7 @@ be removed.
 | Default session mode | Which option is preselected on step 3 (`new` / `continue` / `resume`) |
 | Default open in | Where `Enter` launches Claude (`current` / `new tab` / `split right` / `split down`) |
 | Remote control | Start new sessions with `claude --remote-control`, so they accept input from claude.ai and the phone app |
+| Terminal tiles | On (default): a session opened inside the launcher runs under a pseudo console and shows Claude's own interface, so `/usage`, the model picker and plan mode render exactly. Off: the launcher's own styled chat view, easier to watch several sessions at once, but rich screens arrive as plain text |
 
 ## Home: what is running
 
@@ -367,6 +369,12 @@ you cannot type into them — press `Enter` to jump to the real one. This is als
 that could paste a prompt into the *wrong* session is worse than no key.
 
 ### Terminal tiles — Claude's own interface, inside the wall
+
+**Which engine runs an in-launcher session is a setting.** `Terminal tiles` in settings (`s`) is
+**on by default**: `Chat here` opens the session under a pseudo console showing Claude's own
+interface. Turn it off to get the launcher's styled chat view instead — blue prompts, muted tool
+lines, the amber permission box — at the cost of rich screens arriving as plain text. The setting
+only chooses a default; both kinds can coexist on the wall.
 
 Press `t` on the wall to open a **terminal tile** — or **`Ctrl+T`** when a chat tile is focused,
 because a focused chat tile takes every printable key for its own prompt and would otherwise type a
