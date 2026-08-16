@@ -102,7 +102,7 @@ directly without showing the selection screens.
 | Home | `↑↓` navigate · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` new session · `t` tile · `k` stop · `p` profiles · `q` quit |
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` open a terminal there · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
 | Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `v` split right · `s` split down · `Space` layout · `t` new terminal · `w` remove tile · `Esc` back |
-| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll history · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` resume typing |
+| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll history · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` resume typing |
 | Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` new terminal · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
@@ -370,7 +370,7 @@ that could paste a prompt into the *wrong* session is worse than no key.
 
 ### Another terminal, without leaving the wall
 
-`t` on the wall opens a **project picker** and starts a terminal there. It does not go through the
+`t` on the wall opens a **project picker** and starts a terminal there — or **`Ctrl+T` / `Alt+T`** when a tile has the keyboard, since a focused chat or terminal tile takes plain letters for itself. It does not go through the
 wizard, and it does not use the focused tile's project — pick any project, including one the wall
 has never shown.
 
