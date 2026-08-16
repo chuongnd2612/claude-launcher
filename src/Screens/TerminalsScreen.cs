@@ -89,9 +89,13 @@ public sealed class TerminalsScreen : ScreenBase
     {
         _service = service;
         _service.WithEntries = true;
+        // Sessions this launcher started are always ours to show, whatever
+        // Claude records them as.
         _service.OwnedSessionIds = () => App.Chats
             .Where(c => c.SessionId is not null)
             .Select(c => c.SessionId!)
+            .Concat(App.Terminals.Select(t => t.SessionId))
+            .Where(id => !string.IsNullOrEmpty(id))
             .ToArray();
 
         _snapshot = service.Build();
