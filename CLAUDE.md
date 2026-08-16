@@ -15,7 +15,10 @@ Two halves that talk through JSON files under `$HOME\.claude-launcher`:
 | `scripts/claude-launcher.ps1` (PowerShell 5.1) | projects from `$QuickPaths`, writes `state.json`, reads `result.json`, launches Claude |
 | `src/` (.NET 8, C#) | the TUI; reads `state.json`, writes `result.json` and `profiles.json` |
 
-The wrapper is the source of truth for projects; the TUI never discovers projects on its own.
+The wrapper is the source of truth for the projects it knows about (`$QuickPaths`), and the TUI never
+discovers projects on its own. It may *add* one: a folder typed into the new-terminal picker is stored
+in `$HOME\.claude-launcher\projects.json` and merged in on load. That file belongs to the TUI; the
+wrapper's list is never edited.
 
 ## Layout
 

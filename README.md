@@ -100,9 +100,10 @@ directly without showing the selection screens.
 | Screen  | Keys |
 | ------- | ---- |
 | Home | `↑↓` navigate · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` new session · `t` tile · `k` stop · `p` profiles · `q` quit |
-| Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `v` split right · `s` split down · `Space` layout · `t` terminal tile · `w` remove tile · `Esc` back |
+| New terminal (`t` on the wall) | `↑↓` navigate · `Enter` open a terminal there · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
+| Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `v` split right · `s` split down · `Space` layout · `t` new terminal · `w` remove tile · `Esc` back |
 | Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` resume typing |
-| Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` terminal tile · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
+| Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` new terminal · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
@@ -366,6 +367,19 @@ Terminal has no CLI to close someone else's pane).
 you cannot type into them — press `Enter` to jump to the real one. This is also why the design's
 `b` broadcast key is absent: there is no way to send input to a pane Windows Terminal owns, and a key
 that could paste a prompt into the *wrong* session is worse than no key.
+
+### Another terminal, without leaving the wall
+
+`t` on the wall opens a **project picker** and starts a terminal there. It does not go through the
+wizard, and it does not use the focused tile's project — pick any project, including one the wall
+has never shown.
+
+The list is the wrapper's `$QuickPaths` plus anything you add. **`a` adds a folder**: type or paste a
+path (`~` and `%VARS%` are expanded), and it is checked for existence before being accepted, so a
+typo fails here rather than as a pty error later. Added folders are remembered in
+`$HOME\.claude-launcher\projects.json` and appear everywhere projects are listed, including step 2
+of the wizard. **`d` forgets** one you added; entries that come from the wrapper are left alone,
+since those belong to `quick-set`.
 
 ### Terminal tiles — Claude's own interface, inside the wall
 
