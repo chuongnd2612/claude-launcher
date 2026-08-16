@@ -413,7 +413,9 @@ toward the panel background so the focused one still reads at a glance. If you w
 in the launcher's own colours, the chat tile is the one that does that — which is why both kinds
 exist rather than one replacing the other.
 
-Terminal tiles are children of the launcher and **stop when it exits** — there is no handoff to a
+Terminal tiles are children of the launcher and **stop when it exits** — including if it is killed
+outright rather than closed cleanly, because every session it starts is placed in a Windows job
+object that takes them (and their own subprocesses) down with it — there is no handoff to a
 Windows Terminal pane from inside a terminal tile, because the tile owns every key including `Enter`.
 The conversation is not lost: each terminal tile is started with its own `--session-id`, so it is
 recorded like any other session and can be picked up afterwards from the resume picker (`r`) or with

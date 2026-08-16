@@ -115,6 +115,7 @@ public sealed class App
 
         Term.Setup("⚡ CLAUDE LAUNCHER");
         Console.CancelKeyPress += OnCancel;
+        AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
 
         try
         {
@@ -123,14 +124,11 @@ public sealed class App
         finally
         {
             Console.CancelKeyPress -= OnCancel;
+            AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
 
-            // Chat sessions are our children; leaving them behind would orphan a
-            // Claude process the user has no way to find again.
-            foreach (var chat in Chats) chat.Dispose();
-            Chats.Clear();
-
-            foreach (var terminal in Terminals) terminal.Dispose();
-            Terminals.Clear();
+            // These are our children; leaving them behind would orphan a Claude
+            // process the user has no way to find again.
+            StopSessions();
 
             Term.Restore();
         }
@@ -147,8 +145,33 @@ public sealed class App
 
     private void OnCancel(object? sender, ConsoleCancelEventArgs e)
     {
+        // Ctrl+C skips the finally below, so the sessions are torn down here too.
+        StopSessions();
         Term.Restore();
     }
+
+    /// <summary>
+    /// Ends everything this launcher started. Safe to call twice: both Dispose
+    /// implementations are idempotent, and the lists are emptied as we go.
+    /// </summary>
+    private void StopSessions()
+    {
+        foreach (var chat in Chats)
+        {
+            try { chat.Dispose(); } catch (Exception) { /* nothing useful left to do */ }
+        }
+
+        Chats.Clear();
+
+        foreach (var terminal in Terminals)
+        {
+            try { terminal.Dispose(); } catch (Exception) { /* nothing useful left to do */ }
+        }
+
+        Terminals.Clear();
+    }
+
+    private void OnProcessExit(object? sender, EventArgs e) => StopSessions();
 
     private void Loop()
     {

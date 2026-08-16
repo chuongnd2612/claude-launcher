@@ -13,6 +13,7 @@ public sealed class ConPtySession : IDisposable
 {
     private const uint ExtendedStartupInfoPresent = 0x00080000;
     private const uint CreateUnicodeEnvironment = 0x00000400;
+    private const uint CreateSuspended = 0x00000004;
     private static readonly IntPtr AttributePseudoConsole = 0x00020016;
     private const int StillActive = 259;
 
@@ -94,11 +95,25 @@ public sealed class ConPtySession : IDisposable
 
             environment = BuildEnvironmentBlock(env);
 
+            // Started suspended so it joins the launcher's job before it can
+            // run - and therefore before it can spawn anything that would miss
+            // the job and outlive us.
             if (!CreateProcess(null, commandLine, IntPtr.Zero, IntPtr.Zero, false,
-                    ExtendedStartupInfoPresent | CreateUnicodeEnvironment, environment,
+                    ExtendedStartupInfoPresent | CreateUnicodeEnvironment | CreateSuspended, environment,
                     string.IsNullOrEmpty(workingDirectory) ? null : workingDirectory, ref si, out var pi))
             {
                 throw new IOException("CreateProcess failed: " + Marshal.GetLastWin32Error());
+            }
+
+            ProcessJob.Assign(pi.Process);
+
+            if (ResumeThread(pi.Thread) == -1)
+            {
+                var error = Marshal.GetLastWin32Error();
+                TerminateProcess(pi.Process, 1);
+                CloseHandle(pi.Process);
+                CloseHandle(pi.Thread);
+                throw new IOException("ResumeThread failed: " + error);
             }
 
             // The pty owns these ends now; holding them open would prevent EOF.
@@ -348,4 +363,7 @@ public sealed class ConPtySession : IDisposable
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool TerminateProcess(IntPtr handle, uint code);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern int ResumeThread(IntPtr thread);
 }
