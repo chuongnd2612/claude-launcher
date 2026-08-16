@@ -268,6 +268,11 @@ public sealed class ConPtySession : IDisposable
         vars["COLORTERM"] = "truecolor";
         vars["FORCE_COLOR"] = "3";
 
+        // A tile is always colour-capable, so an inherited NO_COLOR is not the
+        // user's preference about this surface - it would leave the tile
+        // monochrome while every other pane on the machine stays coloured.
+        vars.Remove("NO_COLOR");
+
         if (overrides is not null)
         {
             foreach (var (key, value) in overrides)
