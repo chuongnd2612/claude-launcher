@@ -128,6 +128,18 @@ public sealed class TerminalsScreen : ScreenBase
          string.IsNullOrEmpty(row.SessionId) &&
          string.Equals(c.ProjectPath, row.ProjectPath, StringComparison.OrdinalIgnoreCase)));
 
+    /// <summary>
+    /// Opens the wall with a freshly started tile focused and ready to type, so
+    /// a new session lands among the others rather than on a screen of its own.
+    /// </summary>
+    public TerminalsScreen(App app, SessionService service, TerminalTile focus) : this(app, service)
+    {
+        var panes = Panes;
+        var index = panes.FindIndex(p => ReferenceEquals(LiveTerminal(p), focus));
+        if (index >= 0) _focus = index;
+        _released = false;
+    }
+
     /// <summary>Fixture constructor for --selftest.</summary>
     public TerminalsScreen(App app, SessionSnapshot snapshot) : base(app)
     {
@@ -884,7 +896,7 @@ public sealed class TerminalsScreen : ScreenBase
                 case 'n': live.Answer(allow: false); return ScreenAction.None;
             }
 
-            if (key.Key == ConsoleKey.Escape) return ScreenAction.Back;
+            if (key.Key == ConsoleKey.Escape) return Leave();
             return ScreenAction.None;
         }
 
@@ -902,7 +914,7 @@ public sealed class TerminalsScreen : ScreenBase
                 case ConsoleKey.Escape:
                     if (draft.Length > 0) { SetDraft(row, string.Empty); return ScreenAction.None; }
                     if (live.State == ChatState.Working) { live.Interrupt(); return ScreenAction.None; }
-                    return ScreenAction.Back;
+                    return Leave();
 
                 case ConsoleKey.Enter:
                     if (matches.Count > 0 && !draft.EndsWith(' '))
@@ -998,7 +1010,7 @@ public sealed class TerminalsScreen : ScreenBase
         {
             case ConsoleKey.Escape:
                 if (_zoom) { _zoom = false; return ScreenAction.None; }
-                return ScreenAction.Back;
+                return Leave();
             case ConsoleKey.LeftArrow:
             case ConsoleKey.UpArrow:
                 Move(-1, panes.Count);
@@ -1105,6 +1117,14 @@ public sealed class TerminalsScreen : ScreenBase
         return Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR")
                ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
     }
+
+    /// <summary>
+    /// Home, never a plain Back: a session opened from the wizard lands on the
+    /// wall as the root screen, and popping a one-deep stack ends the loop -
+    /// which would quit the launcher instead of leaving the wall.
+    /// </summary>
+    private ScreenAction Leave() =>
+        ScreenAction.Root(new HomeScreen(App, new SessionService(App.State)));
 
     private void Cycle()
     {

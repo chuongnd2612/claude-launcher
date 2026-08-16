@@ -206,7 +206,11 @@ public sealed class SessionScreen : ScreenBase
                 resumeSessionId, continueLatest);
 
             App.Terminals.Add(tile);
-            return ScreenAction.Push(new TerminalSessionScreen(App, tile));
+
+            // Straight onto the wall: a session is rarely the only one, and
+            // landing there means the others stay in sight. Zoom (z) is the
+            // full-window view when one is wanted.
+            return ScreenAction.Root(new TerminalsScreen(App, new Sessions.SessionService(App.State), tile));
         }
         catch (Exception ex)
         {
