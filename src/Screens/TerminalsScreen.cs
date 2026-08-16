@@ -303,10 +303,11 @@ public sealed class TerminalsScreen : ScreenBase
             return;
         }
 
-        // The strip is the only way to see panes that are off screen, so it
-        // survives on short windows; the tips box is what goes first.
-        var compactStrip = buffer.Height < 30;
-        y = Strip(buffer, y, panes, compactStrip);
+        // One line of chips, never the boxed badges: those read as the wizard's
+        // step bar, which this is not - the panes are not steps and have no
+        // order to work through. It stays because it is the only way to see a
+        // pane that is off screen.
+        y = Strip(buffer, y, panes);
 
         var focused = panes[_focus];
         var live = Live(focused);
@@ -516,58 +517,28 @@ public sealed class TerminalsScreen : ScreenBase
     }
 
     /// <summary>The numbered pane strip, echoing the wizard's step badges.</summary>
-    private int Strip(ScreenBuffer buffer, int y, List<SessionRow> panes, bool compact)
+    /// <summary>
+    /// A single line of chips: dot, number, project. Enough to find a pane that
+    /// scrolled off, without pretending the panes are steps in a sequence.
+    /// </summary>
+    private int Strip(ScreenBuffer buffer, int y, List<SessionRow> panes)
     {
         var margin = Widgets.Margin(buffer);
+        var x = margin;
 
-        if (compact)
+        for (var i = 0; i < panes.Count && x < buffer.Width - margin - 8; i++)
         {
-            var x = margin;
-            for (var i = 0; i < panes.Count && x < buffer.Width - margin - 8; i++)
-            {
-                var active = i == _focus;
-                var color = Color(panes[i], active);
-                x = buffer.Write(x, y, active ? "●" : "○", new Sty(color, Theme.Bg, bold: active));
-                x = buffer.Write(x, y, $" {i + 1} ", new Sty(color, Theme.Bg, bold: active));
-                x = buffer.WriteClipped(x, y, panes[i].ProjectName, 14, new Sty(active ? Theme.Text : Theme.Dim, Theme.Bg));
-                x = buffer.Write(x, y, "   ", new Sty(Theme.Dim, Theme.Bg));
-            }
-
-            return y + 2;
-        }
-
-        const int badge = 5;
-        var gap = buffer.Width >= 120 ? 10 : 6;
-        var cellX = margin;
-
-        for (var i = 0; i < panes.Count; i++)
-        {
-            if (cellX + badge > buffer.Width - margin) break;
-
             var active = i == _focus;
             var color = Color(panes[i], active);
 
-            if (active)
-            {
-                buffer.Box(cellX, y, badge, 3, new Sty(Theme.BlueDeep, Theme.BlueDeep), BoxStyle.Rounded, Theme.BlueDeep);
-                buffer.Set(cellX + 2, y + 1, (char)('1' + i), new Sty(Rgb.Hex("#FFFFFF"), Theme.BlueDeep, bold: true));
-            }
-            else
-            {
-                buffer.Box(cellX, y, badge, 3, new Sty(color, Theme.Bg));
-                buffer.Set(cellX + 2, y + 1, (char)('1' + i), new Sty(color, Theme.Bg, bold: true));
-            }
-
-            buffer.WriteClipped(cellX, y + 3, panes[i].ProjectName, badge + gap - 2,
-                new Sty(active ? Theme.Text : Theme.Dim, Theme.Bg, bold: active));
-
-            if (i < panes.Count - 1)
-                buffer.HLine(cellX + badge + 1, y + 1, gap - 2, '─', new Sty(Theme.BorderMuted, Theme.Bg));
-
-            cellX += badge + gap;
+            x = buffer.Write(x, y, active ? "●" : "○", new Sty(color, Theme.Bg, bold: active));
+            x = buffer.Write(x, y, $" {i + 1} ", new Sty(color, Theme.Bg, bold: active));
+            x = buffer.WriteClipped(x, y, panes[i].ProjectName, 14,
+                new Sty(active ? Theme.Text : Theme.Dim, Theme.Bg));
+            x = buffer.Write(x, y, "   ", new Sty(Theme.Dim, Theme.Bg));
         }
 
-        return y + 5;
+        return y + 2;
     }
 
     private static Rgb Color(SessionRow row, bool active)
@@ -999,7 +970,7 @@ public sealed class TerminalsScreen : ScreenBase
                     // Plain t is a letter to a focused chat tile, so the terminal
                     // tile needs a chord here or it cannot be reached at all from
                     // the tile the wall opens on.
-                    case ConsoleKey.T: OpenTerminal(panes); return ScreenAction.None;
+                    case ConsoleKey.T: return ScreenAction.Push(new NewTerminalScreen(App));
                 }
 
                 return ScreenAction.None;
@@ -1058,72 +1029,12 @@ public sealed class TerminalsScreen : ScreenBase
             case 'n':
                 return ScreenAction.Push(new ProfileScreen(App));
             case 't':
-                OpenTerminal(panes);
-                return ScreenAction.None;
+                return ScreenAction.Push(new NewTerminalScreen(App));
             case 'q':
                 return ScreenAction.Exit;
         }
 
         return ScreenAction.None;
-    }
-
-    /// <summary>
-    /// Opens Claude's own interface for the focused tile's project, in a pseudo
-    /// console. This is the tile to reach for when /usage, the model picker or
-    /// plan mode are the point; the chat tile stays the better default for
-    /// watching several sessions at once.
-    /// </summary>
-    private void OpenTerminal(List<SessionRow> panes)
-    {
-        if (panes.Count == 0 || _focus >= panes.Count)
-        {
-            _notice = "no project to open a terminal for";
-            return;
-        }
-
-        var row = panes[_focus];
-        if (LiveTerminal(row) is not null)
-        {
-            _notice = "this tile is already a terminal";
-            return;
-        }
-
-        try
-        {
-            var terminal = TerminalTile.Start(row.ProjectPath, row.ProjectName,
-                ConfigDirFor(row), 80, 24);
-
-            App.Terminals.Add(terminal);
-            _released = false;
-            _notice = "terminal opened · ctrl+] releases the keyboard";
-        }
-        catch (Exception ex)
-        {
-            // A pseudo console needs Windows 10 1809 or newer; say so rather
-            // than leaving an empty tile.
-            _notice = "terminal failed: " + ex.Message;
-        }
-    }
-
-    /// <summary>
-    /// Which Claude config a terminal should use: the profile the tile already
-    /// belongs to, otherwise whatever this launcher was started with. Getting
-    /// this wrong would silently open the session under the wrong account.
-    /// </summary>
-    private string ConfigDirFor(SessionRow row)
-    {
-        var chat = Live(row);
-        if (chat is not null && !string.IsNullOrWhiteSpace(chat.Profile.ConfigDir))
-            return StateStore.ExpandHome(chat.Profile.ConfigDir);
-
-        var profile = App.State.Profiles.FirstOrDefault(p =>
-            string.Equals(p.DisplayLabel, row.ProfileName, StringComparison.OrdinalIgnoreCase));
-
-        if (profile is not null && !string.IsNullOrWhiteSpace(profile.ConfigDir))
-            return StateStore.ExpandHome(profile.ConfigDir);
-
-        return Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR")
-               ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude");
     }
 
     /// <summary>

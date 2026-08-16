@@ -43,6 +43,12 @@ public sealed class ProfilesFile
     public List<ProfileEntry> Profiles { get; set; } = new();
 }
 
+/// <summary>Projects added from inside the launcher, kept beside the wrapper's own list.</summary>
+public sealed class ProjectsFileModel
+{
+    public List<ProjectEntry> Projects { get; set; } = new();
+}
+
 /// <summary>Where a launch lands: this console, or a Windows Terminal tab / pane.</summary>
 public static class LaunchTarget
 {

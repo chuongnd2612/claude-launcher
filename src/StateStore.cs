@@ -36,6 +36,13 @@ public static class StateStore
 
     public static string SettingsFile => Path.Combine(DataDir, "ui.json");
 
+    /// <summary>
+    /// Projects added from inside the launcher. The wrapper's QuickPaths stay
+    /// the source of truth for what it knows about; this is only for paths it
+    /// does not, so adding one never means editing the wrapper's own list.
+    /// </summary>
+    public static string ProjectsFile => Path.Combine(DataDir, "projects.json");
+
     public static LauncherState LoadState()
     {
         if (!File.Exists(StateFile))
@@ -65,8 +72,63 @@ public static class StateStore
         if (state.Profiles.Count == 0)
             throw new InvalidOperationException("No Claude profiles configured in " + ProfilesFilePath);
 
+        foreach (var added in LoadAddedProjects())
+        {
+            if (state.Projects.Any(p => SamePath(p.Path, added.Path))) continue;
+            state.Projects.Add(added);
+        }
+
         return state;
     }
+
+    public static List<ProjectEntry> LoadAddedProjects()
+    {
+        try
+        {
+            if (!File.Exists(ProjectsFile)) return new List<ProjectEntry>();
+
+            var file = JsonSerializer.Deserialize<ProjectsFileModel>(File.ReadAllText(ProjectsFile), ReadOptions);
+            return file?.Projects
+                       .Where(p => !string.IsNullOrWhiteSpace(p.Path))
+                       .ToList()
+                   ?? new List<ProjectEntry>();
+        }
+        catch (Exception)
+        {
+            // A hand-edited file that no longer parses must not stop the
+            // launcher; the wrapper's own projects are enough to work with.
+            return new List<ProjectEntry>();
+        }
+    }
+
+    /// <summary>Records a project so it is offered next time. Returns false if it was already known.</summary>
+    public static bool AddProject(ProjectEntry project)
+    {
+        var added = LoadAddedProjects();
+        if (added.Any(p => SamePath(p.Path, project.Path))) return false;
+
+        added.Add(project);
+        Directory.CreateDirectory(DataDir);
+        File.WriteAllText(ProjectsFile,
+            JsonSerializer.Serialize(new ProjectsFileModel { Projects = added }, WriteOptions));
+
+        return true;
+    }
+
+    public static bool RemoveAddedProject(string path)
+    {
+        var added = LoadAddedProjects();
+        var kept = added.Where(p => !SamePath(p.Path, path)).ToList();
+        if (kept.Count == added.Count) return false;
+
+        File.WriteAllText(ProjectsFile,
+            JsonSerializer.Serialize(new ProjectsFileModel { Projects = kept }, WriteOptions));
+
+        return true;
+    }
+
+    private static bool SamePath(string a, string b) =>
+        string.Equals(a.TrimEnd('\\', '/'), b.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Reads a property that should hold an array. PowerShell 5.1 sometimes
