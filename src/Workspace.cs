@@ -53,6 +53,51 @@ public static class Workspace
         }
     }
 
+    /// <summary>At most this many are kept, newest first.</summary>
+    private const int MaxRemembered = 20;
+
+    /// <summary>
+    /// Folds the terminals open now into the remembered set instead of replacing
+    /// it.
+    ///
+    /// Replacing was wrong in the ordinary case: open five terminals one day,
+    /// open a single one the next, and that one run overwrote the five - so
+    /// "reopen last" brought back one terminal out of a whole afternoon's work.
+    /// A terminal leaves the set when it is closed, not when a later run happens
+    /// not to have it open.
+    /// </summary>
+    public static void Remember(IEnumerable<WorkspaceEntry> open)
+    {
+        var merged = new List<WorkspaceEntry>();
+
+        foreach (var entry in open)
+        {
+            if (string.IsNullOrWhiteSpace(entry.SessionId)) continue;
+            if (merged.Any(m => Same(m, entry.SessionId))) continue;
+            merged.Add(entry);
+        }
+
+        // Everything remembered before stays, as long as it could still be
+        // reopened - a project that has been deleted is only clutter.
+        foreach (var entry in Restorable())
+        {
+            if (merged.Any(m => Same(m, entry.SessionId))) continue;
+            merged.Add(entry);
+        }
+
+        Save(merged.Take(MaxRemembered));
+    }
+
+    /// <summary>Drops one entry, so a closed terminal is not offered again.</summary>
+    public static void Forget(string sessionId)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId)) return;
+        Save(Load().Where(e => !Same(e, sessionId)));
+    }
+
+    private static bool Same(WorkspaceEntry entry, string sessionId) =>
+        string.Equals(entry.SessionId, sessionId, StringComparison.OrdinalIgnoreCase);
+
     public static void Save(IEnumerable<WorkspaceEntry> terminals)
     {
         try

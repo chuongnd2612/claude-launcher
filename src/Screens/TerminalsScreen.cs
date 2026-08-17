@@ -1127,6 +1127,10 @@ public sealed class TerminalsScreen : ScreenBase
         }
 
         App.Terminals.Remove(terminal);
+
+        // Closing is the one way out of the remembered set; merging alone would
+        // hand it straight back on the next reopen.
+        Workspace.Forget(terminal.SessionId);
         App.RememberTerminals();
 
         if (!string.IsNullOrEmpty(row.SessionId)) _hidden.Add(row.SessionId);
