@@ -101,12 +101,12 @@ directly without showing the selection screens.
 | ------- | ---- |
 | Home | `↑↓` navigate · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` new session · `t` tile · `k` stop · `p` profiles · `q` quit |
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` open a terminal there · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
-| Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `v` split right · `s` split down · `Space` layout · `t` new terminal · `w` remove tile · `Esc` back |
+| Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `Space` layout · `t` new terminal · `w` remove tile · `Esc` back — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
 | Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll history · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` resume typing |
 | Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` new terminal · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
-| Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `/` filter · `Esc` back · `q` quit |
+| Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `a` add a folder · `d` forget one · `/` filter · `Esc` back · `q` quit |
 | Session | `↑↓` navigate · `Enter` launch · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `h` chat view (only with terminal tiles off) · `Esc` back |
 | Chat | type · `Enter` send · `/` commands (`↑↓` pick, `Tab` complete) · `y`/`a`/`n` answer a permission request · `Ctrl+D` detach to a pane · `Esc` stop a turn, then back · `PgUp/PgDn` scroll · `End` follow |
 | Resume | `↑↓` navigate · `Enter` resume (a terminal tile, or a real terminal when tiles are off) · `t` force a terminal tile · `c` resume in the chat view · `/` filter · `l` logs · `d` delete · `Esc` back |
@@ -386,6 +386,10 @@ your **shell** picks it up when it next loads its profile.
 
 **`d` forgets** one — `quick-remove` by another route. If quick paths cannot be written at all, the
 launcher falls back to its own `$HOME\.claude-launcher\projects.json` and says so.
+
+**The same `a` and `d` work on step 2 of the wizard**, so projects can be managed wherever they are
+listed rather than only on the way to a terminal. `"Current directory"` is this shell's own folder
+rather than a saved project, so it cannot be forgotten.
 
 ### Terminal tiles — Claude's own interface, inside the wall
 
