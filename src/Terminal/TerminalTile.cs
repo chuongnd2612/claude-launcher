@@ -13,6 +13,8 @@ namespace ClaudeLauncher.Terminal;
 /// </summary>
 public sealed class TerminalTile : IDisposable
 {
+    private static readonly string Esc = ((char)27).ToString();
+
     private readonly ConPtySession _pty;
     private readonly VtParser _parser = new();
     private readonly TerminalScreen _screen;
@@ -94,6 +96,62 @@ public sealed class TerminalTile : IDisposable
     public void Read(Action<TerminalScreen> read)
     {
         lock (_gate) read(_screen);
+    }
+
+    /// <summary>True when the child asked for mouse reports and can scroll itself.</summary>
+    public bool WantsMouse
+    {
+        get { lock (_gate) return _screen.MouseTracking; }
+    }
+
+    /// <summary>
+    /// Forwards a wheel notch as a mouse report.
+    ///
+    /// Claude runs on the alternate screen, which has no scrollback of its own -
+    /// it scrolls its own view, the same as it does in any terminal, and only
+    /// if the wheel actually reaches it. Column and row are tile-local, zero
+    /// based; the wire format is one based.
+    /// </summary>
+    public void SendWheel(int notches, int col, int row)
+    {
+        if (notches == 0) return;
+
+        bool sgr;
+        int cols, rows;
+
+        lock (_gate)
+        {
+            if (!_screen.MouseTracking) return;
+            sgr = _screen.SgrMouse;
+            cols = _screen.Cols;
+            rows = _screen.Rows;
+        }
+
+        var x = Math.Clamp(col, 0, Math.Max(0, cols - 1)) + 1;
+        var y = Math.Clamp(row, 0, Math.Max(0, rows - 1)) + 1;
+
+        // 64 is wheel up, 65 is wheel down.
+        var button = notches > 0 ? 64 : 65;
+        var text = new StringBuilder();
+
+        for (var i = 0; i < Math.Min(Math.Abs(notches), 10); i++)
+        {
+            if (sgr)
+            {
+                text.Append(Esc).Append("[<").Append(button).Append(';')
+                    .Append(x).Append(';').Append(y).Append('M');
+            }
+            else
+            {
+                // X10: button and coordinates biased by 32, so they stay printable.
+                text.Append(Esc).Append("[M")
+                    .Append((char)(32 + button))
+                    .Append((char)(32 + Math.Min(x, 223)))
+                    .Append((char)(32 + Math.Min(y, 223)));
+            }
+        }
+
+        Write(text.ToString());
     }
 
     public void Send(ConsoleKeyInfo key)

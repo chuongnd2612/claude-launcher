@@ -90,6 +90,12 @@ public sealed class TerminalScreen : IVtSink
     /// <summary>Recorded only; the tile never sends mouse events back.</summary>
     public bool MouseTracking { get; private set; }
 
+    /// <summary>
+    /// True once the program asked for SGR mouse reports (?1006). It decides how
+    /// a wheel notch has to be encoded before it is sent back.
+    /// </summary>
+    public bool SgrMouse { get; private set; }
+
     public TerminalCell this[int x, int y]
     {
         get
@@ -457,7 +463,10 @@ public sealed class TerminalScreen : IVtSink
                 case 1000:
                 case 1002:
                 case 1003:
+                    MouseTracking = set;
+                    break;
                 case 1006:
+                    SgrMouse = set;
                     MouseTracking = set;
                     break;
             }

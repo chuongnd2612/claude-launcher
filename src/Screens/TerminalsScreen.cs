@@ -874,13 +874,23 @@ public sealed class TerminalsScreen : ScreenBase
             // stay its own.
             if (Switch(key, panes.Count)) return ScreenAction.None;
 
-            // Shift+PageUp/PageDown reads back through the scrollback, the way
-            // any terminal does it. Plain PageUp belongs to Claude.
+            // Shift+PageUp/PageDown reads our scrollback - but only a program on
+            // the primary screen fills one. Claude lives on the alternate screen
+            // and scrolls its own view, so there the key belongs to it.
             if ((key.Modifiers & ConsoleModifiers.Shift) != 0 &&
                 key.Key is ConsoleKey.PageUp or ConsoleKey.PageDown)
             {
-                var lines = key.Key == ConsoleKey.PageUp ? 10 : -10;
-                terminal.Read(screen => screen.ScrollBy(lines));
+                var ours = false;
+                terminal.Read(screen =>
+                {
+                    if (screen.IsAlternate) return;
+                    screen.ScrollBy(key.Key == ConsoleKey.PageUp ? 10 : -10);
+                    ours = true;
+                });
+
+                if (ours) return ScreenAction.None;
+
+                terminal.Send(new ConsoleKeyInfo(key.KeyChar, key.Key, false, false, false));
                 return ScreenAction.None;
             }
 
@@ -1146,7 +1156,22 @@ public sealed class TerminalsScreen : ScreenBase
 
         // The wheel scrolls whichever pane is under the pointer, focused or not -
         // looking back at a pane should not mean taking the keyboard off another.
-        LiveTerminal(panes[hit.Index])?.Read(screen => screen.ScrollBy(input.Delta * 3));
+        var wheeled = LiveTerminal(panes[hit.Index]);
+        if (wheeled is null) return ScreenAction.None;
+
+        var alternate = false;
+        wheeled.Read(screen => alternate = screen.IsAlternate);
+
+        if (alternate)
+        {
+            // Claude paints the alternate screen and keeps its own history, so
+            // the notch goes to it as a mouse report - the same thing any
+            // terminal would send. Coordinates are relative to the pane.
+            wheeled.SendWheel(input.Delta, input.X - (hit.X + 2), input.Y - (hit.Y + 1));
+            return ScreenAction.None;
+        }
+
+        wheeled.Read(screen => screen.ScrollBy(input.Delta * 3));
         return ScreenAction.None;
     }
 
