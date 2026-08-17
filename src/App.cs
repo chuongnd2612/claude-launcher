@@ -214,9 +214,14 @@ public sealed class App
 
     private void OnCancel(object? sender, ConsoleCancelEventArgs e)
     {
-        // Ctrl+C skips the finally below, so the sessions are torn down here too.
-        StopSessions();
-        Term.Restore();
+        // Ctrl+C belongs to whatever is focused - usually Claude, which uses it
+        // to interrupt a turn. It used to stop every session and let the process
+        // die, so one keystroke inside a terminal tile took the whole launcher
+        // and every other session with it.
+        e.Cancel = true;
+
+        // The console swallowed the key to raise this event, so hand it on.
+        ConsoleInput.Inject(new ConsoleKeyInfo((char)3, ConsoleKey.C, false, false, true));
     }
 
     /// <summary>

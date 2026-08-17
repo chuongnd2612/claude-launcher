@@ -102,8 +102,8 @@ directly without showing the selection screens.
 | Home | `↑↓` navigate · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` new session · `r` reopen last session's terminals · `t` tile · `k` stop · `p` profiles · `q` quit |
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` pick the project, then choose new / continue / resume · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
 | Adding a folder (`a`) | type a path · `↑↓` pick from the folders below · `Tab` complete into one · `Enter` use this path, then name it · `Esc` cancel |
-| Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `Space` layout · `t` new terminal · `w` remove tile · `Esc` back — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
-| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll Claude’s history · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` resume typing |
+| Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `Space` layout · `t` new terminal · `w` close a terminal, or hide a session that is not ours · `Esc` back — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
+| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Ctrl+W` / `Alt+W` close this terminal · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll Claude’s history · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` resume typing |
 | Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` new terminal · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
@@ -472,6 +472,14 @@ in the launcher's own colours, the chat tile is the one that does that — which
 exist rather than one replacing the other.
 
 ### Picking up where you left off
+
+**`Ctrl+W` (or `Alt+W`) closes the focused terminal** and stops that Claude. It works while you are
+typing, because a terminal tile owns every printable key. `w` does the same from the wall's own keys;
+for a session running in someone else's terminal it only hides the pane, since that one is not ours
+to end. Nothing is lost either way — the conversation is on disk and `r` or **Resume** brings it back.
+
+**`Ctrl+C` goes to Claude**, which uses it to interrupt a turn. It never closes the launcher and never
+stops other sessions.
 
 Terminal tiles stop with the launcher, so an afternoon's worth of open sessions goes away on exit.
 The conversations do not — only the list of which ones were open. That list is kept, so **`r` on Home

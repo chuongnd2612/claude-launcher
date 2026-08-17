@@ -868,6 +868,14 @@ public sealed class TerminalsScreen : ScreenBase
             if ((ctrlKey || (key.Modifiers & ConsoleModifiers.Alt) != 0) && key.Key == ConsoleKey.T)
                 return ScreenAction.Push(new NewTerminalScreen(App));
 
+            // Closing has to be reachable while typing too, and Ctrl+C is not it:
+            // that belongs to Claude, which uses it to interrupt a turn.
+            if ((ctrlKey || (key.Modifiers & ConsoleModifiers.Alt) != 0) && key.Key == ConsoleKey.W)
+            {
+                CloseTerminal(panes[_focus], terminal);
+                return ScreenAction.None;
+            }
+
             // Switching panes has to work mid-sentence, so a few Alt chords are
             // kept back from the child. Alt is the safe half of the keyboard:
             // Claude's own UI uses Esc, Tab, the arrows and Ctrl, all of which
@@ -1067,12 +1075,7 @@ public sealed class TerminalsScreen : ScreenBase
                 if (panes.Count > 0) _zoom = !_zoom;
                 return ScreenAction.None;
             case 'w':
-                if (panes.Count > 0)
-                {
-                    _hidden.Add(panes[_focus].SessionId);
-                    App.RememberTerminals();
-                }
-
+                if (panes.Count > 0) Remove(panes[_focus]);
                 return ScreenAction.None;
             case 'v':
                 return Splitting ? Split(panes, vertical: true) : ScreenAction.None;
@@ -1087,6 +1090,52 @@ public sealed class TerminalsScreen : ScreenBase
         }
 
         return ScreenAction.None;
+    }
+
+    /// <summary>
+    /// Takes a pane off the wall. A terminal this launcher started is stopped
+    /// outright - hiding it would leave a Claude running with no way back to it -
+    /// while a session in someone else's terminal is only hidden, because it is
+    /// not ours to end.
+    /// </summary>
+    private void Remove(SessionRow row)
+    {
+        var terminal = LiveTerminal(row);
+
+        if (terminal is not null)
+        {
+            CloseTerminal(row, terminal);
+            return;
+        }
+
+        _hidden.Add(row.SessionId);
+        _notice = "tile removed - the session keeps running";
+    }
+
+    /// <summary>Stops a terminal we own and takes its pane with it.</summary>
+    private void CloseTerminal(SessionRow row, TerminalTile terminal)
+    {
+        var name = terminal.ProjectName;
+
+        try
+        {
+            terminal.Dispose();
+        }
+        catch (Exception)
+        {
+            // Already gone; removing it from the wall is still right.
+        }
+
+        App.Terminals.Remove(terminal);
+        App.RememberTerminals();
+
+        if (!string.IsNullOrEmpty(row.SessionId)) _hidden.Add(row.SessionId);
+
+        _released = false;
+        _focus = Math.Max(0, _focus - 1);
+
+        // The conversation is on disk either way, so this is undoable.
+        _notice = $"closed {name} · reopen it from Home with r, or resume it";
     }
 
     /// <summary>
