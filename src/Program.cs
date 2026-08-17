@@ -61,8 +61,13 @@ public static class Program
                 var service = new SessionService(state);
                 var snapshot = service.Build();
 
-                if (snapshot.Sessions.Count > 0) app.Run(new HomeScreen(app, service));
-                else app.Run(new ProfileScreen(app));
+                // Home is also the way back to yesterday's terminals, so it wins
+                // whenever there is something to reopen - not only when a session
+                // happens to be running.
+                if (snapshot.Sessions.Count > 0 || Workspace.Restorable().Count > 0)
+                    app.Run(new HomeScreen(app, service));
+                else
+                    app.Run(new ProfileScreen(app));
 
                 return 0;
             }

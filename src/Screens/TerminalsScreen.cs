@@ -1067,7 +1067,12 @@ public sealed class TerminalsScreen : ScreenBase
                 if (panes.Count > 0) _zoom = !_zoom;
                 return ScreenAction.None;
             case 'w':
-                if (panes.Count > 0) _hidden.Add(panes[_focus].SessionId);
+                if (panes.Count > 0)
+                {
+                    _hidden.Add(panes[_focus].SessionId);
+                    App.RememberTerminals();
+                }
+
                 return ScreenAction.None;
             case 'v':
                 return Splitting ? Split(panes, vertical: true) : ScreenAction.None;

@@ -16,6 +16,15 @@ public sealed class HomeScreen : ScreenBase
     private int _scroll;
     private string? _notice;
 
+    /// <summary>
+    /// Terminals that were open when the launcher last closed. They die with it
+    /// by design, so the only thing worth keeping was the list - this is the
+    /// offer to bring them all back.
+    /// </summary>
+    private List<WorkspaceEntry> Restorable => Workspace.Restorable()
+        .Where(e => !App.Terminals.Any(t => !t.HasExited && t.SessionId == e.SessionId))
+        .ToList();
+
     public HomeScreen(App app, SessionService service) : base(app)
     {
         _service = service;
@@ -139,17 +148,22 @@ public sealed class HomeScreen : ScreenBase
         if (_notice is not null && y < buffer.Height - 5)
             buffer.WriteClipped(margin + 1, y, _notice, width - 2, new Sty(Theme.Amber, Theme.Bg));
 
-        Widgets.Footer(buffer, new[]
+        var hints = new List<KeyHint>
         {
-            new KeyHint("↑↓", "Navigate"),
-            new KeyHint("↵", "Open"),
-            new KeyHint("a", "Attach"),
-            new KeyHint("n", "New"),
-            new KeyHint("t", "Tile"),
-            new KeyHint("k", "Kill"),
-            new KeyHint("p", "Profile"),
-            new KeyHint("q", "Quit")
-        });
+            new("↑↓", "Navigate"),
+            new("↵", "Open"),
+            new("a", "Attach"),
+            new("n", "New")
+        };
+
+        if (Restorable.Count > 0) hints.Add(new KeyHint("r", "Reopen last"));
+
+        hints.Add(new KeyHint("t", "Tile"));
+        hints.Add(new KeyHint("k", "Kill"));
+        hints.Add(new KeyHint("p", "Profile"));
+        hints.Add(new KeyHint("q", "Quit"));
+
+        Widgets.Footer(buffer, hints.ToArray());
     }
 
     /// <summary>
@@ -285,6 +299,8 @@ public sealed class HomeScreen : ScreenBase
             case 'n':
             case 'p':
                 return ScreenAction.Push(new ProfileScreen(App));
+            case 'r':
+                return Restore();
             case 't':
                 if (_service is null || Rows.Count == 0) return ScreenAction.None;
                 return ScreenAction.Push(new TerminalsScreen(App, _service));
@@ -340,6 +356,28 @@ public sealed class HomeScreen : ScreenBase
 
         _notice = $"Switched to Windows Terminal · look for the pane in {row.ProjectName}.";
         return ScreenAction.None;
+    }
+
+    /// <summary>Brings back every terminal that was open last time, in one go.</summary>
+    private ScreenAction Restore()
+    {
+        var waiting = Restorable.Count;
+        if (waiting == 0)
+        {
+            _notice = "nothing to reopen - no terminals were open last time";
+            return ScreenAction.None;
+        }
+
+        var restored = App.RestoreTerminals(out var failure);
+
+        if (restored == 0)
+        {
+            _notice = failure is null ? "could not reopen those terminals" : "could not reopen: " + failure;
+            return ScreenAction.None;
+        }
+
+        var service = _service ?? new SessionService(App.State);
+        return ScreenAction.Root(new TerminalsScreen(App, service));
     }
 
     private ScreenAction Kill()
