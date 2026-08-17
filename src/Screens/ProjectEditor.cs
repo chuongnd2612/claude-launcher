@@ -25,6 +25,14 @@ public sealed class ProjectEditor
     /// </summary>
     private bool _suggested;
 
+    /// <summary>Folders matching what has been typed, recomputed as it changes.</summary>
+    private readonly List<string> _matches = new();
+    private string _matchedOn = "\u0001";
+    private int _matchIndex;
+
+    /// <summary>More than this and the dropdown crowds out the list behind it.</summary>
+    private const int MaxMatches = 6;
+
     public ProjectEditor(App app, List<ProjectEntry> projects)
     {
         _app = app;
@@ -39,8 +47,8 @@ public sealed class ProjectEditor
     /// <summary>Index the owner should select, set when a project is added.</summary>
     public int? Select { get; private set; }
 
-    /// <summary>Rows the editor needs below the list when it is open.</summary>
-    public int Height => Active ? 3 : 0;
+    /// <summary>Rows the editor needs below the list, dropdown included.</summary>
+    public int Height => Active ? 3 + _matches.Count : 0;
 
     public void Begin()
     {
@@ -49,6 +57,8 @@ public sealed class ProjectEditor
         _pendingPath = null;
         _suggested = false;
         Notice = null;
+        _matches.Clear();
+        _matchedOn = "\u0001";
     }
 
     public void Cancel()
@@ -57,6 +67,8 @@ public sealed class ProjectEditor
         _draft = string.Empty;
         _pendingPath = null;
         _suggested = false;
+        _matches.Clear();
+        _matchedOn = "\u0001";
     }
 
     public void Render(ScreenBuffer buffer, int x, int y, int width)
@@ -77,12 +89,101 @@ public sealed class ProjectEditor
         {
             buffer.WriteClipped(x + 3, y + 2, _pendingPath!, width - 6,
                 new Sty(Theme.Dim, Theme.Panel, italic: true));
+            return;
+        }
+
+        // Folders under what has been typed, so a path is chosen rather than
+        // spelled out. Drawn as a dropdown hanging off the input, the way the
+        // slash-command menu hangs off a tile's prompt.
+        for (var i = 0; i < _matches.Count; i++)
+        {
+            var row = y + 3 + i;
+            if (row > buffer.Height - 5) break;
+
+            var selected = i == _matchIndex;
+            var bg = selected ? Theme.PanelSelected : Theme.Panel;
+
+            buffer.Fill(x + 1, row, width - 2, 1, bg);
+            buffer.Write(x + 3, row, selected ? "▸ " : "  ", new Sty(Theme.Blue, bg, bold: true));
+            buffer.WriteClipped(x + 5, row, Path.GetFileName(_matches[i]), width - 10,
+                new Sty(selected ? Theme.Blue : Theme.TextSoft, bg, bold: selected));
         }
     }
 
-    public KeyHint[] Hints => _pendingPath is null
-        ? new[] { new KeyHint("type", "Folder path"), new KeyHint("↵", "Next"), new KeyHint("esc", "Cancel") }
-        : new[] { new KeyHint("type", "Name for cd"), new KeyHint("↵", "Save"), new KeyHint("esc", "Cancel") };
+    /// <summary>
+    /// Recomputes the folder list for what has been typed. Split on the last
+    /// separator: what precedes it is the folder to look in, what follows is the
+    /// prefix to match - the same rule a shell completes by.
+    /// </summary>
+    private void RefreshMatches()
+    {
+        if (_pendingPath is not null || _draft == _matchedOn) return;
+
+        _matchedOn = _draft;
+        _matches.Clear();
+        _matchIndex = 0;
+
+        var text = _draft.Trim().Trim('"');
+        if (text.Length == 0) return;
+
+        try
+        {
+            text = Environment.ExpandEnvironmentVariables(text);
+            if (text.StartsWith("~", StringComparison.Ordinal))
+                text = Path.Combine(StateStore.Home, text.TrimStart('~', '\\', '/'));
+
+            var separator = text.LastIndexOfAny(new[] { '\\', '/' });
+            if (separator < 0) return;
+
+            var parent = text.Substring(0, separator + 1);
+            var prefix = text.Substring(separator + 1);
+
+            if (!Directory.Exists(parent)) return;
+
+            foreach (var directory in Directory.EnumerateDirectories(parent))
+            {
+                var leaf = Path.GetFileName(directory);
+                if (prefix.Length > 0 && !leaf.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+
+                _matches.Add(directory);
+                if (_matches.Count >= MaxMatches) break;
+            }
+        }
+        catch (Exception)
+        {
+            // An unreadable or malformed path simply offers nothing.
+            _matches.Clear();
+        }
+    }
+
+    /// <summary>Fills the input with the highlighted folder, ready to go deeper.</summary>
+    private void Complete()
+    {
+        if (_matches.Count == 0) return;
+
+        _draft = _matches[Math.Clamp(_matchIndex, 0, _matches.Count - 1)] + Path.DirectorySeparatorChar;
+        _suggested = false;
+        RefreshMatches();
+    }
+
+    public KeyHint[] Hints
+    {
+        get
+        {
+            if (_pendingPath is not null)
+                return new[] { new KeyHint("type", "Name for cd"), new KeyHint("↵", "Save"), new KeyHint("esc", "Cancel") };
+
+            return _matches.Count > 0
+                ? new[]
+                {
+                    new KeyHint("↑↓", "Pick folder"),
+                    new KeyHint("tab", "Complete"),
+                    new KeyHint("↵", "Use this path"),
+                    new KeyHint("esc", "Cancel")
+                }
+                : new[] { new KeyHint("type", "Folder path"), new KeyHint("↵", "Next"), new KeyHint("esc", "Cancel") };
+        }
+    }
 
     /// <summary>Handles a key while adding. Returns false when the editor is not open.</summary>
     public bool HandleKey(ConsoleKeyInfo key)
@@ -96,6 +197,15 @@ public sealed class ProjectEditor
             case ConsoleKey.Escape:
                 Cancel();
                 return true;
+            case ConsoleKey.Tab:
+                Complete();
+                return true;
+            case ConsoleKey.UpArrow:
+                if (_matches.Count > 0) _matchIndex = (_matchIndex - 1 + _matches.Count) % _matches.Count;
+                return true;
+            case ConsoleKey.DownArrow:
+                if (_matches.Count > 0) _matchIndex = (_matchIndex + 1) % _matches.Count;
+                return true;
             case ConsoleKey.Backspace:
                 if (_suggested)
                 {
@@ -105,6 +215,7 @@ public sealed class ProjectEditor
                 }
 
                 if (_draft.Length > 0) _draft = _draft.Substring(0, _draft.Length - 1);
+                RefreshMatches();
                 return true;
             case ConsoleKey.Enter:
                 if (_pendingPath is null) AcceptPath();
@@ -123,6 +234,7 @@ public sealed class ProjectEditor
             _draft += key.KeyChar;
         }
 
+        RefreshMatches();
         return true;
     }
 
@@ -169,6 +281,7 @@ public sealed class ProjectEditor
         _pendingPath = full;
         _draft = QuickPaths.SuggestName(full);
         _suggested = true;
+        _matches.Clear();
         Notice = null;
     }
 

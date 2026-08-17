@@ -101,6 +101,7 @@ directly without showing the selection screens.
 | ------- | ---- |
 | Home | `↑↓` navigate · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` new session · `t` tile · `k` stop · `p` profiles · `q` quit |
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` open a terminal there · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
+| Adding a folder (`a`) | type a path · `↑↓` pick from the folders below · `Tab` complete into one · `Enter` use this path, then name it · `Esc` cancel |
 | Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `Space` layout · `t` new terminal · `w` remove tile · `Esc` back — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
 | Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll history · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` resume typing |
 | Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` new terminal · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
@@ -377,6 +378,10 @@ has never shown.
 The list is the shell's quick paths plus anything you add. **`a` adds a folder** in two steps: type
 or paste a path (`~` and `%VARS%` are expanded, and it is checked for existence, so a typo fails here
 rather than as a pty error later), then give it the short name you want.
+
+**You do not have to type the whole path.** As you type, the folders under it are listed below the
+field: `↑↓` picks one, `Tab` completes into it and offers what is inside, so a path is walked into
+rather than spelled out. `~` and `%VARS%` expand as you go.
 
 **That name is a real quick path.** The launcher writes the same
 `Documents\WindowsPowerShell\data\quickpaths.json` that `quick-set` writes, so the folder also works
