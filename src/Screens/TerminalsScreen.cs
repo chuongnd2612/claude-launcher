@@ -876,6 +876,12 @@ public sealed class TerminalsScreen : ScreenBase
                 return ScreenAction.None;
             }
 
+            if ((key.Modifiers & ConsoleModifiers.Alt) != 0 && key.Key == ConsoleKey.S)
+            {
+                ToggleSelecting();
+                return ScreenAction.None;
+            }
+
             // Switching panes has to work mid-sentence, so a few Alt chords are
             // kept back from the child. Alt is the safe half of the keyboard:
             // Claude's own UI uses Esc, Tab, the arrows and Ctrl, all of which
@@ -1110,6 +1116,29 @@ public sealed class TerminalsScreen : ScreenBase
 
         _hidden.Add(row.SessionId);
         _notice = "tile removed - the session keeps running";
+    }
+
+    /// <summary>
+    /// Hands the console back to its own selection for a moment.
+    ///
+    /// Reading the mouse means turning off quick edit, and quick edit is what
+    /// drags text out of a console - so the two cannot both be on. This borrows
+    /// it back: the mouse stops focusing tiles and scrolling, and dragging
+    /// selects and copies the way it does anywhere else.
+    /// </summary>
+    private void ToggleSelecting()
+    {
+        var wanted = !ConsoleInput.Selecting;
+
+        if (!ConsoleInput.SetSelecting(wanted))
+        {
+            _notice = "this terminal does not hand over its mouse, so selection already works";
+            return;
+        }
+
+        _notice = wanted
+            ? "select mode · drag to select and copy · alt+s to give the mouse back"
+            : "mouse back on · click focuses a tile, wheel scrolls it";
     }
 
     /// <summary>Stops a terminal we own and takes its pane with it.</summary>
