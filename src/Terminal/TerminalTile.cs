@@ -38,6 +38,9 @@ public sealed class TerminalTile : IDisposable
 
     public string ProjectName { get; private init; } = string.Empty;
 
+    /// <summary>The Claude config this tile runs under, kept so it can be reopened.</summary>
+    public string ConfigDir { get; private init; } = string.Empty;
+
     public bool HasExited => _pty.HasExited;
 
     public int ProcessId => _pty.ProcessId;
@@ -88,6 +91,7 @@ public sealed class TerminalTile : IDisposable
         {
             ProjectPath = projectPath,
             ProjectName = projectName,
+            ConfigDir = configDir,
             SessionId = sessionId
         };
     }

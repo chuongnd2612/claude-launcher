@@ -220,7 +220,7 @@ public sealed class NewTerminalScreen : ScreenBase
             var tile = TerminalTile.Start(project.Path, project.Name,
                 StateStore.ExpandHome(profile.ConfigDir), 100, 30);
 
-            App.Terminals.Add(tile);
+            App.AddTerminal(tile);
             return ScreenAction.Root(new TerminalsScreen(App, new SessionService(App.State), tile));
         }
         catch (Exception ex)

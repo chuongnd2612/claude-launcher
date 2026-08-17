@@ -219,7 +219,7 @@ public sealed class SessionScreen : ScreenBase
                 App.Project!.Path, App.Project!.Name,
                 StateStore.ExpandHome(App.Profile!.ConfigDir), 100, 30, resumeSessionId);
 
-            App.Terminals.Add(tile);
+            App.AddTerminal(tile);
 
             // Straight onto the wall: a session is rarely the only one, and
             // landing there means the others stay in sight. Zoom (z) is the

@@ -99,7 +99,7 @@ directly without showing the selection screens.
 
 | Screen  | Keys |
 | ------- | ---- |
-| Home | `↑↓` navigate · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` new session · `t` tile · `k` stop · `p` profiles · `q` quit |
+| Home | `↑↓` navigate · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` new session · `r` reopen last session's terminals · `t` tile · `k` stop · `p` profiles · `q` quit |
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` open a terminal there · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
 | Adding a folder (`a`) | type a path · `↑↓` pick from the folders below · `Tab` complete into one · `Enter` use this path, then name it · `Esc` cancel |
 | Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `Space` layout · `t` new terminal · `w` remove tile · `Esc` back — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
@@ -461,6 +461,17 @@ not possible because there are no palette indices to remap. Unfocused terminal t
 toward the panel background so the focused one still reads at a glance. If you want Claude's output
 in the launcher's own colours, the chat tile is the one that does that — which is why both kinds
 exist rather than one replacing the other.
+
+### Picking up where you left off
+
+Terminal tiles stop with the launcher, so an afternoon's worth of open sessions goes away on exit.
+The conversations do not — only the list of which ones were open. That list is kept, so **`r` on Home
+reopens them all at once**, each resumed rather than started fresh.
+
+The offer only counts sessions that can actually come back: the project folder still has to exist and
+the conversation has to be on disk. A terminal you opened but never typed into has nothing to resume
+and is not offered. Home is also the landing screen whenever there is something to reopen, so the
+first thing you see after starting the launcher is the way back to yesterday's work.
 
 Terminal tiles are children of the launcher and **stop when it exits** — including if it is killed
 outright rather than closed cleanly, because every session it starts is placed in a Windows job

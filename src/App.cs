@@ -104,6 +104,65 @@ public sealed class App
     /// </summary>
     public List<Terminal.TerminalTile> Terminals { get; } = new();
 
+    /// <summary>
+    /// Adds a tile and records the open set, so closing the launcher does not
+    /// also lose the list of what was open.
+    /// </summary>
+    public void AddTerminal(Terminal.TerminalTile tile)
+    {
+        Terminals.Add(tile);
+        RememberTerminals();
+    }
+
+    /// <summary>
+    /// Writes down what is open now. Called as tiles come and go rather than at
+    /// exit, because teardown is exactly when the list has already been emptied
+    /// - and because a launcher that is killed never reaches an exit path.
+    /// </summary>
+    public void RememberTerminals()
+    {
+        Workspace.Save(Terminals
+            .Where(t => !t.HasExited && !string.IsNullOrEmpty(t.SessionId))
+            .Select(t => new WorkspaceEntry
+            {
+                SessionId = t.SessionId,
+                ProjectName = t.ProjectName,
+                ProjectPath = t.ProjectPath,
+                ConfigDir = t.ConfigDir
+            }));
+    }
+
+    /// <summary>
+    /// Reopens the terminals that were up last time, resuming each conversation
+    /// rather than starting a fresh one. Returns how many came back.
+    /// </summary>
+    public int RestoreTerminals(out string? failure)
+    {
+        failure = null;
+        var restored = 0;
+
+        foreach (var entry in Workspace.Restorable())
+        {
+            if (Terminals.Any(t => !t.HasExited && t.SessionId == entry.SessionId)) continue;
+
+            try
+            {
+                Terminals.Add(Terminal.TerminalTile.Start(
+                    entry.ProjectPath, entry.ProjectName,
+                    StateStore.ExpandHome(entry.ConfigDir), 100, 30, entry.SessionId));
+
+                restored++;
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex.Message;
+            }
+        }
+
+        if (restored > 0) RememberTerminals();
+        return restored;
+    }
+
     /// <summary>Set once a launch mode has been chosen.</summary>
     public string? LaunchMode { get; private set; }
 
