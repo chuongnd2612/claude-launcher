@@ -1200,7 +1200,19 @@ public sealed class TerminalsScreen : ScreenBase
             input.X >= r.X && input.X < r.X + r.W &&
             input.Y >= r.Y && input.Y < r.Y + r.H);
 
-        if (hit.W == 0 || hit.Index >= panes.Count) return ScreenAction.None;
+        if (hit.W == 0 || hit.Index >= panes.Count)
+        {
+            // Clicking off the tiles is the mouse's Ctrl+]: the wall takes its
+            // keys back, so the next one is a wall command rather than another
+            // character typed into whichever terminal happened to have focus.
+            if (input.Kind == InputKind.MouseDown && !_released)
+            {
+                _released = true;
+                _notice = "keyboard released · click a tile or ctrl+] to type";
+            }
+
+            return ScreenAction.None;
+        }
 
         if (input.Kind == InputKind.MouseDown)
         {
