@@ -78,6 +78,40 @@ public static class ConsoleInput
 
     public static bool MouseEnabled => _mouse;
 
+    /// <summary>
+    /// True while the console has been handed back to its own quick-edit mode so
+    /// text can be dragged out of it.
+    /// </summary>
+    public static bool Selecting { get; private set; }
+
+    /// <summary>
+    /// Swaps between reading the mouse and letting the console select text.
+    ///
+    /// They are the same setting: quick edit is what drags a selection, and it
+    /// is exactly what has to be off for mouse events to reach us. Turning it
+    /// back on for a moment is the only way to have both.
+    /// </summary>
+    public static bool SetSelecting(bool on)
+    {
+        if (_handle == IntPtr.Zero || !_mouse) return false;
+
+        try
+        {
+            if (!SetConsoleMode(_handle, on ? _previousMode : MouseMode())) return false;
+
+            Selecting = on;
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    private static uint MouseMode() =>
+        (_previousMode & ~EnableQuickEditMode & ~EnableProcessedInput)
+        | EnableExtendedFlags | EnableMouseInput | EnableWindowInput;
+
     /// <summary>Wakes the render loop early - a tile with new output calls this.</summary>
     public static void Wake() => Signal.Set();
 
@@ -103,11 +137,9 @@ public static class ConsoleInput
             if (_handle != IntPtr.Zero && GetConsoleMode(_handle, out _previousMode))
             {
                 // Quick edit has to go: with it on, a click starts a selection
-                // and the console keeps the mouse events to itself.
-                var mode = (_previousMode & ~EnableQuickEditMode & ~EnableProcessedInput)
-                           | EnableExtendedFlags | EnableMouseInput | EnableWindowInput;
-
-                _mouse = SetConsoleMode(_handle, mode);
+                // and the console keeps the mouse events to itself. That trade is
+                // reversible - see SetSelecting.
+                _mouse = SetConsoleMode(_handle, MouseMode());
             }
         }
         catch (Exception)
@@ -129,6 +161,7 @@ public static class ConsoleInput
         try
         {
             if (_mouse && _handle != IntPtr.Zero) SetConsoleMode(_handle, _previousMode);
+            Selecting = false;
         }
         catch (Exception)
         {
