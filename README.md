@@ -498,6 +498,10 @@ five you had open yesterday — they are all still offered. A terminal leaves th
 **close** it (`Ctrl+W`), not when a later run happens not to have it open, and entries whose project
 or conversation has since gone are dropped. At most 20 are kept, newest first.
 
+Quitting shows what it is doing: each session takes about a second to stop, so `q` draws a
+**Closing n sessions** panel with a progress bar rather than sitting on a frozen screen. They stop in
+parallel, so the wait is about the same whether one terminal is open or six.
+
 Terminal tiles are children of the launcher and **stop when it exits** — including if it is killed
 outright rather than closed cleanly, because every session it starts is placed in a Windows job
 object that takes them (and their own subprocesses) down with it — there is no handoff to a

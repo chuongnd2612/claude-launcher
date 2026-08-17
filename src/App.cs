@@ -197,7 +197,8 @@ public sealed class App
 
             // These are our children; leaving them behind would orphan a Claude
             // process the user has no way to find again.
-            StopSessions();
+            DrawClosing(0, Chats.Count + Terminals.Count);
+            StopSessions(DrawClosing);
 
             Term.Restore();
         }
@@ -227,22 +228,85 @@ public sealed class App
     /// <summary>
     /// Ends everything this launcher started. Safe to call twice: both Dispose
     /// implementations are idempotent, and the lists are emptied as we go.
+    ///
+    /// Sessions close in parallel because each one waits on its own child to go
+    /// away - up to two seconds - and doing that in turn made quitting with a
+    /// few terminals open look like the launcher had hung.
     /// </summary>
-    private void StopSessions()
+    private void StopSessions(Action<int, int>? progress = null)
     {
-        foreach (var chat in Chats)
+        var work = new List<Task>();
+        var total = Chats.Count + Terminals.Count;
+        var done = 0;
+
+        foreach (var chat in Chats.ToList())
         {
-            try { chat.Dispose(); } catch (Exception) { /* nothing useful left to do */ }
+            work.Add(Task.Run(() =>
+            {
+                try { chat.Dispose(); }
+                catch (Exception) { /* nothing useful left to do */ }
+                finally { Interlocked.Increment(ref done); }
+            }));
+        }
+
+        foreach (var terminal in Terminals.ToList())
+        {
+            work.Add(Task.Run(() =>
+            {
+                try { terminal.Dispose(); }
+                catch (Exception) { /* nothing useful left to do */ }
+                finally { Interlocked.Increment(ref done); }
+            }));
         }
 
         Chats.Clear();
+        Terminals.Clear();
 
-        foreach (var terminal in Terminals)
+        if (work.Count == 0) return;
+
+        var all = Task.WhenAll(work);
+
+        while (!all.Wait(TimeSpan.FromMilliseconds(90)))
+            progress?.Invoke(Volatile.Read(ref done), total);
+
+        progress?.Invoke(total, total);
+    }
+
+    /// <summary>
+    /// The last frame: what is being closed, and how far along it is. Drawn
+    /// while the console is still ours, so quitting reads as work in progress
+    /// rather than a frozen screen.
+    /// </summary>
+    private void DrawClosing(int done, int total)
+    {
+        if (total == 0) return;
+
+        _buffer.PaintBackground = Settings.PaintBackground;
+        _buffer.Clear();
+
+        var y = Math.Max(2, _buffer.Height / 2 - 2);
+        var width = Math.Min(52, Math.Max(24, _buffer.Width - 8));
+        var x = Math.Max(0, (_buffer.Width - width) / 2);
+
+        _buffer.Box(x, y, width, 5, new Sty(Theme.Border, Theme.Panel), BoxStyle.Rounded, Theme.Panel);
+
+        var label = total == 1 ? "Closing 1 session" : $"Closing {total} sessions";
+        _buffer.WriteClipped(x + 3, y + 1, label, width - 6, new Sty(Theme.Text, Theme.Panel, bold: true));
+
+        var barWidth = width - 6;
+        var filled = total == 0 ? barWidth : (int)Math.Round((double)done / total * barWidth);
+
+        for (var i = 0; i < barWidth; i++)
         {
-            try { terminal.Dispose(); } catch (Exception) { /* nothing useful left to do */ }
+            var on = i < filled;
+            _buffer.Set(x + 3 + i, y + 2, on ? '█' : '░',
+                new Sty(on ? Theme.Blue : Theme.Dim, Theme.Panel));
         }
 
-        Terminals.Clear();
+        _buffer.WriteClipped(x + 3, y + 3, $"{done} of {total} stopped", width - 6,
+            new Sty(Theme.Dim, Theme.Panel, italic: true));
+
+        _buffer.Flush();
     }
 
     private void OnProcessExit(object? sender, EventArgs e) => StopSessions();
