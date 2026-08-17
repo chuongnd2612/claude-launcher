@@ -374,12 +374,18 @@ that could paste a prompt into the *wrong* session is worse than no key.
 wizard, and it does not use the focused tile's project — pick any project, including one the wall
 has never shown.
 
-The list is the wrapper's `$QuickPaths` plus anything you add. **`a` adds a folder**: type or paste a
-path (`~` and `%VARS%` are expanded), and it is checked for existence before being accepted, so a
-typo fails here rather than as a pty error later. Added folders are remembered in
-`$HOME\.claude-launcher\projects.json` and appear everywhere projects are listed, including step 2
-of the wizard. **`d` forgets** one you added; entries that come from the wrapper are left alone,
-since those belong to `quick-set`.
+The list is the shell's quick paths plus anything you add. **`a` adds a folder** in two steps: type
+or paste a path (`~` and `%VARS%` are expanded, and it is checked for existence, so a typo fails here
+rather than as a pty error later), then give it the short name you want.
+
+**That name is a real quick path.** The launcher writes the same
+`Documents\WindowsPowerShell\data\quickpaths.json` that `quick-set` writes, so the folder also works
+with `cd <name>` and shows up in `quick-list` — it is not a private list of the launcher's. Existing
+entries and the file's encoding are preserved. The new path is usable in the launcher immediately;
+your **shell** picks it up when it next loads its profile.
+
+**`d` forgets** one — `quick-remove` by another route. If quick paths cannot be written at all, the
+launcher falls back to its own `$HOME\.claude-launcher\projects.json` and says so.
 
 ### Terminal tiles — Claude's own interface, inside the wall
 

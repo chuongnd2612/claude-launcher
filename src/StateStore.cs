@@ -72,6 +72,15 @@ public static class StateStore
         if (state.Profiles.Count == 0)
             throw new InvalidOperationException("No Claude profiles configured in " + ProfilesFilePath);
 
+        // The wrapper passes the quick paths its shell had at startup, so one
+        // added since - by us or by quick-set in another window - would be
+        // missing until the shell is restarted. Read them directly as well.
+        foreach (var (name, path) in QuickPaths.Load())
+        {
+            if (state.Projects.Any(p => SamePath(p.Path, path))) continue;
+            state.Projects.Add(new ProjectEntry { Name = name, Path = path });
+        }
+
         foreach (var added in LoadAddedProjects())
         {
             if (state.Projects.Any(p => SamePath(p.Path, added.Path))) continue;
