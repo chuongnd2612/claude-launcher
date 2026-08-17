@@ -493,6 +493,11 @@ the conversation has to be on disk. A terminal you opened but never typed into h
 and is not offered. Home is also the landing screen whenever there is something to reopen, so the
 first thing you see after starting the launcher is the way back to yesterday's work.
 
+**The set accumulates rather than being replaced.** Opening one terminal today does not discard the
+five you had open yesterday — they are all still offered. A terminal leaves the list when you
+**close** it (`Ctrl+W`), not when a later run happens not to have it open, and entries whose project
+or conversation has since gone are dropped. At most 20 are kept, newest first.
+
 Terminal tiles are children of the launcher and **stop when it exits** — including if it is killed
 outright rather than closed cleanly, because every session it starts is placed in a Windows job
 object that takes them (and their own subprocesses) down with it — there is no handoff to a

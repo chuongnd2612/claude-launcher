@@ -121,7 +121,7 @@ public sealed class App
     /// </summary>
     public void RememberTerminals()
     {
-        Workspace.Save(Terminals
+        Workspace.Remember(Terminals
             .Where(t => !t.HasExited && !string.IsNullOrEmpty(t.SessionId))
             .Select(t => new WorkspaceEntry
             {
