@@ -43,7 +43,7 @@ public sealed class NewTerminalScreen : ScreenBase
         var width = buffer.Width - margin * 2;
         var items = Visible;
 
-        Widgets.SectionTitle(buffer, y, "Terminals", "New terminal · pick a project");
+        Widgets.SectionTitle(buffer, y, "Terminals", "New terminal · pick a project, then how it starts");
         y += 2;
 
         if (_index >= items.Count) _index = Math.Max(0, items.Count - 1);
@@ -120,7 +120,7 @@ public sealed class NewTerminalScreen : ScreenBase
             : new[]
             {
                 new KeyHint("↑↓", "Navigate"),
-                new KeyHint("↵", "Open terminal"),
+                new KeyHint("↵", "New / continue / resume"),
                 new KeyHint("a", "Add folder"),
                 new KeyHint("d", "Forget"),
                 new KeyHint("/", "Filter"),
@@ -211,23 +211,19 @@ public sealed class NewTerminalScreen : ScreenBase
         return ScreenAction.None;
     }
 
+    /// <summary>
+    /// Hands the chosen project to step 3 rather than starting a fresh session
+    /// outright: a terminal opened here is as likely to be picking up yesterday's
+    /// conversation as starting a new one. That screen already offers New,
+    /// Continue and Resume and already opens each as a tile, so this is the same
+    /// choice in one place instead of two.
+    /// </summary>
     private ScreenAction Open(ProjectEntry project)
     {
-        var profile = App.Profile ?? App.State.Profiles[0];
+        App.Profile ??= App.State.Profiles[0];
+        App.Project = project;
 
-        try
-        {
-            var tile = TerminalTile.Start(project.Path, project.Name,
-                StateStore.ExpandHome(profile.ConfigDir), 100, 30);
-
-            App.AddTerminal(tile);
-            return ScreenAction.Root(new TerminalsScreen(App, new SessionService(App.State), tile));
-        }
-        catch (Exception ex)
-        {
-            _notice = "could not start a terminal: " + ex.Message;
-            return ScreenAction.None;
-        }
+        return ScreenAction.Push(new SessionScreen(App));
     }
 
     private void Move(int delta, int count)
