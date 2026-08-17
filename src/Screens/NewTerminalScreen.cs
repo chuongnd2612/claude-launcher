@@ -16,13 +16,10 @@ public sealed class NewTerminalScreen : ScreenBase
 {
     private readonly List<ProjectEntry> _projects;
 
+    private readonly ProjectEditor _editor;
+
     private string _filter = string.Empty;
     private bool _filtering;
-    private bool _adding;
-    private string _draft = string.Empty;
-
-    /// <summary>Set once a folder is accepted, while its quick-path name is typed.</summary>
-    private string? _pendingPath;
     private int _index;
     private int _scroll;
     private string? _notice;
@@ -30,6 +27,7 @@ public sealed class NewTerminalScreen : ScreenBase
     public NewTerminalScreen(App app) : base(app)
     {
         _projects = app.State.Projects.ToList();
+        _editor = new ProjectEditor(app, _projects);
     }
 
     private List<ProjectEntry> Visible => string.IsNullOrEmpty(_filter)
@@ -50,7 +48,7 @@ public sealed class NewTerminalScreen : ScreenBase
 
         if (_index >= items.Count) _index = Math.Max(0, items.Count - 1);
 
-        var available = Math.Max(6, buffer.Height - 4 - y - (_adding ? 3 : 0));
+        var available = Math.Max(6, buffer.Height - 4 - y - _editor.Height);
         var panelHeight = Math.Clamp(items.Count + 4, 8, available);
 
         buffer.Box(margin, y, width, panelHeight, new Sty(Theme.Border, Theme.Panel), BoxStyle.Rounded, Theme.Panel);
@@ -111,37 +109,20 @@ public sealed class NewTerminalScreen : ScreenBase
 
         y += panelHeight + 1;
 
-        if (_adding && y + 3 <= buffer.Height - 4)
-        {
-            var naming = _pendingPath is not null;
-            var title = naming ? "Name for cd" : "Folder path";
+        _editor.Render(buffer, margin, y, width);
 
-            Widgets.TitledBox(buffer, margin, y, width, 3, title, Theme.VioletSoft);
-            var x = buffer.Write(margin + 3, y + 1, _draft, new Sty(Theme.Text, Theme.Panel));
-            buffer.Write(x, y + 1, "▏", new Sty(Theme.Blue, Theme.Panel, bold: true));
+        var notice = _editor.Notice ?? _notice;
+        if (notice is not null)
+            buffer.WriteClipped(margin + 1, buffer.Height - 5, notice, width - 2, new Sty(Theme.Amber, Theme.Bg));
 
-            if (naming && y + 2 <= buffer.Height - 4)
-            {
-                buffer.WriteClipped(margin + 3, y + 2, _pendingPath!, width - 6,
-                    new Sty(Theme.Dim, Theme.Panel, italic: true));
-            }
-        }
-
-        if (_notice is not null)
-            buffer.WriteClipped(margin + 1, buffer.Height - 5, _notice, width - 2, new Sty(Theme.Amber, Theme.Bg));
-
-        Widgets.Footer(buffer, _adding
-            ? new[]
-            {
-                new KeyHint("type", "Folder path"),
-                new KeyHint("↵", "Add"),
-                new KeyHint("esc", "Cancel")
-            }
+        Widgets.Footer(buffer, _editor.Active
+            ? _editor.Hints
             : new[]
             {
                 new KeyHint("↑↓", "Navigate"),
                 new KeyHint("↵", "Open terminal"),
                 new KeyHint("a", "Add folder"),
+                new KeyHint("d", "Forget"),
                 new KeyHint("/", "Filter"),
                 new KeyHint("esc", "Back")
             });
@@ -149,7 +130,12 @@ public sealed class NewTerminalScreen : ScreenBase
 
     public override ScreenAction HandleKey(ConsoleKeyInfo key)
     {
-        if (_adding) return Adding(key);
+        if (_editor.HandleKey(key))
+        {
+            if (_editor.Select is { } picked) _index = picked;
+            return ScreenAction.None;
+        }
+
         if (_filtering) return Filtering(key);
 
         var items = Visible;
@@ -181,36 +167,14 @@ public sealed class NewTerminalScreen : ScreenBase
                 _filtering = true;
                 return ScreenAction.None;
             case 'a':
-                _adding = true;
-                _draft = string.Empty;
+                _editor.Begin();
                 _notice = null;
                 return ScreenAction.None;
             case 'd':
-                return Forget(items);
-        }
-
-        return ScreenAction.None;
-    }
-
-    private ScreenAction Adding(ConsoleKeyInfo key)
-    {
-        switch (key.Key)
-        {
-            case ConsoleKey.Escape:
-                _adding = false;
-                _draft = string.Empty;
-                _pendingPath = null;
-                return ScreenAction.None;
-            case ConsoleKey.Backspace:
-                if (_draft.Length > 0) _draft = _draft.Substring(0, _draft.Length - 1);
-                return ScreenAction.None;
-            case ConsoleKey.Enter:
-                if (_pendingPath is null) AcceptPath();
-                else Add();
+                if (items.Count > 0) _editor.Forget(items[_index]);
                 return ScreenAction.None;
         }
 
-        if (!char.IsControl(key.KeyChar)) _draft += key.KeyChar;
         return ScreenAction.None;
     }
 
@@ -244,116 +208,6 @@ public sealed class NewTerminalScreen : ScreenBase
             _index = 0;
         }
 
-        return ScreenAction.None;
-    }
-
-    /// <summary>
-    /// First step: turn what was typed into a real folder, then ask what to call
-    /// it - the name is what `cd &lt;name&gt;` will answer to, so it is worth a
-    /// prompt rather than being guessed silently.
-    /// </summary>
-    private void AcceptPath()
-    {
-        var path = _draft.Trim().Trim('"');
-        if (path.Length == 0) return;
-
-        path = Environment.ExpandEnvironmentVariables(path);
-        if (path.StartsWith("~", StringComparison.Ordinal))
-            path = Path.Combine(StateStore.Home, path.TrimStart('~', '\\', '/'));
-
-        string full;
-        try
-        {
-            full = Path.GetFullPath(path);
-        }
-        catch (Exception)
-        {
-            _notice = "that is not a usable path";
-            return;
-        }
-
-        // A folder that does not exist would start Claude in nothing, so it is
-        // refused here rather than failing later with a pty error.
-        if (!Directory.Exists(full))
-        {
-            _notice = "no such folder: " + full;
-            return;
-        }
-
-        if (_projects.Any(p => string.Equals(p.Path.TrimEnd('\\', '/'), full.TrimEnd('\\', '/'),
-                StringComparison.OrdinalIgnoreCase)))
-        {
-            _notice = "already on the list";
-            _adding = false;
-            _draft = string.Empty;
-            return;
-        }
-
-        _pendingPath = full;
-        _draft = QuickPaths.SuggestName(full);
-        _notice = null;
-    }
-
-    /// <summary>
-    /// Second step: save it. A quick path is the better home - it is the same
-    /// registry quick-set writes, so the folder also works with cd and shows up
-    /// in quick-list. Only when there is nowhere to put one does this fall back
-    /// to the launcher's own list.
-    /// </summary>
-    private void Add()
-    {
-        if (_pendingPath is null) return;
-
-        var name = new string(_draft.Trim().Where(c => !char.IsWhiteSpace(c)).ToArray());
-        if (name.Length == 0) name = QuickPaths.SuggestName(_pendingPath);
-
-        var entry = new ProjectEntry { Name = name, Path = _pendingPath };
-
-        if (QuickPaths.Save(name, _pendingPath))
-        {
-            _notice = $"quick path saved · cd {name} · restart the shell for it to load there";
-        }
-        else if (StateStore.AddProject(entry))
-        {
-            _notice = $"added {name} (quick paths unavailable, kept in the launcher)";
-        }
-        else
-        {
-            _notice = "could not save that project";
-            return;
-        }
-
-        App.State.Projects.Add(entry);
-        _projects.Add(entry);
-
-        _adding = false;
-        _pendingPath = null;
-        _draft = string.Empty;
-        _filter = string.Empty;
-        _index = _projects.Count - 1;
-    }
-
-    /// <summary>Removes a project the launcher added; the wrapper's own are left alone.</summary>
-    private ScreenAction Forget(List<ProjectEntry> items)
-    {
-        if (items.Count == 0) return ScreenAction.None;
-
-        var project = items[_index];
-        var quickName = QuickPaths.NameFor(project.Path);
-
-        var removed = quickName is not null
-            ? QuickPaths.Remove(quickName)
-            : StateStore.RemoveAddedProject(project.Path);
-
-        if (!removed)
-        {
-            _notice = "that one is not ours to remove - it came from the wrapper";
-            return ScreenAction.None;
-        }
-
-        _projects.RemoveAll(p => string.Equals(p.Path, project.Path, StringComparison.OrdinalIgnoreCase));
-        App.State.Projects.RemoveAll(p => string.Equals(p.Path, project.Path, StringComparison.OrdinalIgnoreCase));
-        _notice = quickName is not null ? $"removed quick path {quickName}" : $"removed {project.Name}";
         return ScreenAction.None;
     }
 

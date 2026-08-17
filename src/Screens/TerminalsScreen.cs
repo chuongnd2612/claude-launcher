@@ -396,32 +396,32 @@ public sealed class TerminalsScreen : ScreenBase
 
         // Widgets.Footer drops hints that would overflow the bar, and the ones
         // it drops are the last - which would be Back. Shorten instead.
-        var hints = buffer.Width >= 104
-            ? new[]
-            {
-                new KeyHint(focus, "Focus"),
-                new KeyHint("↵", "Attach"),
-                new KeyHint("z", "Zoom"),
-                new KeyHint("v", "Split right"),
-                new KeyHint("s", "Split down"),
-                new KeyHint("space", "Layout"),
-                new KeyHint("t", "Terminal"),
-                new KeyHint("w", "Remove tile"),
-                new KeyHint("esc", "Back")
-            }
-            : new[]
-            {
-                new KeyHint(focus, "Focus"),
-                new KeyHint("↵", "Attach"),
-                new KeyHint("z", "Zoom"),
-                new KeyHint("v/s", "Split"),
-                new KeyHint("space", "Layout"),
-                new KeyHint("t", "Terminal"),
-                new KeyHint("w", "Remove"),
-                new KeyHint("esc", "Back")
-            };
+        var hints = new List<KeyHint>
+        {
+            new(focus, "Focus"),
+            new("↵", "Attach"),
+            new("z", "Zoom")
+        };
 
-        Widgets.Footer(buffer, hints);
+        if (Splitting)
+        {
+            if (buffer.Width >= 104)
+            {
+                hints.Add(new KeyHint("v", "Split right"));
+                hints.Add(new KeyHint("s", "Split down"));
+            }
+            else
+            {
+                hints.Add(new KeyHint("v/s", "Split"));
+            }
+        }
+
+        hints.Add(new KeyHint("space", "Layout"));
+        hints.Add(new KeyHint("t", "Terminal"));
+        hints.Add(new KeyHint("w", buffer.Width >= 104 ? "Remove tile" : "Remove"));
+        hints.Add(new KeyHint("esc", "Back"));
+
+        Widgets.Footer(buffer, hints.ToArray());
     }
 
     /// <summary>
@@ -1060,9 +1060,9 @@ public sealed class TerminalsScreen : ScreenBase
                 if (panes.Count > 0) _hidden.Add(panes[_focus].SessionId);
                 return ScreenAction.None;
             case 'v':
-                return Split(panes, vertical: true);
+                return Splitting ? Split(panes, vertical: true) : ScreenAction.None;
             case 's':
-                return Split(panes, vertical: false);
+                return Splitting ? Split(panes, vertical: false) : ScreenAction.None;
             case 'n':
                 return ScreenAction.Push(new ProfileScreen(App));
             case 't':
@@ -1175,6 +1175,13 @@ public sealed class TerminalsScreen : ScreenBase
     }
 
     /// <summary>Starts another Claude in the focused pane's project, beside it.</summary>
+    /// <summary>
+    /// Splitting hands the session to a Windows Terminal pane, which is the
+    /// opposite of what terminal tiles are for: with them on, everything is
+    /// meant to live in this one window.
+    /// </summary>
+    private bool Splitting => !App.Settings.TerminalTiles;
+
     private ScreenAction Split(List<SessionRow> panes, bool vertical)
     {
         if (panes.Count == 0) return ScreenAction.None;

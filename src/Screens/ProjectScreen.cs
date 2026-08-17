@@ -6,6 +6,7 @@ namespace ClaudeLauncher.Screens;
 public sealed class ProjectScreen : ScreenBase
 {
     private readonly List<ProjectEntry> _all;
+    private readonly ProjectEditor _editor;
     private string _filter = string.Empty;
     private bool _filtering;
     private int _index;
@@ -17,7 +18,16 @@ public sealed class ProjectScreen : ScreenBase
         {
             new ProjectEntry { Name = "Current directory", Path = Environment.CurrentDirectory }
         };
+
+        _editor = new ProjectEditor(app, _all);
     }
+
+    /// <summary>
+    /// The last row is this shell's own directory, not a project on any list -
+    /// it cannot be forgotten, and a new one must land before it.
+    /// </summary>
+    private bool IsCurrentDirectory(ProjectEntry project) =>
+        ReferenceEquals(project, _all[^1]) && project.Name == "Current directory";
 
     private List<ProjectEntry> Visible
     {
@@ -44,7 +54,7 @@ public sealed class ProjectScreen : ScreenBase
 
         // Grow with the list, but never past the footer, and never so tall that
         // a handful of projects sit in a mostly empty box.
-        var available = Math.Max(6, buffer.Height - 4 - y);
+        var available = Math.Max(6, buffer.Height - 4 - y - _editor.Height);
         var panelHeight = Math.Clamp(items.Count + 4, 8, available);
         buffer.Box(margin, y, width, panelHeight, new Sty(Theme.Border, Theme.Panel), BoxStyle.Rounded, Theme.Panel);
 
@@ -117,28 +127,39 @@ public sealed class ProjectScreen : ScreenBase
         {
             Widgets.Tips(buffer, Math.Max(y + panelHeight + 1, buffer.Height - 4 - 5), new[]
             {
-                "Projects are read from your QuickPaths registry - add paths there, not here",
+                "a adds a folder as a quick path - it works with cd too, not just here",
                 "Filter matches both the project name and its full path",
                 "\"Current directory\" launches Claude wherever your shell already is"
             });
         }
 
-        Widgets.Footer(buffer, _filtering
-            ? new[]
-            {
-                new KeyHint("type", "Filter"),
-                new KeyHint("↑↓", "Navigate"),
-                new KeyHint("↵", "Apply"),
-                new KeyHint("esc", "Clear")
-            }
-            : new[]
-            {
-                new KeyHint("↑↓", "Navigate"),
-                new KeyHint("↵", "Select"),
-                new KeyHint("/", "Filter"),
-                new KeyHint("esc", "Back"),
-                new KeyHint("q", "Quit")
-            });
+        _editor.Render(buffer, margin, y + panelHeight + 1, width);
+
+        if (_editor.Notice is not null)
+        {
+            buffer.WriteClipped(margin + 1, buffer.Height - 5, _editor.Notice, width - 2,
+                new Sty(Theme.Amber, Theme.Bg));
+        }
+
+        Widgets.Footer(buffer, _editor.Active
+            ? _editor.Hints
+            : _filtering
+                ? new[]
+                {
+                    new KeyHint("type", "Filter"),
+                    new KeyHint("↑↓", "Navigate"),
+                    new KeyHint("↵", "Apply"),
+                    new KeyHint("esc", "Clear")
+                }
+                : new[]
+                {
+                    new KeyHint("↑↓", "Navigate"),
+                    new KeyHint("↵", "Select"),
+                    new KeyHint("a", "Add"),
+                    new KeyHint("d", "Forget"),
+                    new KeyHint("/", "Filter"),
+                    new KeyHint("esc", "Back")
+                });
     }
 
     private static void DrawScrollbar(ScreenBuffer buffer, int x, int top, int height, int count, int scroll)
@@ -158,6 +179,12 @@ public sealed class ProjectScreen : ScreenBase
 
     public override ScreenAction HandleKey(ConsoleKeyInfo key)
     {
+        if (_editor.HandleKey(key))
+        {
+            if (_editor.Select is { } picked) _index = Math.Min(picked, Visible.Count - 1);
+            return ScreenAction.None;
+        }
+
         var items = Visible;
 
         if (_filtering)
@@ -225,6 +252,19 @@ public sealed class ProjectScreen : ScreenBase
         var ch = char.ToLowerInvariant(key.KeyChar);
         if (ch == '/') { _filtering = true; return ScreenAction.None; }
         if (ch == 'q') return ScreenAction.Exit;
+
+        if (ch == 'a')
+        {
+            _editor.Begin();
+            return ScreenAction.None;
+        }
+
+        if (ch == 'd')
+        {
+            var listed = Visible;
+            if (listed.Count > 0 && !IsCurrentDirectory(listed[_index])) _editor.Forget(listed[_index]);
+            return ScreenAction.None;
+        }
 
         return ScreenAction.None;
     }
