@@ -118,15 +118,20 @@ public sealed class SessionScreen : ScreenBase
         if (_notice is not null)
             buffer.WriteClipped(margin + 1, buffer.Height - 5, _notice, width - 2, new Sty(Theme.Amber, Theme.Bg));
 
-        Widgets.Footer(buffer, new[]
+        var hints = new List<KeyHint>
         {
-            new KeyHint("↑↓", "Navigate"),
-            new KeyHint("↵", "Launch"),
-            new KeyHint("o", "Open in"),
-            new KeyHint("n/c/r", "Quick mode"),
-            new KeyHint("esc", "Back"),
-            new KeyHint("q", "Quit")
-        });
+            new("↑↓", "Navigate"),
+            new("↵", "Launch")
+        };
+
+        if (App.State.Profiles.Count > 1) hints.Add(new KeyHint("p", "Profile"));
+
+        hints.Add(new KeyHint("o", "Open in"));
+        hints.Add(new KeyHint("n/c/r", "Quick mode"));
+        hints.Add(new KeyHint("esc", "Back"));
+        hints.Add(new KeyHint("q", "Quit"));
+
+        Widgets.Footer(buffer, hints.ToArray());
     }
 
     /// <summary>One line per option, for windows too short to box them.</summary>
@@ -182,6 +187,7 @@ public sealed class SessionScreen : ScreenBase
         switch (char.ToLowerInvariant(key.KeyChar))
         {
             case 'o': _openIn = LaunchTarget.Next(_openIn); return ScreenAction.None;
+            case 'p': CycleProfile(); return ScreenAction.None;
             case 'n': return Choose("new");
             case 'c': return Choose("continue");
             case 'r': return Choose("resume");
@@ -190,6 +196,22 @@ public sealed class SessionScreen : ScreenBase
         }
 
         return ScreenAction.None;
+    }
+
+    /// <summary>
+    /// Moves to the next profile. A terminal opened from the wall never passed
+    /// through the profile step, so this is the only place to say which account
+    /// it should run under - and the summary below shows the config directory
+    /// it resolves to, which is the part worth being sure about.
+    /// </summary>
+    private void CycleProfile()
+    {
+        var profiles = App.State.Profiles;
+        if (profiles.Count < 2) return;
+
+        var current = App.Profile is null ? -1 : profiles.IndexOf(App.Profile);
+        App.Profile = profiles[(current + 1 + profiles.Count) % profiles.Count];
+        _notice = null;
     }
 
     /// <summary>
