@@ -256,6 +256,11 @@ public sealed class SessionScreen : ScreenBase
             // from its project's other sessions on the wall.
             var tile = OpenTile(mode == "continue" ? LatestSessionId() : null);
             if (tile is not null) return tile;
+
+            // The tile could not start and OpenTile left a notice saying why.
+            // Falling through would hand the launch to the wrapper and exit,
+            // taking the explanation with it.
+            return ScreenAction.None;
         }
 
         if (mode == "chat")
@@ -278,15 +283,12 @@ public sealed class SessionScreen : ScreenBase
 
             // Nothing recorded yet, so there is nothing to pick from: a bare
             // --continue is the closest honest answer.
-            if (recorded.Count == 0)
-            {
-                var latest = OpenTile();
-                if (latest is not null) return latest;
-            }
-            else
-            {
-                return ScreenAction.Push(new ResumeScreen(App, _openIn));
-            }
+            if (recorded.Count > 0) return ScreenAction.Push(new ResumeScreen(App, _openIn));
+
+            var latest = OpenTile();
+            if (latest is not null) return latest;
+
+            return ScreenAction.None;
         }
 
         var sessions = Sessions.SessionReader.ListProjectSessions(

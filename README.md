@@ -100,7 +100,7 @@ directly without showing the selection screens.
 | Screen  | Keys |
 | ------- | ---- |
 | Home | `↑↓` navigate · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` new session · `r` reopen last session's terminals · `t` tile · `k` stop · `p` profiles · `q` quit |
-| New terminal (`t` on the wall) | `↑↓` navigate · `Enter` open a terminal there · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
+| New terminal (`t` on the wall) | `↑↓` navigate · `Enter` pick the project, then choose new / continue / resume · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
 | Adding a folder (`a`) | type a path · `↑↓` pick from the folders below · `Tab` complete into one · `Enter` use this path, then name it · `Esc` cancel |
 | Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `Space` layout · `t` new terminal · `w` remove tile · `Esc` back — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
 | Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll Claude’s history · `Ctrl+]` release the keyboard · `Ctrl+]` or `Enter` resume typing |
@@ -371,7 +371,12 @@ that could paste a prompt into the *wrong* session is worse than no key.
 
 ### Another terminal, without leaving the wall
 
-`t` on the wall opens a **project picker** and starts a terminal there — or **`Ctrl+T` / `Alt+T`** when a tile has the keyboard, since a focused chat or terminal tile takes plain letters for itself. It does not go through the
+`t` on the wall opens a **project picker** — or **`Ctrl+T` / `Alt+T`** when a tile has the keyboard,
+since a focused chat or terminal tile takes plain letters for itself.
+
+Choosing a project then asks **how it starts**: a new conversation, continue the most recent one, or
+resume a specific one from the picker. It does not assume a fresh session — a terminal opened from
+the wall is as often picking up yesterday's work as starting something new. It does not go through the
 wizard, and it does not use the focused tile's project — pick any project, including one the wall
 has never shown.
 
