@@ -108,7 +108,7 @@ directly without showing the selection screens.
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `a` add a folder · `d` forget one · `/` filter · `Esc` back · `q` quit |
-| Session | `↑↓` navigate · `Enter` launch · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `h` chat view (only with terminal tiles off) · `Esc` back |
+| Session | `↑↓` navigate · `Enter` launch · `p` change profile · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `h` chat view (only with terminal tiles off) · `Esc` back |
 | Chat | type · `Enter` send · `/` commands (`↑↓` pick, `Tab` complete) · `y`/`a`/`n` answer a permission request · `Ctrl+D` detach to a pane · `Esc` stop a turn, then back · `PgUp/PgDn` scroll · `End` follow |
 | Resume | `↑↓` navigate · `Enter` resume (a terminal tile, or a real terminal when tiles are off) · `t` force a terminal tile · `c` resume in the chat view · `/` filter · `l` logs · `d` delete · `Esc` back |
 | Session detail | `↑↓` scroll · `PgUp/PgDn` page · `Home/End` jump · `Esc` back |
@@ -376,7 +376,11 @@ since a focused chat or terminal tile takes plain letters for itself.
 
 Choosing a project then asks **how it starts**: a new conversation, continue the most recent one, or
 resume a specific one from the picker. It does not assume a fresh session — a terminal opened from
-the wall is as often picking up yesterday's work as starting something new. It does not go through the
+the wall is as often picking up yesterday's work as starting something new.
+
+**`p` changes the profile there too.** A terminal opened this way never passes through the profile
+step, so that is the place to say which account it runs under; the summary shows the config directory
+it resolves to, which is the part worth being sure about before it starts. It does not go through the
 wizard, and it does not use the focused tile's project — pick any project, including one the wall
 has never shown.
 
