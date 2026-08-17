@@ -81,6 +81,17 @@ public static class ConsoleInput
     /// <summary>Wakes the render loop early - a tile with new output calls this.</summary>
     public static void Wake() => Signal.Set();
 
+    /// <summary>
+    /// Queues a key the reader never saw. Ctrl+C can be taken by the console as
+    /// a control event instead of arriving as input; this is how it still
+    /// reaches the screen that should have had it.
+    /// </summary>
+    public static void Inject(ConsoleKeyInfo key)
+    {
+        Queue.Enqueue(new InputEvent(key));
+        Signal.Set();
+    }
+
     public static void Start()
     {
         if (_started) return;
