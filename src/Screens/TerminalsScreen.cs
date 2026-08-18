@@ -33,6 +33,14 @@ public sealed class TerminalsScreen : ScreenBase
     private bool _zoom;
     private string? _notice;
 
+    // Search state. The hit list is rebuilt every frame rather than tracked,
+    // because Claude repaints its whole screen constantly and a remembered
+    // position would point at whatever moved into that cell since.
+    private bool _finding;
+    private string _query = string.Empty;
+    private List<TerminalMatch> _hits = new();
+    private int _hit;
+
     /// <summary>What has been typed into each chat tile, kept per session.</summary>
     private readonly Dictionary<string, string> _drafts = new(StringComparer.OrdinalIgnoreCase);
 
@@ -338,7 +346,9 @@ public sealed class TerminalsScreen : ScreenBase
             }
         }
 
-        if (_notice is not null)
+        if (_finding)
+            SearchBar(buffer, margin + 1, buffer.Height - 5, width - 2);
+        else if (_notice is not null)
             buffer.WriteClipped(margin + 1, buffer.Height - 5, _notice, width - 2, new Sty(Theme.Amber, Theme.Bg));
 
         Footer(buffer, panes.Count);
@@ -766,9 +776,12 @@ public sealed class TerminalsScreen : ScreenBase
         var title = $" {index + 1} · {row.ProjectName} ";
         buffer.WriteClipped(x + 2, y, title, width - 4, new Sty(border, fill, bold: true));
 
-        var badge = terminal.HasExited ? " ended " : typing ? " typing " : " terminal ";
+        var searching = focused && _finding;
+        var badge = terminal.HasExited ? " ended "
+            : searching ? " find " : typing ? " typing " : " terminal ";
         if (title.Length + badge.Length + 6 <= width)
-            buffer.WriteRight(x + width - 3, y, badge, new Sty(typing ? Theme.Blue : Theme.Dim, fill));
+            buffer.WriteRight(x + width - 3, y, badge,
+                new Sty(searching ? Theme.Amber : typing ? Theme.Blue : Theme.Dim, fill));
 
         var inner = width - 4;
         var innerRows = height - 2;
@@ -779,7 +792,17 @@ public sealed class TerminalsScreen : ScreenBase
         }
 
         terminal.Resize(inner, innerRows);
-        terminal.Read(screen => TerminalRender.Draw(buffer, screen, x + 2, y + 1, inner, innerRows, fill, typing));
+
+        // Re-searching here rather than only on a keystroke is what keeps the
+        // highlight on the text it found: the pane below it repaints constantly.
+        if (searching && _query.Length > 0) Recompute(terminal, keepPlace: true);
+
+        var search = searching && _hits.Count > 0
+            ? new SearchHighlight(_hits, _hit)
+            : (SearchHighlight?)null;
+
+        terminal.Read(screen =>
+            TerminalRender.Draw(buffer, screen, x + 2, y + 1, inner, innerRows, fill, typing, search));
     }
 
     /// <summary>
@@ -854,6 +877,17 @@ public sealed class TerminalsScreen : ScreenBase
         if (terminal is not null && !terminal.HasExited)
         {
             var ctrlKey = (key.Modifiers & ConsoleModifiers.Control) != 0;
+            var altKey = (key.Modifiers & ConsoleModifiers.Alt) != 0;
+
+            // While the search bar is open it owns the keyboard: what you type
+            // is the query, not a message to Claude.
+            if (_finding) return Search(key, terminal, ctrlKey || altKey);
+
+            if ((ctrlKey || altKey) && key.Key == ConsoleKey.F)
+            {
+                OpenSearch();
+                return ScreenAction.None;
+            }
 
             if (ctrlKey && key.Key == ConsoleKey.Oem6)
             {
@@ -1139,6 +1173,126 @@ public sealed class TerminalsScreen : ScreenBase
         _notice = wanted
             ? "select mode · drag to select and copy · alt+s to give the mouse back"
             : "mouse back on · click focuses a tile, wheel scrolls it";
+    }
+
+    private void OpenSearch()
+    {
+        _finding = true;
+        _query = string.Empty;
+        _hits = new List<TerminalMatch>();
+        _hit = 0;
+    }
+
+    private void CloseSearch(TerminalTile terminal)
+    {
+        _finding = false;
+        _query = string.Empty;
+        _hits = new List<TerminalMatch>();
+        _hit = 0;
+
+        // Leaving a search where it landed would strand the pane in history.
+        terminal.Read(screen => screen.ScrollToBottom());
+    }
+
+    /// <summary>
+    /// The search bar's own key handling. Typing narrows and jumps to the first
+    /// hit the way a browser does; enter walks the rest.
+    /// </summary>
+    private ScreenAction Search(ConsoleKeyInfo key, TerminalTile terminal, bool chord)
+    {
+        if (chord && key.Key == ConsoleKey.F)
+        {
+            CloseSearch(terminal);
+            return ScreenAction.None;
+        }
+
+        switch (key.Key)
+        {
+            case ConsoleKey.Escape:
+                CloseSearch(terminal);
+                return ScreenAction.None;
+
+            case ConsoleKey.Enter:
+                Step(terminal, (key.Modifiers & ConsoleModifiers.Shift) != 0 ? -1 : 1);
+                return ScreenAction.None;
+
+            case ConsoleKey.DownArrow:
+                Step(terminal, 1);
+                return ScreenAction.None;
+
+            case ConsoleKey.UpArrow:
+                Step(terminal, -1);
+                return ScreenAction.None;
+
+            case ConsoleKey.Backspace:
+                if (_query.Length > 0)
+                {
+                    _query = _query[..^1];
+                    Restart(terminal);
+                }
+
+                return ScreenAction.None;
+        }
+
+        if (key.KeyChar != '\0' && !char.IsControl(key.KeyChar))
+        {
+            _query += key.KeyChar;
+            Restart(terminal);
+        }
+
+        return ScreenAction.None;
+    }
+
+    /// <summary>Re-runs a changed query and lands on the first hit.</summary>
+    private void Restart(TerminalTile terminal)
+    {
+        Recompute(terminal, keepPlace: false);
+        if (_hits.Count > 0) terminal.Read(screen => screen.Reveal(_hits[0].Line));
+    }
+
+    private void Step(TerminalTile terminal, int delta)
+    {
+        Recompute(terminal, keepPlace: true);
+        if (_hits.Count == 0) return;
+
+        _hit = ((_hit + delta) % _hits.Count + _hits.Count) % _hits.Count;
+        terminal.Read(screen => screen.Reveal(_hits[_hit].Line));
+    }
+
+    /// <summary>
+    /// Searches the terminal again, keeping the current hit if that exact match
+    /// is still there. Cheap enough to run per frame: it is a few thousand
+    /// characters, and anything remembered across a repaint would be a lie.
+    /// </summary>
+    private void Recompute(TerminalTile terminal, bool keepPlace)
+    {
+        var was = keepPlace && _hit < _hits.Count ? _hits[_hit] : default;
+
+        var hits = new List<TerminalMatch>();
+        terminal.Read(screen => hits = screen.Find(_query));
+        _hits = hits;
+
+        if (_hits.Count == 0 || !keepPlace)
+        {
+            _hit = 0;
+            return;
+        }
+
+        var at = _hits.FindIndex(h => h.Line == was.Line && h.Col == was.Col);
+        _hit = at >= 0 ? at : Math.Clamp(_hit, 0, _hits.Count - 1);
+    }
+
+    private void SearchBar(ScreenBuffer buffer, int x, int y, int width)
+    {
+        var count = _hits.Count > 0
+            ? $"{_hit + 1}/{_hits.Count}"
+            : _query.Length == 0 ? "type to search" : "no match";
+
+        // The bar lands on the bottom pane border, so it is padded to read as a
+        // label sitting on that line rather than a hole punched through it.
+        var bar = $" find: {_query}_   {count}   enter next · shift+enter back · esc close ";
+        var colour = _hits.Count == 0 && _query.Length > 0 ? Theme.Red : Theme.Amber;
+        buffer.WriteClipped(x, y, bar, width, new Sty(colour, Theme.Bg));
     }
 
     /// <summary>Stops a terminal we own and takes its pane with it.</summary>
