@@ -151,9 +151,23 @@ Example:
 }
 ```
 
-`description` is new in 1.5.0 and optional — it is the italic line on the profile card. `icon` should
-stay a single, single-width character (a letter or a symbol such as `◆`); wide emoji break the grid
-alignment. Profiles created from the **Add profile** screen are appended to this same file, with the
+`description` is new in 1.5.0 and optional — it is the italic line on the profile card.
+
+**Every profile gets an icon and a colour of its own.** The **Add profile** screen fills the icon in
+as you type the label: its initial, or — when another profile already shows that letter — the first
+free shape from `◆ ● ■ ▲ ★ ◇ ○ □ △ ☆ ✦ ✱`. `←` `→` on the icon field steps through the same set, and
+the preview beside it shows the icon in the colour the wall will paint it. Saving without touching the
+field keeps the suggestion, so a profile is never left with nothing to tell it apart.
+
+The colour is derived from the profile key, so it stays with a profile rather than following its
+position in the file — except when two keys would land on the same colour, in which case the second
+takes the next free one. Eight colours are available; past that they repeat.
+
+A profile written before this, or by hand with no `icon`, is given one when the file is read. Your
+`profiles.json` is not rewritten for it.
+
+`icon` should stay a single, single-width character (a letter or a symbol such as `◆`); wide emoji
+break the grid alignment. Profiles created from the **Add profile** screen are appended to this same file, with the
 path stored back as `$HOME/...` when it sits under your user profile. **Edit profile** rewrites the
 matching entry in place (renaming the key is allowed), and **Remove profile** deletes the entry only —
 the `configDir` folder and its Claude history are left untouched. The last remaining profile cannot
@@ -443,7 +457,8 @@ them, without releasing the keyboard first — you land typing in the new pane. 
 this because Claude's own interface uses `Esc`, `Tab`, the arrows and `Ctrl`, which all stay its own.
 
 **Every tile says whose it is.** The header carries the profile the session runs under and the
-Claude account signed in there — `W Work · alex` — because with two profiles open the panes are
+Claude account signed in there — `W Work · alex` — in that profile's own colour, with the icon leading.
+The pane strip above the tiles marks each pane the same way. With two profiles open the panes are
 otherwise identical, and the whole point of a profile is that the session behind it is a different
 account doing different work.
 

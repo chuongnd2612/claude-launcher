@@ -564,6 +564,16 @@ public sealed class TerminalsScreen : ScreenBase
             x = buffer.Write(x, y, $" {i + 1} ", new Sty(color, Theme.Bg, bold: active));
             x = buffer.WriteClipped(x, y, panes[i].ProjectName, 14,
                 new Sty(active ? Theme.Text : Theme.Dim, Theme.Bg));
+
+            // Two panes of the same project under different profiles are
+            // otherwise the same row twice.
+            var mark = panes[i].ProfileIcon;
+            if (mark.Length > 0)
+            {
+                x = buffer.Write(x, y, "  " + mark,
+                    new Sty(ProfileLook.Color(panes[i].ProfileName), Theme.Bg, bold: active));
+            }
+
             x = buffer.Write(x, y, "   ", new Sty(Theme.Dim, Theme.Bg));
         }
 
@@ -1525,9 +1535,20 @@ public sealed class TerminalsScreen : ScreenBase
         var tag = ProfileTag(row, terminal, room - 2);
         if (tag.Length == 0) return;
 
-        // Padded, so it reads as its own legend notched into the border rather
-        // than as more of the project name.
-        buffer.WriteClipped(x + 2 + titleWidth, y, $" {tag} ", room, new Sty(Theme.VioletSoft, fill));
+        // Each profile in its own colour: a wall of panes that differ only by
+        // project name is the thing this is here to fix.
+        var color = ProfileLook.Color(row.ProfileName);
+        var at = buffer.Write(x + 2 + titleWidth, y, " ", new Sty(color, fill));
+
+        // The icon leads, bold, and the rest follows dimmer - so the mark reads
+        // first and the words are there when you look.
+        var icon = tag.Split(' ')[0];
+        at = buffer.Write(at, y, icon, new Sty(color, fill, bold: true));
+
+        var rest = tag.Length > icon.Length ? tag[icon.Length..] : string.Empty;
+        if (rest.Length > 0) at = buffer.WriteClipped(at, y, rest, room - icon.Length - 2, new Sty(color, fill));
+
+        buffer.Write(at, y, " ", new Sty(color, fill));
     }
 
     /// <summary>

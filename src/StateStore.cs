@@ -69,6 +69,23 @@ public static class StateStore
             .Where(p => !string.IsNullOrWhiteSpace(p.Name) || !string.IsNullOrWhiteSpace(p.Label))
             .ToList();
 
+        // A profile written before icons were suggested, or by hand without one,
+        // still gets a mark of its own - and one no other profile is using, so
+        // two profiles starting with the same letter do not both show it. Only
+        // in memory: nobody's profiles.json is rewritten to add this.
+        foreach (var profile in state.Profiles)
+        {
+            if (!string.IsNullOrWhiteSpace(profile.Icon)) continue;
+
+            profile.Icon = Tui.ProfileLook.Suggest(profile.DisplayLabel,
+                state.Profiles.Where(p => !ReferenceEquals(p, profile)).Select(p => p.DisplayIcon));
+        }
+
+        // Colours are settled here, where the whole set is known: hashing alone
+        // can land two profiles on the same one, and a wall of panes that share
+        // a colour is what this is meant to fix.
+        Tui.ProfileLook.Assign(state.Profiles.Select(p => (p.Name, p.DisplayLabel)));
+
         if (state.Profiles.Count == 0)
             throw new InvalidOperationException("No Claude profiles configured in " + ProfilesFilePath);
 

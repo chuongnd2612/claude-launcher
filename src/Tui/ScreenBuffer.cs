@@ -57,6 +57,12 @@ public sealed class ScreenBuffer
         return _cells[y * Width + x].Style.Bg;
     }
 
+    public Rgb FgAt(int x, int y)
+    {
+        if (x < 0 || y < 0 || x >= Width || y >= Height) return Theme.Text;
+        return _cells[y * Width + x].Style.Fg;
+    }
+
     public void Set(int x, int y, char ch, Sty style)
     {
         if (x < 0 || y < 0 || x >= Width || y >= Height) return;
