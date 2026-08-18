@@ -41,6 +41,25 @@ public sealed class AddProfileScreen : ScreenBase
 
     private bool IsEdit => _existing is not null;
 
+    /// <summary>An icon no other profile is using, from this label.</summary>
+    private string Suggested() => ProfileLook.Suggest(_label, App.State.Profiles
+        .Where(p => !ReferenceEquals(p, _existing))
+        .Select(p => p.DisplayIcon));
+
+    /// <summary>Steps through the icons on offer, so one can be picked without typing it.</summary>
+    private void Cycle(int by)
+    {
+        var choices = ProfileLook.Choices(_label);
+        if (choices.Count == 0) return;
+
+        var at = choices.ToList().FindIndex(c => c == _icon);
+        var next = at < 0 ? (by > 0 ? 0 : choices.Count - 1) : (at + by + choices.Count) % choices.Count;
+
+        _icon = choices[next];
+        _iconTouched = true;
+        _error = null;
+    }
+
     private string Slug => Slugify(_label);
 
     public override void Render(ScreenBuffer buffer)
@@ -61,6 +80,14 @@ public sealed class AddProfileScreen : ScreenBase
         Field(buffer, margin + 3, y + 1, formWidth - 6, "Label", _label, "e.g. Client A", 0);
         Field(buffer, margin + 3, y + 4, formWidth - 6, "Config directory", _directory, "$HOME/.claude-client-a", 1);
         Field(buffer, margin + 3, y + 7, formWidth - 6, "Icon", _icon, "single character", 2);
+
+        // The icon in the colour the wall will paint it, since that pairing is
+        // what makes a pane recognisable.
+        var swatch = _icon.Length > 0 ? _icon : "?";
+        var key = Slug.Length > 0 ? Slug : _label;
+        buffer.Write(margin + formWidth - 12, y + 8, $" {swatch} ",
+            new Sty(ProfileLook.Color(key), Theme.PanelSelected, bold: true));
+        buffer.Write(margin + 3, y + 9, "← → to pick another", new Sty(Theme.Dim, Theme.Bg, italic: true));
         Field(buffer, margin + 3, y + 10, formWidth - 6, "Description", _description, "optional", 3);
 
         var infoY = y + formHeight;
@@ -114,6 +141,12 @@ public sealed class AddProfileScreen : ScreenBase
                 return ScreenAction.None;
             case ConsoleKey.Enter:
                 return Save();
+
+            case ConsoleKey.LeftArrow:
+            case ConsoleKey.RightArrow:
+                if (_field != 2) return ScreenAction.None;
+                Cycle(key.Key == ConsoleKey.RightArrow ? 1 : -1);
+                return ScreenAction.None;
             case ConsoleKey.Backspace:
                 Edit(current => current.Length > 0 ? current.Substring(0, current.Length - 1) : current);
                 return ScreenAction.None;
@@ -137,7 +170,7 @@ public sealed class AddProfileScreen : ScreenBase
             case 0:
                 _label = transform(_label);
                 if (!_directoryTouched) _directory = Slug.Length > 0 ? $"$HOME/.claude-{Slug}" : string.Empty;
-                if (!_iconTouched) _icon = _label.Length > 0 ? _label.Substring(0, 1).ToUpperInvariant() : string.Empty;
+                if (!_iconTouched) _icon = Suggested();
                 break;
             case 1:
                 _directory = transform(_directory);
@@ -188,7 +221,10 @@ public sealed class AddProfileScreen : ScreenBase
             return ScreenAction.None;
         }
 
-        var icon = _icon.Trim().Length > 0 ? _icon.Trim().Substring(0, 1) : label.Substring(0, 1).ToUpperInvariant();
+        // A profile always ends up with an icon: it is the only thing that tells
+        // one pane from another at a glance, so an empty field takes the
+        // suggestion rather than saving nothing.
+        var icon = _icon.Trim().Length > 0 ? _icon.Trim()[..1] : Suggested();
         var configDir = StateStore.CollapseHome(directory);
         var description = _description.Trim().Length > 0 ? _description.Trim() : null;
 

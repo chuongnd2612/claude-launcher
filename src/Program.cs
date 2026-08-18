@@ -189,7 +189,7 @@ public static class Program
             Row("qagent", "Refactor runner into stages", SessionState.Running, 12, 4, 184_000, 1),
             Row("api-gateway", "Add rate limiting", SessionState.Waiting, 0, 46, 97_000, 2),
             Row("web-dash", "Fix chart tooltips", SessionState.Idle, 4, 0, 41_000, 3),
-            Row("notes-cli", "Write test suite", SessionState.Running, 2, 0, 63_000, 4)
+            Row("notes-cli", "Write test suite", SessionState.Running, 2, 0, 63_000, 4, "Personal", "P", "sam")
         },
         Recent = new[]
         {
@@ -200,12 +200,13 @@ public static class Program
     };
 
     private static SessionRow Row(string project, string task, SessionState state,
-        int minutes, int seconds, long tokens, int pane) => new()
+        int minutes, int seconds, long tokens, int pane,
+        string profile = "Work", string icon = "W", string account = "alex") => new()
     {
         SessionId = $"{project}-0000-0000",
-        ProfileName = "Work",
-        ProfileIcon = "W",
-        Account = "alex",
+        ProfileName = profile,
+        ProfileIcon = icon,
+        Account = account,
         ProjectName = project,
         ProjectPath = @"D:\demo\" + project,
         Task = task,

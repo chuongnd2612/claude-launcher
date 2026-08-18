@@ -101,9 +101,11 @@ public sealed class ProfileScreen : ScreenBase
         var textWidth = width - (textX - x) - 4;
 
         if (full)
-            Widgets.IconBadge(buffer, x + 2, y + 1, profile.DisplayIcon, selected ? Theme.BlueDeep : Theme.Muted, bg, selected);
+            Widgets.IconBadge(buffer, x + 2, y + 1, profile.DisplayIcon,
+                selected ? ProfileLook.Color(profile.Name) : Theme.Muted, bg, selected);
         else
-            buffer.Write(x + 2, y + 1, profile.DisplayIcon, new Sty(selected ? Theme.Blue : Theme.Muted, bg, bold: true));
+            buffer.Write(x + 2, y + 1, profile.DisplayIcon,
+                new Sty(selected ? ProfileLook.Color(profile.Name) : Theme.Muted, bg, bold: true));
 
         buffer.WriteClipped(textX, y + 1, profile.DisplayLabel, textWidth,
             new Sty(selected ? Theme.Blue : Theme.Text, bg, bold: true));
