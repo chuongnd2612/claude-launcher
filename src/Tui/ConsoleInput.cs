@@ -7,7 +7,13 @@ public enum InputKind
 {
     Key,
     MouseDown,
-    MouseWheel
+    MouseWheel,
+
+    /// <summary>The pointer moved with the left button held.</summary>
+    MouseDrag,
+
+    /// <summary>The left button came back up, wherever it happened.</summary>
+    MouseUp
 }
 
 /// <summary>One thing the user did: a key press, a click, or a wheel notch.</summary>
@@ -63,6 +69,7 @@ public static class ConsoleInput
     private const ushort MouseEventType = 0x0002;
 
     private const uint MouseWheeled = 0x0004;
+    private const uint MouseMoved = 0x0001;
     private const uint LeftmostPressed = 0x0001;
 
     private static readonly ConcurrentQueue<InputEvent> Queue = new();
@@ -243,6 +250,21 @@ public static class ConsoleInput
                 case MouseEventType when record.Mouse.EventFlags == 0 &&
                                          (record.Mouse.ButtonState & LeftmostPressed) != 0:
                     Queue.Enqueue(new InputEvent(InputKind.MouseDown,
+                        record.Mouse.Position.X, record.Mouse.Position.Y, 0));
+                    break;
+
+                // Dragging is a move with the button still down, and the release
+                // is a move-less event with no buttons left. Both are needed to
+                // pull a divider: one to follow the pointer, one to let go.
+                case MouseEventType when record.Mouse.EventFlags == MouseMoved &&
+                                         (record.Mouse.ButtonState & LeftmostPressed) != 0:
+                    Queue.Enqueue(new InputEvent(InputKind.MouseDrag,
+                        record.Mouse.Position.X, record.Mouse.Position.Y, 0));
+                    break;
+
+                case MouseEventType when record.Mouse.EventFlags is 0 or MouseMoved &&
+                                         record.Mouse.ButtonState == 0:
+                    Queue.Enqueue(new InputEvent(InputKind.MouseUp,
                         record.Mouse.Position.X, record.Mouse.Position.Y, 0));
                     break;
             }

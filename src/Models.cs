@@ -105,6 +105,13 @@ public sealed class UiSettings
     public string TerminalLayout { get; set; } = "tiled";
 
     /// <summary>
+    /// Where the wall's dividers sit, per number of columns and rows, as
+    /// "2:0.62,0.38". Empty means equal shares, which is what it was before the
+    /// dividers could be moved.
+    /// </summary>
+    public string TerminalSplits { get; set; } = string.Empty;
+
+    /// <summary>
     /// Start new sessions with claude --remote-control, so they accept input
     /// from claude.ai and the phone app. Off by default: it opens a relay
     /// through Anthropic's servers, which is the user's call to make.

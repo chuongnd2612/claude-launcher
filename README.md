@@ -102,9 +102,9 @@ directly without showing the selection screens.
 | Home | `↑↓` navigate · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` new session · `r` reopen last session's terminals · `t` tile · `k` stop · `p` profiles · `q` quit |
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` pick the project, then choose new / continue / resume · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
 | Adding a folder (`a`) | type a path · `↑↓` pick from the folders below · `Tab` complete into one · `Enter` use this path, then name it · `Esc` cancel |
-| Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `Space` layout · `t` new terminal · `w` close a terminal, or hide a session that is not ours · `Esc` back — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
+| Terminals (read-only tile focused) | `Alt+Shift+←→↑↓` resize the panes · `Alt+Shift+0` even them up · `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `Space` layout · `t` new terminal · `w` close a terminal, or hide a session that is not ours · `Esc` back — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
 | History (`Tab` from the search bar) | `↑↓` `PgUp/PgDn` `Home/End` move · `/` search again · `Esc` back |
-| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Ctrl+W` / `Alt+W` close this terminal · `Ctrl+F` / `Alt+F` find text, `Enter` searches back through the screen history, `Tab` searches the whole session · `Alt+S` select text · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll Claude’s history · `Ctrl+]` or a click off the tiles releases the keyboard · `Ctrl+]`, `Enter` or a click on a tile resumes typing |
+| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Ctrl+W` / `Alt+W` close this terminal · `Ctrl+F` / `Alt+F` find text, `Enter` searches back through the screen history, `Tab` searches the whole session · `Alt+S` select text · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Alt+Shift+←→↑↓` resize them · `Alt+Shift+0` even them up · `Shift+PgUp/PgDn` scroll Claude’s history · `Ctrl+]` or a click off the tiles releases the keyboard · `Ctrl+]`, `Enter` or a click on a tile resumes typing |
 | Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` new terminal · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
@@ -170,6 +170,7 @@ be removed.
 | Default session mode | Which option is preselected on step 3 (`new` / `continue` / `resume`) |
 | Default open in | Where `Enter` launches Claude (`current` / `new tab` / `split right` / `split down`) |
 | Remote control | Start new sessions with `claude --remote-control`, so they accept input from claude.ai and the phone app |
+| Terminal splits | Not on the settings screen: where the wall's dividers sit, written as you drag them. Delete the line to go back to equal panes |
 | Terminal tiles | On (default): a session opened inside the launcher runs under a pseudo console and shows Claude's own interface, so `/usage`, the model picker and plan mode render exactly. Off: the launcher's own styled chat view, easier to watch several sessions at once, but rich screens arrive as plain text |
 
 ## Home: what is running
@@ -440,6 +441,17 @@ because Claude's own UI needs them. `Ctrl+]` hands the keyboard back to the wall
 **Switching panes mid-sentence.** `Alt+1..9` jumps straight to a pane and `Alt+←→↑↓` steps between
 them, without releasing the keyboard first — you land typing in the new pane. Alt is reserved for
 this because Claude's own interface uses `Esc`, `Tab`, the arrows and `Ctrl`, which all stay its own.
+
+**Resizing the panes.** The wall no longer insists on equal shares. Drag a divider with the mouse —
+each gutter carries a small grip, and the divider follows the pointer until you let go — or move it
+from the keyboard with `Alt+Shift+←→` for columns and `Alt+Shift+↑↓` for rows. `Alt+Shift+0` makes
+them even again. Plain `Alt+arrow` still steps between panes; the Shift is what separates the two.
+
+A pane can never be squeezed out of existence: the divider stops while both sides still have room to
+be read, and the far edge stays flush whatever the fractions come to. Column positions are remembered
+in `ui.json` per number of columns — a two-pane wall and a three-pane wall are different arrangements
+and keep their own splits. Row heights are not saved, because they follow a window height that
+changes on its own.
 
 **Finding text: `Ctrl+F`.** Opens a search bar under the wall and searches the focused terminal.
 Typing narrows as you go and jumps to the first hit, `Enter` walks to the next, `Shift+Enter` back,
