@@ -103,7 +103,7 @@ directly without showing the selection screens.
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` pick the project, then choose new / continue / resume · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
 | Adding a folder (`a`) | type a path · `↑↓` pick from the folders below · `Tab` complete into one · `Enter` use this path, then name it · `Esc` cancel |
 | Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `Space` layout · `t` new terminal · `w` close a terminal, or hide a session that is not ours · `Esc` back — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
-| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Ctrl+W` / `Alt+W` close this terminal · `Alt+S` select text · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll Claude’s history · `Ctrl+]` or a click off the tiles releases the keyboard · `Ctrl+]`, `Enter` or a click on a tile resumes typing |
+| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Ctrl+W` / `Alt+W` close this terminal · `Ctrl+F` / `Alt+F` find text · `Alt+S` select text · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll Claude’s history · `Ctrl+]` or a click off the tiles releases the keyboard · `Ctrl+]`, `Enter` or a click on a tile resumes typing |
 | Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` new terminal · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
@@ -439,6 +439,16 @@ because Claude's own UI needs them. `Ctrl+]` hands the keyboard back to the wall
 **Switching panes mid-sentence.** `Alt+1..9` jumps straight to a pane and `Alt+←→↑↓` steps between
 them, without releasing the keyboard first — you land typing in the new pane. Alt is reserved for
 this because Claude's own interface uses `Esc`, `Tab`, the arrows and `Ctrl`, which all stay its own.
+
+**Finding text: `Ctrl+F`.** Opens a search bar under the wall and searches the focused terminal.
+Typing narrows as you go and jumps to the first hit, `Enter` walks to the next, `Shift+Enter` back,
+`Esc` closes and returns to the bottom. The current hit is amber, the others blue.
+
+Two honest limits. A match cannot span a line break — what reads as one sentence may be a wrapped
+line, and the grid no longer records where the wrap fell. And Claude runs on the *alternate screen*,
+which keeps no scrollback of its own, so a search there covers what is on screen: scroll Claude's own
+history up with the wheel and search again. A shell or a program that stays on the primary screen is
+searched across its full scrollback. `Alt+F` does the same thing, for when Claude wants `Ctrl+F`.
 
 **Selecting text: `Alt+S`.** Reading the mouse means turning the console's *quick edit* off, and
 quick edit is exactly what drags a selection — the two cannot both be on. `Alt+S` borrows it back:

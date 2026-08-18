@@ -12,6 +12,9 @@ namespace ClaudeLauncher.Terminal;
 /// and nothing else. Scroll regions, insert/delete line and charset selection
 /// never appear in a capture, so they are parsed away rather than implemented.
 /// </summary>
+/// <summary>A run of matching cells, located by absolute line rather than row.</summary>
+public readonly record struct TerminalMatch(int Line, int Col, int Length);
+
 public sealed class TerminalScreen : IVtSink
 {
     private sealed class Buffer
@@ -145,6 +148,101 @@ public sealed class TerminalScreen : IVtSink
         var line = _scrollback[(_scrollbackStart + _scrollbackCount - _scrollOffset + y) % MaxScrollback];
         if (line is null || x >= line.Length) return TerminalCell.Blank;
         return line[x];
+    }
+
+    /// <summary>
+    /// The absolute line sitting on the first viewport row. Scrollback lines
+    /// number from zero, oldest first, and the live rows follow them - so one
+    /// number names a line whether it has scrolled off or not.
+    /// </summary>
+    public int TopLine => _scrollbackCount - _scrollOffset;
+
+    /// <summary>
+    /// Every occurrence of a query, in absolute line coordinates.
+    ///
+    /// A match cannot span two lines: what reads as one sentence on screen may
+    /// be a wrapped line, and the grid no longer records where the wrap fell.
+    /// Line by line is what a terminal can honestly offer.
+    /// </summary>
+    public List<TerminalMatch> Find(string query, int limit = 400)
+    {
+        var hits = new List<TerminalMatch>();
+        if (string.IsNullOrEmpty(query) || query.Length > _active.Cols) return hits;
+
+        // The alternate screen keeps no history of its own, so there the live
+        // rows are both all we hold and all the viewer could scroll to anyway.
+        var first = IsAlternate ? _scrollbackCount : 0;
+        var last = _scrollbackCount + _active.Rows;
+        var text = new char[_active.Cols];
+
+        for (var line = first; line < last && hits.Count < limit; line++)
+        {
+            ReadLine(line, text);
+            var span = new ReadOnlySpan<char>(text);
+
+            var from = 0;
+            while (from <= span.Length - query.Length && hits.Count < limit)
+            {
+                var at = span[from..].IndexOf(query, StringComparison.OrdinalIgnoreCase);
+                if (at < 0) break;
+
+                hits.Add(new TerminalMatch(line, from + at, query.Length));
+                from += at + 1;
+            }
+        }
+
+        return hits;
+    }
+
+    /// <summary>
+    /// Scrolls until an absolute line is on screen. False when it cannot be
+    /// reached - the alternate screen does not scroll for us.
+    /// </summary>
+    public bool Reveal(int line)
+    {
+        if (Visible(line)) return true;
+        if (IsAlternate) return false;
+
+        var target = Math.Clamp(_scrollbackCount - line + _active.Rows / 3, 0, _scrollbackCount);
+        if (target != _scrollOffset)
+        {
+            _scrollOffset = target;
+            Revision++;
+        }
+
+        return Visible(line);
+    }
+
+    private bool Visible(int line) => line - TopLine is var row && row >= 0 && row < _active.Rows;
+
+    /// <summary>Flattens one absolute line into text, padded to the full width.</summary>
+    private void ReadLine(int line, char[] into)
+    {
+        Array.Fill(into, ' ');
+
+        if (line >= _scrollbackCount)
+        {
+            var y = line - _scrollbackCount;
+            if (y < 0 || y >= _active.Rows) return;
+
+            for (var x = 0; x < _active.Cols; x++)
+            {
+                var ch = _active.Cells[y * _active.Cols + x].Ch;
+                if (ch != '\0') into[x] = ch;
+            }
+
+            return;
+        }
+
+        var stored = _scrollback[(_scrollbackStart + line) % MaxScrollback];
+        if (stored is null) return;
+
+        var width = Math.Min(into.Length, stored.Length);
+        for (var x = 0; x < width; x++)
+        {
+            var ch = stored[x].Ch;
+            if (ch != '\0') into[x] = ch;
+        }
     }
 
     public void Resize(int cols, int rows)
