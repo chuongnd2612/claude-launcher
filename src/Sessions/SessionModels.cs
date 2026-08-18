@@ -59,6 +59,28 @@ public sealed class TranscriptEntry
     public string? Target { get; init; }
 }
 
+/// <summary>One mention of a search query in a session's transcript.</summary>
+public sealed class TranscriptHit
+{
+    public EntryKind Kind { get; init; }
+
+    public DateTime? WhenUtc { get; init; }
+
+    /// <summary>The whole message, flattened; a tool call carries its target too.</summary>
+    public string Text { get; init; } = string.Empty;
+
+    /// <summary>Where the match starts in <see cref="Text"/>.</summary>
+    public int Column { get; init; }
+
+    public string Who => Kind switch
+    {
+        EntryKind.UserPrompt => "you",
+        EntryKind.ToolCall => "tool",
+        EntryKind.Thinking => "thinking",
+        _ => "claude"
+    };
+}
+
 /// <summary>What the Home screen draws for one running session.</summary>
 public sealed class SessionRow
 {

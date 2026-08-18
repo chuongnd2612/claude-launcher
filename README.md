@@ -103,7 +103,8 @@ directly without showing the selection screens.
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` pick the project, then choose new / continue / resume · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
 | Adding a folder (`a`) | type a path · `↑↓` pick from the folders below · `Tab` complete into one · `Enter` use this path, then name it · `Esc` cancel |
 | Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `Space` layout · `t` new terminal · `w` close a terminal, or hide a session that is not ours · `Esc` back — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
-| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Ctrl+W` / `Alt+W` close this terminal · `Ctrl+F` / `Alt+F` find text · `Alt+S` select text · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll Claude’s history · `Ctrl+]` or a click off the tiles releases the keyboard · `Ctrl+]`, `Enter` or a click on a tile resumes typing |
+| History (`Tab` from the search bar) | `↑↓` `PgUp/PgDn` `Home/End` move · `/` search again · `Esc` back |
+| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Ctrl+W` / `Alt+W` close this terminal · `Ctrl+F` / `Alt+F` find text, then `Tab` for the whole session · `Alt+S` select text · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll Claude’s history · `Ctrl+]` or a click off the tiles releases the keyboard · `Ctrl+]`, `Enter` or a click on a tile resumes typing |
 | Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` new terminal · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
@@ -444,11 +445,27 @@ this because Claude's own interface uses `Esc`, `Tab`, the arrows and `Ctrl`, wh
 Typing narrows as you go and jumps to the first hit, `Enter` walks to the next, `Shift+Enter` back,
 `Esc` closes and returns to the bottom. The current hit is amber, the others blue.
 
-Two honest limits. A match cannot span a line break — what reads as one sentence may be a wrapped
-line, and the grid no longer records where the wrap fell. And Claude runs on the *alternate screen*,
-which keeps no scrollback of its own, so a search there covers what is on screen: scroll Claude's own
-history up with the wheel and search again. A shell or a program that stays on the primary screen is
-searched across its full scrollback. `Alt+F` does the same thing, for when Claude wants `Ctrl+F`.
+The bar searches the *screen*, which is instant and highlights in place. One limit is inherent: a
+match cannot span a line break — what reads as one sentence may be a wrapped line, and the grid no
+longer records where the wrap fell. A shell or any program that stays on the primary screen is also
+searched across its full 2000-line scrollback, and a hit that scrolled off is scrolled back into
+view. `Alt+F` does the same thing, for when Claude wants `Ctrl+F`.
+
+**The whole session: `Tab` from the search bar.** Claude runs on the *alternate screen* and keeps its
+own history to itself, so the grid only ever holds one screenful — but Claude writes every turn to a
+transcript as it goes, and that is what `Tab` searches. It opens a **History** screen listing every
+mention in the conversation, oldest first, with the time, who said it, and the line it appeared in;
+the selected match is shown in full underneath.
+
+| Key | On the History screen |
+| --- | --- |
+| `↑` `↓` `PgUp` `PgDn` `Home` `End` | move through the matches |
+| `/` | search this session for something else — typing replaces the old query |
+| `Esc` | back to the wall |
+
+Searching an 18 MB transcript takes about 120 ms, and the list stops at the first 300 matches (the
+header says so when it does). Only this session's own transcript is searched — not every session on
+the machine.
 
 **Selecting text: `Alt+S`.** Reading the mouse means turning the console's *quick edit* off, and
 quick edit is exactly what drags a selection — the two cannot both be on. `Alt+S` borrows it back:
