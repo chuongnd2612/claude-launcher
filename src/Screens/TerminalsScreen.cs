@@ -40,6 +40,7 @@ public sealed class TerminalsScreen : ScreenBase
     private string _query = string.Empty;
     private List<TerminalMatch> _hits = new();
     private int _hit;
+    private HistorySweep? _sweep;
 
     /// <summary>What has been typed into each chat tile, kept per session.</summary>
     private readonly Dictionary<string, string> _drafts = new(StringComparer.OrdinalIgnoreCase);
@@ -1185,6 +1186,11 @@ public sealed class TerminalsScreen : ScreenBase
 
     private void CloseSearch(TerminalTile terminal)
     {
+        // A sweep leaves the terminal standing in its own history, so closing
+        // the search has to walk it back to the live end.
+        _sweep?.ReturnToBottom();
+        _sweep = null;
+
         _finding = false;
         _query = string.Empty;
         _hits = new List<TerminalMatch>();
@@ -1216,6 +1222,14 @@ public sealed class TerminalsScreen : ScreenBase
                 return History(terminal);
 
             case ConsoleKey.Enter:
+                // Past the last hit on this screen, enter keeps going into what
+                // has scrolled off it rather than wrapping round to the top.
+                if (_hits.Count == 0 && _query.Length > 0 && (key.Modifiers & ConsoleModifiers.Shift) == 0)
+                {
+                    Sweep(terminal);
+                    return ScreenAction.None;
+                }
+
                 Step(terminal, (key.Modifiers & ConsoleModifiers.Shift) != 0 ? -1 : 1);
                 return ScreenAction.None;
 
@@ -1249,6 +1263,10 @@ public sealed class TerminalsScreen : ScreenBase
     /// <summary>Re-runs a changed query and lands on the first hit.</summary>
     private void Restart(TerminalTile terminal)
     {
+        // Editing the query is a new search, not a continuation of the last sweep.
+        _sweep?.Stop();
+        _sweep = null;
+
         Recompute(terminal, keepPlace: false);
         if (_hits.Count > 0) terminal.Read(screen => screen.Reveal(_hits[0].Line));
     }
@@ -1286,6 +1304,29 @@ public sealed class TerminalsScreen : ScreenBase
     }
 
     /// <summary>
+    /// Keeps looking for the query in what has scrolled off the top of this
+    /// terminal, by scrolling it back a screenful at a time.
+    /// </summary>
+    private void Sweep(TerminalTile terminal)
+    {
+        _sweep?.Stop();
+        _sweep = HistorySweep.Start(terminal, _query, ConsoleInput.Wake);
+    }
+
+    /// <summary>What the bar says while a sweep runs, or nothing when none does.</summary>
+    private string? SweepStatus() => _sweep switch
+    {
+        null => null,
+        { State: HistorySweep.Result.CannotScroll } => "this terminal does not scroll for us",
+        { State: HistorySweep.Result.Searching } => $"searching back · {_sweep.Screens} screens",
+        { State: HistorySweep.Result.Found } => $"found {_sweep.Screens} screens back · esc scrolls back down",
+        { State: HistorySweep.Result.Exhausted } => _sweep.Screens == 0
+            ? "nothing above this screen"
+            : $"not in the last {_sweep.Screens} screens · esc scrolls back down",
+        _ => null
+    };
+
+    /// <summary>
     /// Searches everything this session ever said, rather than the screenful it
     /// is showing. Claude keeps its own scrollback to itself, but it writes each
     /// turn to a transcript as it goes - and that we can read.
@@ -1301,9 +1342,9 @@ public sealed class TerminalsScreen : ScreenBase
 
     private void SearchBar(ScreenBuffer buffer, int x, int y, int width)
     {
-        var count = _hits.Count > 0
+        var count = SweepStatus() ?? (_hits.Count > 0
             ? $"{_hit + 1}/{_hits.Count} on screen"
-            : _query.Length == 0 ? "type to search" : "not on screen";
+            : _query.Length == 0 ? "type to search" : "not on screen · enter searches back");
 
         // The bar lands on the bottom pane border, so it is padded to read as a
         // label sitting on that line rather than a hole punched through it.

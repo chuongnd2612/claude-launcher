@@ -104,7 +104,7 @@ directly without showing the selection screens.
 | Adding a folder (`a`) | type a path · `↑↓` pick from the folders below · `Tab` complete into one · `Enter` use this path, then name it · `Esc` cancel |
 | Terminals (read-only tile focused) | `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `Space` layout · `t` new terminal · `w` close a terminal, or hide a session that is not ours · `Esc` back — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
 | History (`Tab` from the search bar) | `↑↓` `PgUp/PgDn` `Home/End` move · `/` search again · `Esc` back |
-| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Ctrl+W` / `Alt+W` close this terminal · `Ctrl+F` / `Alt+F` find text, then `Tab` for the whole session · `Alt+S` select text · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll Claude’s history · `Ctrl+]` or a click off the tiles releases the keyboard · `Ctrl+]`, `Enter` or a click on a tile resumes typing |
+| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Ctrl+W` / `Alt+W` close this terminal · `Ctrl+F` / `Alt+F` find text, `Enter` searches back through the screen history, `Tab` searches the whole session · `Alt+S` select text · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Shift+PgUp/PgDn` scroll Claude’s history · `Ctrl+]` or a click off the tiles releases the keyboard · `Ctrl+]`, `Enter` or a click on a tile resumes typing |
 | Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` new terminal · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
 | Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
@@ -445,11 +445,24 @@ this because Claude's own interface uses `Esc`, `Tab`, the arrows and `Ctrl`, wh
 Typing narrows as you go and jumps to the first hit, `Enter` walks to the next, `Shift+Enter` back,
 `Esc` closes and returns to the bottom. The current hit is amber, the others blue.
 
-The bar searches the *screen*, which is instant and highlights in place. One limit is inherent: a
-match cannot span a line break — what reads as one sentence may be a wrapped line, and the grid no
-longer records where the wrap fell. A shell or any program that stays on the primary screen is also
-searched across its full 2000-line scrollback, and a hit that scrolled off is scrolled back into
-view. `Alt+F` does the same thing, for when Claude wants `Ctrl+F`.
+The bar searches the *screen* first, which is instant and highlights in place. One limit is
+inherent: a match cannot span a line break — what reads as one sentence may be a wrapped line, and the
+grid no longer records where the wrap fell. A shell or any program that stays on the primary screen
+is also searched across its full 2000-line scrollback. `Alt+F` does the same thing, for when Claude
+wants `Ctrl+F`.
+
+**What scrolled off the screen: `Enter`.** When the query is not on screen the bar offers
+`enter searches back`, and pressing it walks Claude's own history a screenful at a time until it
+finds the text or reaches the top — the same thing you would do with the wheel, minus the reading.
+The bar counts as it goes (`searching back · 12 screens`) and stops on the first match, leaving it
+highlighted where it was found. `Enter` again keeps going further back; `Esc` scrolls back down and
+closes.
+
+This works because Claude scrolls its own view for a wheel report, which is all the launcher can send
+it: there is no command for "show me line 400". So two things follow. Searching back is paced by how
+fast Claude repaints — measured at roughly a screenful every 120 ms, so a long sweep takes seconds and
+shows its progress. And coming back down is a scroll like any other: a deep sweep can leave the view
+part-way and one flick of the wheel finishes the job.
 
 **The whole session: `Tab` from the search bar.** Claude runs on the *alternate screen* and keeps its
 own history to itself, so the grid only ever holds one screenful — but Claude writes every turn to a
