@@ -205,6 +205,7 @@ public static class Program
         SessionId = $"{project}-0000-0000",
         ProfileName = "Work",
         ProfileIcon = "W",
+        Account = "alex",
         ProjectName = project,
         ProjectPath = @"D:\demo\" + project,
         Task = task,

@@ -855,6 +855,8 @@ public sealed class TerminalsScreen : ScreenBase
         if (title.Length + state.Length + 6 <= width)
             buffer.WriteRight(x + width - 3, y, state, new Sty(Theme.Dim, fill));
 
+        Whose(buffer, x, y, width, row, null, title.Length, state.Length, fill);
+
         var inner = width - 4;
         var contentY = y + 1;
         var contentRows = height - 2;
@@ -934,6 +936,8 @@ public sealed class TerminalsScreen : ScreenBase
         if (title.Length + badge.Length + 6 <= width)
             buffer.WriteRight(x + width - 3, y, badge,
                 new Sty(searching ? Theme.Amber : typing ? Theme.Blue : Theme.Dim, fill));
+
+        Whose(buffer, x, y, width, row, terminal, title.Length, badge.Length, fill);
 
         var inner = width - 4;
         var innerRows = height - 2;
@@ -1508,6 +1512,68 @@ public sealed class TerminalsScreen : ScreenBase
         var bar = $" find: {_query}_   {count}   enter next · tab whole session · esc close ";
         var colour = _hits.Count == 0 && _query.Length > 0 ? Theme.Red : Theme.Amber;
         buffer.WriteClipped(x, y, bar, width, new Sty(colour, Theme.Bg));
+    }
+
+    /// <summary>Writes the profile tag into the top border, if there is room for it.</summary>
+    private void Whose(ScreenBuffer buffer, int x, int y, int width, SessionRow row,
+        TerminalTile? terminal, int titleWidth, int badgeWidth, Rgb fill)
+    {
+        // Two cells of border either side, and one space before the badge.
+        var room = width - 4 - titleWidth - badgeWidth - 2;
+        if (room < 3) return;
+
+        var tag = ProfileTag(row, terminal, room - 2);
+        if (tag.Length == 0) return;
+
+        // Padded, so it reads as its own legend notched into the border rather
+        // than as more of the project name.
+        buffer.WriteClipped(x + 2 + titleWidth, y, $" {tag} ", room, new Sty(Theme.VioletSoft, fill));
+    }
+
+    /// <summary>
+    /// Which profile a pane runs under, and who Claude is signed in as there.
+    ///
+    /// With several profiles open at once the panes are otherwise identical, and
+    /// the whole point of a profile is that the session on the other side of it
+    /// is a different account with different work.
+    /// </summary>
+    private string ProfileTag(SessionRow row, TerminalTile? terminal, int room)
+    {
+        var icon = row.ProfileIcon;
+        var label = row.ProfileName;
+        var account = row.Account;
+
+        // A tile the launcher started knows its own config dir even when the
+        // registry has not caught up with it yet.
+        if (label.Length == 0 && terminal is not null)
+        {
+            var profile = App.State.Profiles.FirstOrDefault(p =>
+                string.Equals(StateStore.ExpandHome(p.ConfigDir).TrimEnd('\\', '/'),
+                    terminal.ConfigDir.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase));
+
+            if (profile is not null)
+            {
+                icon = profile.DisplayIcon;
+                label = profile.DisplayLabel;
+            }
+
+            if (account.Length == 0)
+                account = SessionReader.ReadAccount(terminal.ConfigDir)?.Label ?? string.Empty;
+        }
+
+        if (label.Length == 0 && account.Length == 0) return string.Empty;
+
+        // Give up the parts that matter least first, rather than clipping the
+        // whole thing to something that reads as a different name.
+        var full = $"{icon} {label} · {account}".Trim();
+        if (account.Length == 0) full = $"{icon} {label}".Trim();
+
+        if (full.Length <= room) return full;
+
+        var short_ = $"{icon} {label}".Trim();
+        if (short_.Length <= room) return short_;
+
+        return icon.Length > 0 && icon.Length <= room ? icon : string.Empty;
     }
 
     /// <summary>Stops a terminal we own and takes its pane with it.</summary>

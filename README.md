@@ -342,7 +342,7 @@ wrong dollar figure is worse than none. Tokens are shown instead, and those are 
   ╰───╯          ╰───╯          ╰───╯          ╰───╯
   qagent         api-gateway    web-dash       notes-cli
 
-  ╭─ 1 · qagent ────────── running 12m 04s ─╮  ╭─ 2 · api-gateway ──── waiting? 46s ─╮
+  ╭─ 1 · qagent  W Work · alex ─ running 12m ─╮  ╭─ 2 · api-gateway  P Personal ───────╮
   │ feat/qagent-refactor                    │  │ main                                │
   │ › split the runner into stages          │  │ › add a redis token bucket          │
   │ ◆ Read agent/runner.ts                  │  │ ◆ Write api/limiter.ts              │
@@ -441,6 +441,19 @@ because Claude's own UI needs them. `Ctrl+]` hands the keyboard back to the wall
 **Switching panes mid-sentence.** `Alt+1..9` jumps straight to a pane and `Alt+←→↑↓` steps between
 them, without releasing the keyboard first — you land typing in the new pane. Alt is reserved for
 this because Claude's own interface uses `Esc`, `Tab`, the arrows and `Ctrl`, which all stay its own.
+
+**Every tile says whose it is.** The header carries the profile the session runs under and the
+Claude account signed in there — `W Work · alex` — because with two profiles open the panes are
+otherwise identical, and the whole point of a profile is that the session behind it is a different
+account doing different work.
+
+The name comes from Claude's own `oauthAccount` block in `<configDir>\.claude.json`: its display
+name, or the part of the email address before the `@` when there is no name. Nothing is written, and
+the file is only re-read every few minutes — it is rewritten on nearly every turn, but who is signed
+in changes about once a month. A profile that has never been signed in simply shows no name.
+
+On a narrow pane the header gives up the account first, then the profile label, keeping the icon
+last: `W Work · alex` → `W Work` → `W`.
 
 **Resizing the panes.** The wall no longer insists on equal shares. Drag a divider with the mouse —
 each gutter carries a small grip, and the divider follows the pointer until you let go — or move it

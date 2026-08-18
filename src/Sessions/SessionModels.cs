@@ -59,6 +59,19 @@ public sealed class TranscriptEntry
     public string? Target { get; init; }
 }
 
+/// <summary>Who Claude Code is signed in as in one config dir.</summary>
+public sealed class ClaudeAccount
+{
+    public string DisplayName { get; init; } = string.Empty;
+    public string Email { get; init; } = string.Empty;
+    public string Organization { get; init; } = string.Empty;
+
+    /// <summary>The name if there is one, else the part of the email before the @.</summary>
+    public string Label => DisplayName.Length > 0
+        ? DisplayName
+        : Email.Length > 0 ? Email.Split('@')[0] : string.Empty;
+}
+
 /// <summary>One mention of a search query in a session's transcript.</summary>
 public sealed class TranscriptHit
 {
@@ -87,6 +100,12 @@ public sealed class SessionRow
     public string SessionId { get; set; } = string.Empty;
     public string ProfileName { get; set; } = string.Empty;
     public string ProfileIcon { get; set; } = string.Empty;
+
+    /// <summary>The profile's config dir, which is what the account is read from.</summary>
+    public string ConfigDir { get; set; } = string.Empty;
+
+    /// <summary>Who Claude is signed in as under that profile, when it is known.</summary>
+    public string Account { get; set; } = string.Empty;
     public string ProjectName { get; set; } = string.Empty;
     public string ProjectPath { get; set; } = string.Empty;
 
