@@ -42,6 +42,19 @@ public sealed class TerminalsScreen : ScreenBase
     private int _hit;
     private HistorySweep? _sweep;
 
+    /// <summary>Where the dividers sit; equal shares until they are moved.</summary>
+    private PaneSplits _columns = new();
+    private PaneSplits _rows = new();
+
+    /// <summary>The divider being dragged: its axis and index, or null.</summary>
+    private (bool Vertical, int Index)? _dragging;
+
+    /// <summary>Divider positions from the last frame, for hit testing a drag.</summary>
+    private readonly List<(bool Vertical, int Index, int At, int From, int To)> _dividers = new();
+
+    /// <summary>The grid the last frame drew, so a key knows what it is resizing.</summary>
+    private (int Columns, int Rows, int X, int Y, int Width, int Height) _grid;
+
     /// <summary>What has been typed into each chat tile, kept per session.</summary>
     private readonly Dictionary<string, string> _drafts = new(StringComparer.OrdinalIgnoreCase);
 
@@ -109,6 +122,7 @@ public sealed class TerminalsScreen : ScreenBase
 
         _snapshot = service.Build();
         _mode = Parse(app.Settings.TerminalLayout);
+        _columns = PaneSplits.Parse(app.Settings.TerminalSplits);
 
         // Open on a tile that can be acted on. A read-only terminal tile is a
         // poor landing spot now that chat tiles accept typing.
@@ -583,9 +597,13 @@ public sealed class TerminalsScreen : ScreenBase
 
         if (_mode == LayoutMode.Stacked) columns = 1;
 
-        var cellWidth = (width - GutterX * (columns - 1)) / columns;
-        var extraWidth = (width - GutterX * (columns - 1)) % columns;
-        var cellHeight = (height - GutterY * (rows - 1)) / rows;
+        // Widths and heights come from the dividers rather than plain division,
+        // so a pane can be given the room its content actually needs.
+        var widths = _columns.Cells(columns, width - GutterX * (columns - 1), MinPaneWidth);
+        var heights = _rows.Cells(rows, height - GutterY * (rows - 1), MinPaneHeight);
+
+        _grid = (columns, rows, x, y, width, height);
+        _dividers.Clear();
 
         for (var i = 0; i < panes.Count; i++)
         {
@@ -593,17 +611,150 @@ public sealed class TerminalsScreen : ScreenBase
             var row = i / columns;
             if (row >= rows) break;
 
-            var tileX = x + column * (cellWidth + GutterX) + Math.Min(column, extraWidth);
-            var tileY = y + row * (cellHeight + GutterY);
-            var tileWidth = cellWidth + (column < extraWidth ? 1 : 0);
+            var tileX = x;
+            for (var c = 0; c < column; c++) tileX += widths[c] + GutterX;
+
+            var tileY = y;
+            for (var r = 0; r < row; r++) tileY += heights[r] + GutterY;
+
+            var tileWidth = widths[column];
 
             // A lone tile on the last row takes the full width.
             var lastRow = row == (panes.Count - 1) / columns;
             if (lastRow && panes.Count % columns == 1 && column == 0 && columns > 1)
                 tileWidth = width;
 
-            Tile(buffer, tileX, tileY, tileWidth, cellHeight, panes[i], i, i == _focus);
+            Tile(buffer, tileX, tileY, tileWidth, heights[row], panes[i], i, i == _focus);
         }
+
+        // Remember where the gutters landed: a drag has to know what it grabbed,
+        // and only a divider with panes on both sides can be moved.
+        var at = x;
+        for (var c = 0; c < columns - 1; c++)
+        {
+            at += widths[c];
+            _dividers.Add((true, c, at, y, y + height));
+            at += GutterX;
+        }
+
+        at = y;
+        for (var r = 0; r < rows - 1; r++)
+        {
+            at += heights[r];
+            _dividers.Add((false, r, at, x, x + width));
+            at += GutterY;
+        }
+
+        DrawDividers(buffer);
+    }
+
+    /// <summary>
+    /// Marks each gutter so it reads as something you can take hold of, rather
+    /// than as empty space between tiles.
+    /// </summary>
+    private void DrawDividers(ScreenBuffer buffer)
+    {
+        foreach (var divider in _dividers)
+        {
+            var live = _dragging is { } drag &&
+                       drag.Vertical == divider.Vertical && drag.Index == divider.Index;
+
+            var style = new Sty(live ? Theme.Blue : Theme.BorderMuted, Theme.Bg, bold: live);
+
+            // The two grips sit a third and a quarter of the way along, so a
+            // column divider and a row divider never land on the same cell.
+            if (divider.Vertical)
+            {
+                var third = divider.From + (divider.To - divider.From) / 3;
+                for (var i = -1; i <= 1; i++) buffer.Set(divider.At, third + i, '┃', style);
+                continue;
+            }
+
+            var quarter = divider.From + (divider.To - divider.From) / 4;
+            for (var i = -2; i <= 2; i++) buffer.Set(quarter + i, divider.At, '━', style);
+        }
+    }
+
+    /// <summary>The divider within a cell or two of a point, if there is one.</summary>
+    private (bool Vertical, int Index)? DividerAt(int x, int y)
+    {
+        foreach (var divider in _dividers)
+        {
+            if (divider.Vertical)
+            {
+                if (Math.Abs(x - divider.At) <= 1 && y >= divider.From && y <= divider.To)
+                    return (true, divider.Index);
+
+                continue;
+            }
+
+            if (Math.Abs(y - divider.At) <= 0 && x >= divider.From && x <= divider.To)
+                return (false, divider.Index);
+        }
+
+        return null;
+    }
+
+    /// <summary>Puts a dragged divider where the pointer is.</summary>
+    private void DragTo(int x, int y)
+    {
+        if (_dragging is not { } drag) return;
+
+        if (drag.Vertical)
+        {
+            if (_grid.Width <= 0) return;
+            var fraction = (double)(x - _grid.X) / _grid.Width;
+            if (_columns.Place(_grid.Columns, drag.Index, fraction)) SaveSplits();
+            return;
+        }
+
+        if (_grid.Height <= 0) return;
+        var down = (double)(y - _grid.Y) / _grid.Height;
+        _rows.Place(_grid.Rows, drag.Index, down);
+    }
+
+    /// <summary>
+    /// Moves the divider beside the focused pane. Rows are not persisted: they
+    /// follow the window's height, which changes on its own.
+    /// </summary>
+    private void Resize(bool vertical, int steps)
+    {
+        if (_grid.Columns == 0) return;
+
+        var by = 0.03 * steps;
+
+        if (vertical)
+        {
+            var column = _focus % Math.Max(1, _grid.Columns);
+            var index = column < _grid.Columns - 1 ? column : column - 1;
+            var moved = _columns.Nudge(_grid.Columns, index, column < _grid.Columns - 1 ? by : -by);
+
+            _notice = moved
+                ? null
+                : "that pane is as narrow as it goes · alt+shift+0 makes them even again";
+
+            if (moved) SaveSplits();
+            return;
+        }
+
+        var row = _focus / Math.Max(1, _grid.Columns);
+        var below = row < _grid.Rows - 1 ? row : row - 1;
+        if (!_rows.Nudge(_grid.Rows, below, row < _grid.Rows - 1 ? by : -by))
+            _notice = "that pane is as short as it goes · alt+shift+0 makes them even again";
+    }
+
+    private void EvenOut()
+    {
+        _columns.Reset(_grid.Columns);
+        _rows.Reset(_grid.Rows);
+        SaveSplits();
+        _notice = "panes share the wall evenly again";
+    }
+
+    private void SaveSplits()
+    {
+        App.Settings.TerminalSplits = _columns.ToString();
+        StateStore.SaveSettings(App.Settings);
     }
 
     private static TranscriptEntry ToEntry(ChatLine line) => new()
@@ -917,6 +1068,8 @@ public sealed class TerminalsScreen : ScreenBase
                 return ScreenAction.None;
             }
 
+            if (ResizeKey(key)) return ScreenAction.None;
+
             // Switching panes has to work mid-sentence, so a few Alt chords are
             // kept back from the child. Alt is the safe half of the keyboard:
             // Claude's own UI uses Esc, Tab, the arrows and Ctrl, all of which
@@ -958,6 +1111,10 @@ public sealed class TerminalsScreen : ScreenBase
                 return ScreenAction.None;
             }
         }
+
+        // Resizing works from anywhere on the wall, including with a chat tile
+        // focused: alt+shift is not a chord any tile wants for itself.
+        if (ResizeKey(key)) return ScreenAction.None;
 
         var live = panes.Count > 0 ? Live(panes[_focus]) : null;
 
@@ -1388,6 +1545,43 @@ public sealed class TerminalsScreen : ScreenBase
     /// wall as the root screen, and popping a one-deep stack ends the loop -
     /// which would quit the launcher instead of leaving the wall.
     /// </summary>
+    /// <summary>
+    /// Alt+Shift and an arrow moves the divider beside the focused pane, and
+    /// Alt+Shift+0 makes the shares even again. Shift is what keeps these clear
+    /// of plain Alt+arrows, which step between panes.
+    /// </summary>
+    private bool ResizeKey(ConsoleKeyInfo key)
+    {
+        if ((key.Modifiers & ConsoleModifiers.Alt) == 0) return false;
+        if ((key.Modifiers & ConsoleModifiers.Shift) == 0) return false;
+
+        switch (key.Key)
+        {
+            case ConsoleKey.LeftArrow:
+                Resize(vertical: true, -1);
+                return true;
+
+            case ConsoleKey.RightArrow:
+                Resize(vertical: true, 1);
+                return true;
+
+            case ConsoleKey.UpArrow:
+                Resize(vertical: false, -1);
+                return true;
+
+            case ConsoleKey.DownArrow:
+                Resize(vertical: false, 1);
+                return true;
+
+            case ConsoleKey.D0:
+            case ConsoleKey.NumPad0:
+                EvenOut();
+                return true;
+        }
+
+        return false;
+    }
+
     private ScreenAction Leave() =>
         ScreenAction.Root(new HomeScreen(App, new SessionService(App.State)));
 
@@ -1439,6 +1633,24 @@ public sealed class TerminalsScreen : ScreenBase
     public override ScreenAction HandleInput(InputEvent input)
     {
         if (input.Kind == InputKind.Key) return HandleKey(input.Key);
+
+        // A divider being dragged owns the mouse until it is let go, so the
+        // pointer can cross a tile on the way without focusing it.
+        if (_dragging is not null)
+        {
+            if (input.Kind == InputKind.MouseDrag) DragTo(input.X, input.Y);
+            if (input.Kind is InputKind.MouseUp or InputKind.MouseDown) _dragging = null;
+            return ScreenAction.None;
+        }
+
+        if (input.Kind == InputKind.MouseDown && DividerAt(input.X, input.Y) is { } grabbed)
+        {
+            _dragging = grabbed;
+            _notice = "drag to resize · let go to keep it";
+            return ScreenAction.None;
+        }
+
+        if (input.Kind is InputKind.MouseDrag or InputKind.MouseUp) return ScreenAction.None;
 
         var panes = Panes;
         var hit = _rects.FirstOrDefault(r =>
