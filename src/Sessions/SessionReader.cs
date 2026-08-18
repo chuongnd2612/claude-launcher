@@ -629,6 +629,74 @@ public static class SessionReader
     private static bool IsFileTool(string verb) =>
         verb is "Read" or "Edit" or "Write" or "NotebookEdit" or "MultiEdit";
 
+    private static readonly Dictionary<string, (DateTime Read, long Stamp, ClaudeAccount? Account)> Accounts =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Claude rewrites .claude.json constantly; who is signed in barely changes.</summary>
+    private static readonly TimeSpan AccountTtl = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Who Claude Code is signed in as in one config dir, from the oauthAccount
+    /// block of its own .claude.json.
+    ///
+    /// Cached behind a clock as well as a timestamp: the file is written on
+    /// nearly every turn, and the wall would otherwise re-parse it for every
+    /// pane on every frame to learn something that changes once a month.
+    /// </summary>
+    public static ClaudeAccount? ReadAccount(string configDir)
+    {
+        if (string.IsNullOrWhiteSpace(configDir)) return null;
+
+        var path = Path.Combine(configDir, ".claude.json");
+
+        try
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists) return null;
+
+            var stamp = info.LastWriteTimeUtc.Ticks ^ info.Length;
+
+            if (Accounts.TryGetValue(path, out var cached) &&
+                (cached.Stamp == stamp || DateTime.UtcNow - cached.Read < AccountTtl))
+            {
+                return cached.Account;
+            }
+
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete, 64 * 1024, FileOptions.SequentialScan);
+            using var document = JsonDocument.Parse(stream);
+
+            ClaudeAccount? account = null;
+
+            if (document.RootElement.TryGetProperty("oauthAccount", out var oauth) &&
+                oauth.ValueKind == JsonValueKind.Object)
+            {
+                account = new ClaudeAccount
+                {
+                    DisplayName = Text(oauth, "displayName"),
+                    Email = Text(oauth, "emailAddress"),
+                    Organization = Text(oauth, "organizationName")
+                };
+
+                if (account.Label.Length == 0) account = null;
+            }
+
+            Accounts[path] = (DateTime.UtcNow, stamp, account);
+            return account;
+        }
+        catch
+        {
+            // A config dir we cannot read is one we say nothing about.
+            Accounts[path] = (DateTime.UtcNow, 0, null);
+            return null;
+        }
+    }
+
+    private static string Text(JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+
     /// <summary>Recent projects, newest first, from history.jsonl.</summary>
     public static List<RecentProject> ReadRecentProjects(string configDir, int limit)
     {

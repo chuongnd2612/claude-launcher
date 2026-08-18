@@ -79,6 +79,8 @@ public sealed class SessionService
                     SessionId = entry.SessionId,
                     ProfileName = profile.DisplayLabel,
                     ProfileIcon = profile.DisplayIcon,
+                    ConfigDir = configDir,
+                    Account = SessionReader.ReadAccount(configDir)?.Label ?? string.Empty,
                     ProjectPath = entry.Cwd,
                     ProjectName = ProjectName(entry.Cwd),
                     Task = Task(entry, facts),
