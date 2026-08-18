@@ -157,6 +157,7 @@ public static class Program
             ("new-terminal", new NewTerminalScreen(app)),
             ("kill-session", new KillSessionScreen(app, DemoSnapshot().Sessions[0], () => { })),
             ("chat", new ChatScreen(app, DemoChat(), ChatState.AwaitingPermission, DemoAsk())),
+            ("history-search", new HistorySearchScreen(app, "resize", DemoHits())),
             ("resume", new ResumeScreen(app, DemoPastSessions())),
             ("session-detail", new SessionDetailScreen(app, DemoPastSessions()[0], DemoDetail())),
             ("delete-session", new DeleteSessionScreen(app, DemoPastSessions()[0], () => { })),
@@ -265,6 +266,41 @@ public static class Program
         Description = "api/router.ts",
         InputJson = "{}"
     };
+
+    /// <summary>
+    /// Fixed timestamps on purpose: the render gate compares strings, and a
+    /// clock in a fixture makes every run differ from the last.
+    /// </summary>
+    private static List<TranscriptHit> DemoHits()
+    {
+        var day = new DateTime(2026, 1, 14, 9, 0, 0, DateTimeKind.Utc);
+
+        return new List<TranscriptHit>
+        {
+            new()
+            {
+                Kind = EntryKind.UserPrompt,
+                WhenUtc = day,
+                Text = "can we resize the pane without the whole wall reflowing",
+                Column = 7
+            },
+            new()
+            {
+                Kind = EntryKind.AssistantText,
+                WhenUtc = day.AddMinutes(1),
+                Text = "The resize path goes through TerminalTile.Resize, which resizes the pty " +
+                       "itself - so Claude lays itself out for the space it has rather than being clipped.",
+                Column = 4
+            },
+            new()
+            {
+                Kind = EntryKind.ToolCall,
+                WhenUtc = day.AddMinutes(3),
+                Text = "Grep  resize src/Terminal/TerminalTile.cs",
+                Column = 6
+            }
+        };
+    }
 
     private static List<PastSession> DemoPastSessions() => new()
     {

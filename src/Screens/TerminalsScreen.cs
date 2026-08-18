@@ -1212,6 +1212,9 @@ public sealed class TerminalsScreen : ScreenBase
                 CloseSearch(terminal);
                 return ScreenAction.None;
 
+            case ConsoleKey.Tab:
+                return History(terminal);
+
             case ConsoleKey.Enter:
                 Step(terminal, (key.Modifiers & ConsoleModifiers.Shift) != 0 ? -1 : 1);
                 return ScreenAction.None;
@@ -1282,15 +1285,29 @@ public sealed class TerminalsScreen : ScreenBase
         _hit = at >= 0 ? at : Math.Clamp(_hit, 0, _hits.Count - 1);
     }
 
+    /// <summary>
+    /// Searches everything this session ever said, rather than the screenful it
+    /// is showing. Claude keeps its own scrollback to itself, but it writes each
+    /// turn to a transcript as it goes - and that we can read.
+    /// </summary>
+    private ScreenAction History(TerminalTile terminal)
+    {
+        var query = _query;
+        var path = ClaudePaths.TranscriptFile(terminal.ConfigDir, terminal.ProjectPath, terminal.SessionId);
+
+        CloseSearch(terminal);
+        return ScreenAction.Push(new HistorySearchScreen(App, terminal.ProjectName, path, query));
+    }
+
     private void SearchBar(ScreenBuffer buffer, int x, int y, int width)
     {
         var count = _hits.Count > 0
-            ? $"{_hit + 1}/{_hits.Count}"
-            : _query.Length == 0 ? "type to search" : "no match";
+            ? $"{_hit + 1}/{_hits.Count} on screen"
+            : _query.Length == 0 ? "type to search" : "not on screen";
 
         // The bar lands on the bottom pane border, so it is padded to read as a
         // label sitting on that line rather than a hole punched through it.
-        var bar = $" find: {_query}_   {count}   enter next · shift+enter back · esc close ";
+        var bar = $" find: {_query}_   {count}   enter next · tab whole session · esc close ";
         var colour = _hits.Count == 0 && _query.Length > 0 ? Theme.Red : Theme.Amber;
         buffer.WriteClipped(x, y, bar, width, new Sty(colour, Theme.Bg));
     }

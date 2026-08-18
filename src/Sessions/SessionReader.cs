@@ -446,6 +446,99 @@ public static class SessionReader
     }
 
     /// <summary>
+    /// Every mention of a query in one session's transcript, oldest first.
+    ///
+    /// This is the only way to search what has scrolled out of a terminal:
+    /// Claude lives on the alternate screen and keeps its history to itself, but
+    /// it writes every turn here as it goes.
+    ///
+    /// A transcript runs to tens of megabytes, so a line that cannot contain the
+    /// query is rejected on the raw text before any JSON work. That shortcut is
+    /// only sound while the query has nothing JSON would escape - a quote or a
+    /// backslash is written differently on disk than it was typed, so those fall
+    /// back to parsing every turn.
+    /// </summary>
+    public static List<TranscriptHit> SearchTranscript(string path, string query, int limit = 300)
+    {
+        var hits = new List<TranscriptHit>();
+        if (string.IsNullOrWhiteSpace(query) || !File.Exists(path)) return hits;
+
+        var escapes = query.Any(ch => ch is '"' or '\\' or '/' || char.IsControl(ch));
+
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete, 128 * 1024, FileOptions.SequentialScan);
+            using var reader = new StreamReader(stream);
+
+            string? line;
+            while ((line = reader.ReadLine()) is not null && hits.Count < limit)
+            {
+                if (line.Length < 2) continue;
+                if (!escapes && !line.Contains(query, StringComparison.OrdinalIgnoreCase)) continue;
+
+                var isUser = line.Contains("\"type\":\"user\"", StringComparison.Ordinal);
+                var isAssistant = line.Contains("\"type\":\"assistant\"", StringComparison.Ordinal);
+                if (!isUser && !isAssistant) continue;
+
+                try
+                {
+                    using var document = JsonDocument.Parse(line);
+                    var root = document.RootElement;
+
+                    var when = root.TryGetProperty("timestamp", out var ts) &&
+                               ts.ValueKind == JsonValueKind.String &&
+                               DateTime.TryParse(ts.GetString(), out var parsed)
+                        ? parsed.ToUniversalTime()
+                        : (DateTime?)null;
+
+                    var facts = new TranscriptFacts();
+
+                    if (isUser)
+                    {
+                        // A sidechain is a subagent's own conversation, not this one.
+                        if (root.TryGetProperty("isSidechain", out var side) &&
+                            side.ValueKind == JsonValueKind.True) continue;
+
+                        FoldUser(root, facts);
+                    }
+                    else
+                    {
+                        FoldAssistant(root, facts);
+                    }
+
+                    foreach (var entry in facts.Entries)
+                    {
+                        if (hits.Count >= limit) break;
+
+                        var text = entry.Target is null ? entry.Text : entry.Text + "  " + entry.Target;
+                        var at = text.IndexOf(query, StringComparison.OrdinalIgnoreCase);
+                        if (at < 0) continue;
+
+                        hits.Add(new TranscriptHit
+                        {
+                            Kind = entry.Kind,
+                            WhenUtc = when,
+                            Text = text,
+                            Column = at
+                        });
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Claude appends while we read, so the last line is often half written.
+                }
+            }
+        }
+        catch
+        {
+            // Whatever was gathered before the failure is still worth showing.
+        }
+
+        return hits;
+    }
+
+    /// <summary>
     /// A full pass over one transcript, for the detail screen only. Counting
     /// turns and tool calls is the whole point, and those cannot come from a
     /// tail - but this runs for a single session the user asked to open.
