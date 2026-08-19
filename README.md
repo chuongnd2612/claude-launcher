@@ -74,6 +74,33 @@ left by the previous version. `profiles.json` is untouched and stays compatible.
 > First run may show a Windows SmartScreen warning, because the binary is not code-signed. Choose
 > **More info → Run anyway**, or verify the SHA256 from the release page yourself.
 
+## Updates
+
+The launcher asks GitHub whether there is a newer release and says so on Home:
+
+```text
+update available · v1.29.0 · press u
+```
+
+`u` opens the update screen, which shows what is installed, what is available, and how to get it.
+`Enter` closes the launcher and lets the wrapper run the installer — it has to happen in that order,
+because the installer replaces the very exe the launcher is running from. `n` opens the release notes
+in a browser, `s` stops the asking, `Esc` leaves it for later.
+
+What the check does and does not do:
+
+- **It never blocks.** The request runs in the background from the first frame; the answer arrives
+  when it arrives, and the launcher is identical until then.
+- **It asks rarely.** At most once every six hours, with the answer kept in `$HOME\.claude-launcher\update.json`, so a day of
+  launches is a handful of requests.
+- **It fails quietly.** Offline, behind a proxy, rate limited: nothing is shown and nothing is said.
+- **It sends nothing about you.** One unauthenticated GET to the public releases API.
+- **It never nags a build of its own.** A binary with no version stamped on it reads as `0.0.0` and is
+  left alone, so working from source does not produce an update prompt.
+
+Turn it off in **Settings → Check for updates**, or for one run with `CLAUDE_LAUNCHER_NO_UPDATE_CHECK=1`.
+Point it at a fork with `CLAUDE_LAUNCHER_REPO=owner/repo`.
+
 ## Commands
 
 ```powershell
@@ -184,6 +211,7 @@ be removed.
 | Default session mode | Which option is preselected on step 3 (`new` / `continue` / `resume`) |
 | Default open in | Where `Enter` launches Claude (`current` / `new tab` / `split right` / `split down`) |
 | Remote control | Start new sessions with `claude --remote-control`, so they accept input from claude.ai and the phone app |
+| Check for updates | On: ask GitHub once every six hours whether a newer release exists, and say so on Home |
 | Terminal splits | Not on the settings screen: where the wall's dividers sit, written as you drag them. Delete the line to go back to equal panes |
 | Terminal tiles | On (default): a session opened inside the launcher runs under a pseudo console and shows Claude's own interface, so `/usage`, the model picker and plan mode render exactly. Off: the launcher's own styled chat view, easier to watch several sessions at once, but rich screens arrive as plain text |
 
@@ -782,6 +810,8 @@ Environment variables read by the executable:
 | `CLAUDE_LAUNCHER_PROJECT` | preselect a project |
 | `CLAUDE_LAUNCHER_MODE` | `new` \| `continue` \| `resume` |
 | `CLAUDE_LAUNCHER_OPEN_IN` | `current` \| `tab` \| `right` \| `down` |
+| `CLAUDE_LAUNCHER_NO_UPDATE_CHECK` | `1` skips the update check for that run |
+| `CLAUDE_LAUNCHER_REPO` | `owner/repo` to check for releases instead of the default |
 
 The `result.json` contract is unchanged from 1.4.x: `profile`, `label`, `icon`, `configDir`,
 `project`, `path`, `mode`.

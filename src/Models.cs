@@ -101,6 +101,14 @@ public sealed class UiSettings
     public string DefaultMode { get; set; } = "new";
     public string DefaultOpenIn { get; set; } = LaunchTarget.Current;
 
+    /// <summary>
+    /// Ask GitHub whether a newer release exists, at most once every six hours,
+    /// and say so when there is. On by default; the check is a single request to
+    /// the public releases API, sends nothing about you, and never blocks the
+    /// launcher. CLAUDE_LAUNCHER_NO_UPDATE_CHECK=1 turns it off for one run.
+    /// </summary>
+    public bool CheckForUpdates { get; set; } = true;
+
     /// <summary>Terminal wall layout: tiled, stacked or focus.</summary>
     public string TerminalLayout { get; set; } = "tiled";
 
