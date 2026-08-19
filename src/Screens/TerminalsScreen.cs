@@ -42,15 +42,28 @@ public sealed class TerminalsScreen : ScreenBase
     private int _hit;
     private HistorySweep? _sweep;
 
-    /// <summary>Where the dividers sit; equal shares until they are moved.</summary>
-    private PaneSplits _columns = new();
+    /// <summary>
+    /// Where the dividers sit; equal shares until they are moved. Columns are
+    /// kept per row, so each terminal can be given the width it needs without
+    /// dragging the ones above and below it with it.
+    /// </summary>
+    private Dictionary<int, PaneSplits> _columnsByRow = new();
     private PaneSplits _rows = new();
 
-    /// <summary>The divider being dragged: its axis and index, or null.</summary>
-    private (bool Vertical, int Index)? _dragging;
+    private PaneSplits Columns(int row)
+    {
+        if (_columnsByRow.TryGetValue(row, out var splits)) return splits;
+
+        splits = new PaneSplits();
+        _columnsByRow[row] = splits;
+        return splits;
+    }
+
+    /// <summary>The divider being dragged: its axis, index and row, or null.</summary>
+    private (bool Vertical, int Index, int Row)? _dragging;
 
     /// <summary>Divider positions from the last frame, for hit testing a drag.</summary>
-    private readonly List<(bool Vertical, int Index, int At, int From, int To)> _dividers = new();
+    private readonly List<(bool Vertical, int Index, int Row, int At, int From, int To)> _dividers = new();
 
     /// <summary>The grid the last frame drew, so a key knows what it is resizing.</summary>
     private (int Columns, int Rows, int X, int Y, int Width, int Height) _grid;
@@ -122,7 +135,7 @@ public sealed class TerminalsScreen : ScreenBase
 
         _snapshot = service.Build();
         _mode = Parse(app.Settings.TerminalLayout);
-        _columns = PaneSplits.Parse(app.Settings.TerminalSplits);
+        _columnsByRow = PaneSplits.ParseRows(app.Settings.TerminalSplits);
 
         // Open on a tile that can be acted on. A read-only terminal tile is a
         // poor landing spot now that chat tiles accept typing.
@@ -610,11 +623,18 @@ public sealed class TerminalsScreen : ScreenBase
 
         // Widths and heights come from the dividers rather than plain division,
         // so a pane can be given the room its content actually needs.
-        var widths = _columns.Cells(columns, width - GutterX * (columns - 1), MinPaneWidth);
         var heights = _rows.Cells(rows, height - GutterY * (rows - 1), MinPaneHeight);
 
         _grid = (columns, rows, x, y, width, height);
         _dividers.Clear();
+
+        var tops = new int[rows];
+        var offset = y;
+        for (var r = 0; r < rows; r++)
+        {
+            tops[r] = offset;
+            offset += heights[r] + GutterY;
+        }
 
         for (var i = 0; i < panes.Count; i++)
         {
@@ -622,11 +642,12 @@ public sealed class TerminalsScreen : ScreenBase
             var row = i / columns;
             if (row >= rows) break;
 
+            // Each row divides its own width, so one terminal can be widened
+            // without moving the panes in the row below.
+            var widths = Columns(row).Cells(columns, width - GutterX * (columns - 1), MinPaneWidth);
+
             var tileX = x;
             for (var c = 0; c < column; c++) tileX += widths[c] + GutterX;
-
-            var tileY = y;
-            for (var r = 0; r < row; r++) tileY += heights[r] + GutterY;
 
             var tileWidth = widths[column];
 
@@ -635,25 +656,37 @@ public sealed class TerminalsScreen : ScreenBase
             if (lastRow && panes.Count % columns == 1 && column == 0 && columns > 1)
                 tileWidth = width;
 
-            Tile(buffer, tileX, tileY, tileWidth, heights[row], panes[i], i, i == _focus);
+            Tile(buffer, tileX, tops[row], tileWidth, heights[row], panes[i], i, i == _focus);
         }
 
         // Remember where the gutters landed: a drag has to know what it grabbed,
-        // and only a divider with panes on both sides can be moved.
-        var at = x;
-        for (var c = 0; c < columns - 1; c++)
+        // and only a divider with panes on both sides can be moved. A column
+        // divider belongs to one row now, and only spans that row.
+        for (var r = 0; r < rows; r++)
         {
-            at += widths[c];
-            _dividers.Add((true, c, at, y, y + height));
-            at += GutterX;
+            if (r * columns >= panes.Count) break;
+
+            var widths = Columns(r).Cells(columns, width - GutterX * (columns - 1), MinPaneWidth);
+            var lastRow = r == (panes.Count - 1) / columns;
+            if (lastRow && panes.Count % columns == 1 && columns > 1) continue;
+
+            var at = x;
+            for (var c = 0; c < columns - 1; c++)
+            {
+                if (r * columns + c + 1 >= panes.Count) break;
+
+                at += widths[c];
+                _dividers.Add((true, c, r, at, tops[r], tops[r] + heights[r]));
+                at += GutterX;
+            }
         }
 
-        at = y;
+        var down = y;
         for (var r = 0; r < rows - 1; r++)
         {
-            at += heights[r];
-            _dividers.Add((false, r, at, x, x + width));
-            at += GutterY;
+            down += heights[r];
+            _dividers.Add((false, r, 0, down, x, x + width));
+            down += GutterY;
         }
 
         DrawDividers(buffer);
@@ -687,20 +720,20 @@ public sealed class TerminalsScreen : ScreenBase
     }
 
     /// <summary>The divider within a cell or two of a point, if there is one.</summary>
-    private (bool Vertical, int Index)? DividerAt(int x, int y)
+    private (bool Vertical, int Index, int Row)? DividerAt(int x, int y)
     {
         foreach (var divider in _dividers)
         {
             if (divider.Vertical)
             {
                 if (Math.Abs(x - divider.At) <= 1 && y >= divider.From && y <= divider.To)
-                    return (true, divider.Index);
+                    return (true, divider.Index, divider.Row);
 
                 continue;
             }
 
             if (Math.Abs(y - divider.At) <= 0 && x >= divider.From && x <= divider.To)
-                return (false, divider.Index);
+                return (false, divider.Index, divider.Row);
         }
 
         return null;
@@ -715,7 +748,7 @@ public sealed class TerminalsScreen : ScreenBase
         {
             if (_grid.Width <= 0) return;
             var fraction = (double)(x - _grid.X) / _grid.Width;
-            if (_columns.Place(_grid.Columns, drag.Index, fraction)) SaveSplits();
+            if (Columns(drag.Row).Place(_grid.Columns, drag.Index, fraction)) SaveSplits();
             return;
         }
 
@@ -737,8 +770,9 @@ public sealed class TerminalsScreen : ScreenBase
         if (vertical)
         {
             var column = _focus % Math.Max(1, _grid.Columns);
+            var band = _focus / Math.Max(1, _grid.Columns);
             var index = column < _grid.Columns - 1 ? column : column - 1;
-            var moved = _columns.Nudge(_grid.Columns, index, column < _grid.Columns - 1 ? by : -by);
+            var moved = Columns(band).Nudge(_grid.Columns, index, column < _grid.Columns - 1 ? by : -by);
 
             _notice = moved
                 ? null
@@ -756,15 +790,17 @@ public sealed class TerminalsScreen : ScreenBase
 
     private void EvenOut()
     {
-        _columns.Reset(_grid.Columns);
+        // Every row, not only the focused one: "make them even" means the wall.
+        foreach (var splits in _columnsByRow.Values) splits.Reset(_grid.Columns);
         _rows.Reset(_grid.Rows);
+
         SaveSplits();
         _notice = "panes share the wall evenly again";
     }
 
     private void SaveSplits()
     {
-        App.Settings.TerminalSplits = _columns.ToString();
+        App.Settings.TerminalSplits = PaneSplits.FormatRows(_columnsByRow);
         StateStore.SaveSettings(App.Settings);
     }
 
