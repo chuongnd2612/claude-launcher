@@ -384,6 +384,7 @@ public sealed class TerminalsScreen : ScreenBase
             {
                 new KeyHint("type", "Claude's own UI"),
                 new KeyHint("^t", "New terminal"),
+                new KeyHint("alt+z", _zoom ? "Wall" : "Zoom"),
                 new KeyHint("alt+1-9", "Pane"),
                 new KeyHint("^]", "Release")
             });
@@ -1079,6 +1080,16 @@ public sealed class TerminalsScreen : ScreenBase
             if ((key.Modifiers & ConsoleModifiers.Alt) != 0 && key.Key == ConsoleKey.S)
             {
                 ToggleSelecting();
+                return ScreenAction.None;
+            }
+
+            // Zoom without giving the keyboard back first: reading one pane
+            // closely is something you want mid-sentence, not after stepping
+            // out of the terminal and back in.
+            if ((key.Modifiers & ConsoleModifiers.Alt) != 0 && key.Key == ConsoleKey.Z)
+            {
+                _zoom = !_zoom;
+                _notice = _zoom ? "zoomed · alt+z to show the wall again" : null;
                 return ScreenAction.None;
             }
 
