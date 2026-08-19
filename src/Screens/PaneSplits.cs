@@ -116,6 +116,43 @@ public sealed class PaneSplits
         return sizes;
     }
 
+    /// <summary>
+    /// Every row's splits, as "0#2:0.62,0.38|1#2:0.35,0.65".
+    ///
+    /// Each row of the wall keeps its own dividers, so widening one terminal
+    /// does not shove the ones below it about - and a row index is part of the
+    /// key rather than a second file.
+    /// </summary>
+    public static Dictionary<int, PaneSplits> ParseRows(string? text)
+    {
+        var rows = new Dictionary<int, PaneSplits>();
+        if (string.IsNullOrWhiteSpace(text)) return rows;
+
+        foreach (var part in text.Split('|', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var hash = part.IndexOf('#');
+
+            // Without a row marker this is the older single-set format, which
+            // every row starts from - so nobody's saved layout is lost.
+            if (hash < 0)
+            {
+                rows[0] = Parse(part);
+                continue;
+            }
+
+            if (!int.TryParse(part[..hash], out var row) || row is < 0 or > 32) continue;
+            rows[row] = Parse(part[(hash + 1)..]);
+        }
+
+        return rows;
+    }
+
+    public static string FormatRows(Dictionary<int, PaneSplits> rows) => string.Join('|', rows
+        .OrderBy(pair => pair.Key)
+        .Select(pair => (Row: pair.Key, Text: pair.Value.ToString()))
+        .Where(pair => pair.Text.Length > 0)
+        .Select(pair => pair.Row + "#" + pair.Text));
+
     /// <summary>Reads back "2:0.62,0.38;3:0.5,0.25,0.25"; anything malformed is ignored.</summary>
     public static PaneSplits Parse(string? text)
     {

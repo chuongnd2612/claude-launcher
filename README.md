@@ -512,11 +512,17 @@ each gutter carries a small grip, and the divider follows the pointer until you 
 from the keyboard with `Alt+Shift+←→` for columns and `Alt+Shift+↑↓` for rows. `Alt+Shift+0` makes
 them even again. Plain `Alt+arrow` still steps between panes; the Shift is what separates the two.
 
+**Each row resizes on its own.** The divider between panes 1 and 2 belongs to that row: dragging it
+does not move the panes below. So a wall of four can be one wide terminal beside a narrow one on top,
+and an even pair underneath. Row heights still apply across a row — panes side by side share a height,
+which is what keeps the grid readable rather than becoming a pile of loose boxes.
+
 A pane can never be squeezed out of existence: the divider stops while both sides still have room to
-be read, and the far edge stays flush whatever the fractions come to. Column positions are remembered
-in `ui.json` per number of columns — a two-pane wall and a three-pane wall are different arrangements
-and keep their own splits. Row heights are not saved, because they follow a window height that
-changes on its own.
+be read, and the far edge stays flush whatever the fractions come to. Positions are remembered in
+`ui.json` per row and per number of columns — a two-pane wall and a three-pane wall are different
+arrangements and keep their own splits, written as `0#2:0.68,0.32|1#2:0.39,0.61`. A layout saved
+before rows had their own splits still loads. Row heights are not saved, because they follow a window
+height that changes on its own.
 
 **Finding text: `Ctrl+F`.** Opens a search bar under the wall and searches the focused terminal.
 Typing narrows as you go and jumps to the first hit, `Enter` walks to the next, `Shift+Enter` back,
