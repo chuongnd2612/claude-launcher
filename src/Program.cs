@@ -38,15 +38,18 @@ public static class Program
             var state = StateStore.LoadState();
             var app = new App(state, settings);
 
-            // Off the startup path entirely: the answer arrives when it arrives,
-            // and wakes the render loop rather than holding it up.
-            UpdateCheck.Start(settings, Version, Tui.ConsoleInput.Wake);
-
             if (args.Any(a => a == "--selftest"))
             {
+                // No network from a render test: whether the answer arrives
+                // before the last screen is drawn decides what the screens say,
+                // and a layout check that depends on that is not a check.
                 SelfTest(app, args);
                 return 0;
             }
+
+            // Off the startup path entirely: the answer arrives when it arrives,
+            // and wakes the render loop rather than holding it up.
+            UpdateCheck.Start(settings, Version, Tui.ConsoleInput.Wake);
 
             var requestedProfile = Environment.GetEnvironmentVariable("CLAUDE_LAUNCHER_PROFILE");
             var requestedProject = Environment.GetEnvironmentVariable("CLAUDE_LAUNCHER_PROJECT");

@@ -68,9 +68,11 @@ public sealed class SettingsScreen : ScreenBase
         // where someone goes looking for that. Pinned above the footer rather
         // than under the Paths box, which a short window does not draw at all.
         var update = UpdateBanner.Line();
-        if (update is not null)
+        var updateY = Math.Max(y + ItemCount + 3, buffer.Height - 6);
+
+        if (update is not null && updateY < buffer.Height - 4)
         {
-            buffer.WriteClipped(margin + 1, buffer.Height - 6, update.Value.Text, panelWidth - 2,
+            buffer.WriteClipped(margin + 1, updateY, update.Value.Text, panelWidth - 2,
                 new Sty(update.Value.Color, Theme.Bg));
         }
 
