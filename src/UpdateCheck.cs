@@ -36,13 +36,74 @@ public static class UpdateCheck
     /// <summary>True while a check is in flight, so a screen can say so.</summary>
     public static bool Checking { get; private set; }
 
+    /// <summary>
+    /// Set once an answer has been seen this run, so a screen can say "up to
+    /// date" rather than leaving someone wondering whether it looked at all.
+    /// </summary>
+    public static string? Answer { get; private set; }
+
     public static string CacheFile => Path.Combine(StateStore.DataDir, "update.json");
 
     /// <summary>
     /// Drops the offer. Turning the checks off has to take the banner with it,
     /// or the launcher goes on suggesting an update nobody asked it about.
     /// </summary>
-    public static void Forget() => Available = null;
+    public static void Forget()
+    {
+        Available = null;
+        Answer = null;
+    }
+
+    /// <summary>
+    /// Asks now, whatever the settings say.
+    ///
+    /// Someone pressing "check for updates" is not asking to be told the answer
+    /// from six hours ago, and not asking whether the automatic check happens to
+    /// be switched on either - they are asking the question themselves.
+    /// </summary>
+    public static void CheckNow(string current, Action? changed = null)
+    {
+        if (Checking) return;
+
+        Checking = true;
+        Answer = null;
+
+        Task.Run(async () =>
+        {
+            try
+            {
+                var info = await Fetch();
+
+                if (info is null)
+                {
+                    Answer = "could not reach github";
+                    return;
+                }
+
+                WriteCache(info);
+
+                if (IsNewer(info.Latest, current))
+                {
+                    Available = info;
+                    Answer = null;
+                }
+                else
+                {
+                    Available = null;
+                    Answer = $"up to date · {info.Latest} is the newest";
+                }
+            }
+            catch (Exception)
+            {
+                Answer = "could not reach github";
+            }
+            finally
+            {
+                Checking = false;
+                changed?.Invoke();
+            }
+        });
+    }
 
     /// <summary>
     /// Starts a check unless one is not wanted: the setting is off, the

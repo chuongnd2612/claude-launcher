@@ -64,10 +64,21 @@ public sealed class SettingsScreen : ScreenBase
             Info(buffer, margin + 3, infoY + 4, "terminal", $"{buffer.Width} x {buffer.Height}", panelWidth);
         }
 
+        // Whatever the automatic check is set to, u asks right now - and this is
+        // where someone goes looking for that. Pinned above the footer rather
+        // than under the Paths box, which a short window does not draw at all.
+        var update = UpdateBanner.Line();
+        if (update is not null)
+        {
+            buffer.WriteClipped(margin + 1, buffer.Height - 6, update.Value.Text, panelWidth - 2,
+                new Sty(update.Value.Color, Theme.Bg));
+        }
+
         Widgets.Footer(buffer, new[]
         {
             new KeyHint("↑↓", "Navigate"),
             new KeyHint("↵/←→", "Change"),
+            new KeyHint("u", "Check now"),
             new KeyHint("esc", "Back")
         });
     }
@@ -114,6 +125,7 @@ public sealed class SettingsScreen : ScreenBase
         }
 
         var ch = char.ToLowerInvariant(key.KeyChar);
+        if (ch == 'u') return UpdateBanner.Pressed(App);
         if (ch == 's' || ch == 'q') return ScreenAction.Back;
 
         return ScreenAction.None;
