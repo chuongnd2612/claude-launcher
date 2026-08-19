@@ -484,8 +484,11 @@ because Claude's own UI needs them. `Ctrl+]` hands the keyboard back to the wall
 them, without releasing the keyboard first — you land typing in the new pane. Alt is reserved for
 this because Claude's own interface uses `Esc`, `Tab`, the arrows and `Ctrl`, which all stay its own.
 
-**Every tile says which session it is.** After the project name comes what Claude calls this session —
-its own title for the conversation, or the name it derived, or the short id. Several panes of one
+**Every tile says which session it is.** After the project name comes what Claude calls this session:
+the name you gave it with `/rename`, else the title Claude derived for the conversation, else the
+short id. A rename shows on the tile within a tick — Claude records it immediately, and a name someone
+typed wins over one that was guessed. The exception is the name Claude builds out of the folder
+(`ddks-surency-fd` for `ddks_surency`), which says less than the title and is skipped. Several panes of one
 project is the normal way to work, and without it they are the same header three times over. A long
 name is cut; below about ninety columns the border has nothing left after the project and the state,
 and the name gives way.

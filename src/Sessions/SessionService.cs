@@ -157,12 +157,46 @@ public sealed class SessionService
         return facts;
     }
 
+    /// <summary>
+    /// What to call a session.
+    ///
+    /// A name someone chose wins, because /rename is a person saying what this
+    /// conversation is - and it lands in the registry immediately, while the
+    /// title Claude derives is written into the transcript once and then sits
+    /// there. Preferring the title meant a rename never showed up.
+    ///
+    /// Claude also fills the same field in with a slug of the folder when nobody
+    /// has named anything, and "ddks-surency-fd" says less than the title does,
+    /// so that case falls through.
+    /// </summary>
     private static string Task(ClaudeSessionFile entry, SessionReader.TranscriptFacts facts)
     {
+        var named = entry.Name ?? string.Empty;
+        if (named.Trim().Length > 0 && !IsDerived(named, entry.Cwd)) return named.Trim();
+
         if (!string.IsNullOrWhiteSpace(facts.Title)) return facts.Title!;
-        if (!string.IsNullOrWhiteSpace(entry.Name)) return entry.Name!;
+        if (named.Trim().Length > 0) return named.Trim();
+
         return entry.SessionId.Length >= 8 ? entry.SessionId.Substring(0, 8) : entry.SessionId;
     }
+
+    /// <summary>
+    /// True for the names Claude makes up from the folder - "ticket-executor-b6"
+    /// for ticket-executor - which nobody typed and which repeat what the pane
+    /// already says.
+    /// </summary>
+    private static bool IsDerived(string name, string cwd)
+    {
+        var folder = ProjectName(cwd);
+        if (folder.Length == 0) return false;
+
+        // Both sides are flattened the same way, because the folder may be
+        // ddks_surency while the name Claude built from it is ddks-surency-fd.
+        return Slug(name).StartsWith(Slug(folder), StringComparison.Ordinal);
+    }
+
+    private static string Slug(string text) =>
+        new(text.Trim().Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '-').ToArray());
 
     private static string ProjectName(string cwd)
     {
