@@ -866,7 +866,8 @@ public sealed class TerminalsScreen : ScreenBase
         if (title.Length + state.Length + 6 <= width)
             buffer.WriteRight(x + width - 3, y, state, new Sty(Theme.Dim, fill));
 
-        Whose(buffer, x, y, width, row, null, title.Length, state.Length, fill);
+        var titled = Named(buffer, x, y, width, row, title.Length, state.Length, fill);
+        Whose(buffer, x, y, width, row, null, titled, state.Length, fill);
 
         var inner = width - 4;
         var contentY = y + 1;
@@ -948,7 +949,8 @@ public sealed class TerminalsScreen : ScreenBase
             buffer.WriteRight(x + width - 3, y, badge,
                 new Sty(searching ? Theme.Amber : typing ? Theme.Blue : Theme.Dim, fill));
 
-        Whose(buffer, x, y, width, row, terminal, title.Length, badge.Length, fill);
+        var named = Named(buffer, x, y, width, row, title.Length, badge.Length, fill);
+        Whose(buffer, x, y, width, row, terminal, named, badge.Length, fill);
 
         var inner = width - 4;
         var innerRows = height - 2;
@@ -1533,6 +1535,43 @@ public sealed class TerminalsScreen : ScreenBase
         var bar = $" find: {_query}_   {count}   enter next · tab whole session · esc close ";
         var colour = _hits.Count == 0 && _query.Length > 0 ? Theme.Red : Theme.Amber;
         buffer.WriteClipped(x, y, bar, width, new Sty(colour, Theme.Bg));
+    }
+
+    /// <summary>
+    /// Writes what this session is called after the project name, and reports
+    /// how much of the border has been used.
+    ///
+    /// Several panes of one project is the normal way to work, and they were
+    /// then identical down to the profile: the session name is the only thing
+    /// that says which conversation is which. It comes from Claude's own title
+    /// for the session, falling back to the name it derived and then to the
+    /// short id, so there is always something.
+    /// </summary>
+    private int Named(ScreenBuffer buffer, int x, int y, int width, SessionRow row,
+        int titleWidth, int badgeWidth, Rgb fill)
+    {
+        var name = row.Task.Trim();
+
+        // A name that only repeats the project earns none of the border.
+        if (name.Length == 0 ||
+            string.Equals(name, row.ProjectName, StringComparison.OrdinalIgnoreCase))
+        {
+            return titleWidth;
+        }
+
+        // The name takes what it needs first and the profile tag gets the rest,
+        // because the tag can fall back to its icon and still say which profile
+        // this is - while a pane with no name is indistinguishable from the pane
+        // beside it when both are the same project.
+        var free = width - 4 - titleWidth - badgeWidth - 2;
+        var room = Math.Min(free - 4, Math.Max(10, free / 2));
+        if (room < 6) return titleWidth;
+
+        var text = name.Length > room - 2 ? name[..(room - 3)] + "…" : name;
+        var written = buffer.Write(x + 2 + titleWidth, y, "· " + text, new Sty(Theme.TextSoft, fill))
+                      - (x + 2 + titleWidth);
+
+        return titleWidth + written;
     }
 
     /// <summary>Writes the profile tag into the top border, if there is room for it.</summary>

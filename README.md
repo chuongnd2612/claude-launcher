@@ -484,6 +484,12 @@ because Claude's own UI needs them. `Ctrl+]` hands the keyboard back to the wall
 them, without releasing the keyboard first — you land typing in the new pane. Alt is reserved for
 this because Claude's own interface uses `Esc`, `Tab`, the arrows and `Ctrl`, which all stay its own.
 
+**Every tile says which session it is.** After the project name comes what Claude calls this session —
+its own title for the conversation, or the name it derived, or the short id. Several panes of one
+project is the normal way to work, and without it they are the same header three times over. A long
+name is cut; below about ninety columns the border has nothing left after the project and the state,
+and the name gives way.
+
 **Every tile says whose it is.** The header carries the profile the session runs under and the
 Claude account signed in there — `W Work · alex` — in that profile's own colour, with the icon leading.
 The pane strip above the tiles marks each pane the same way. With two profiles open the panes are

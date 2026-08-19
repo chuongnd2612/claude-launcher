@@ -317,6 +317,17 @@ function Invoke-ClaudeLauncher {
                 Write-Host '  Updating Claude Launcher...' -ForegroundColor Cyan
             }
 
+            # This launcher has exited, but another window may still hold the
+            # exe - the installer can only retry for a few seconds before it
+            # gives up and leaves a .new file behind.
+            $others = @(Get-Process -Name 'ClaudeLauncher' -ErrorAction SilentlyContinue)
+            if ($others.Count -gt 0) {
+                Write-Warning "$($others.Count) other Claude Launcher window(s) are open; close them if the update cannot replace the exe."
+            }
+
+            # A previous attempt that could not swap leaves this behind.
+            Remove-Item (Join-Path $script:ClaudeLauncherRoot 'ClaudeLauncher.exe.new') -Force -ErrorAction SilentlyContinue
+
             try {
                 $installer = 'https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/install-online.ps1'
                 & ([scriptblock]::Create((Invoke-RestMethod -Uri $installer)))
