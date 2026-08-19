@@ -38,6 +38,10 @@ public static class Program
             var state = StateStore.LoadState();
             var app = new App(state, settings);
 
+            // Off the startup path entirely: the answer arrives when it arrives,
+            // and wakes the render loop rather than holding it up.
+            UpdateCheck.Start(settings, Version, Tui.ConsoleInput.Wake);
+
             if (args.Any(a => a == "--selftest"))
             {
                 SelfTest(app, args);
@@ -135,6 +139,8 @@ public static class Program
         Console.WriteLine("  CLAUDE_LAUNCHER_PROJECT    pre-select a project");
         Console.WriteLine("  CLAUDE_LAUNCHER_MODE       new | continue | resume");
         Console.WriteLine("  CLAUDE_LAUNCHER_OPEN_IN    current | tab | right | down");
+        Console.WriteLine("  CLAUDE_LAUNCHER_NO_UPDATE_CHECK  skip the update check for this run");
+        Console.WriteLine("  CLAUDE_LAUNCHER_REPO       owner/repo to check for newer releases");
     }
 
     /// <summary>Renders each screen to stdout as plain text - handy for checking layout over SSH or in CI.</summary>
@@ -167,7 +173,13 @@ public static class Program
             ("add-profile", new AddProfileScreen(app)),
             ("edit-profile", new AddProfileScreen(app, app.State.Profiles[0])),
             ("delete-profile", new DeleteProfileScreen(app, app.State.Profiles[0])),
-            ("settings", new SettingsScreen(app))
+            ("settings", new SettingsScreen(app)),
+            ("update", new UpdateScreen(app, new UpdateInfo
+            {
+                Latest = "v9.9.9",
+                Url = "https://github.com/chuongnd2612/claude-launcher/releases/tag/v9.9.9",
+                PublishedUtc = "2026-01-14T09:00:00Z"
+            }))
         };
 
         foreach (var (name, screen) in screens)

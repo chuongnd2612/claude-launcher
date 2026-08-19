@@ -145,8 +145,17 @@ public sealed class HomeScreen : ScreenBase
             y += recentHeight + 1;
         }
 
-        if (_notice is not null && y < buffer.Height - 5)
-            buffer.WriteClipped(margin + 1, y, _notice, width - 2, new Sty(Theme.Amber, Theme.Bg));
+        // A newer release is worth one line and a key, not a dialog in front of
+        // what you came here to do. A real notice always wins the row.
+        var line = _notice ?? (UpdateCheck.Available is null
+            ? null
+            : $"update available · {UpdateCheck.Available.Latest} · press u");
+
+        if (line is not null && y < buffer.Height - 5)
+        {
+            buffer.WriteClipped(margin + 1, y, line, width - 2,
+                new Sty(_notice is null ? Theme.Green : Theme.Amber, Theme.Bg));
+        }
 
         var hints = new List<KeyHint>
         {
@@ -308,6 +317,10 @@ public sealed class HomeScreen : ScreenBase
                 return Attach();
             case 'k':
                 return Kill();
+            case 'u':
+                return UpdateCheck.Available is null
+                    ? ScreenAction.None
+                    : ScreenAction.Push(new UpdateScreen(App, UpdateCheck.Available));
             case 'q':
                 return ScreenAction.Exit;
         }

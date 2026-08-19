@@ -303,6 +303,36 @@ function Invoke-ClaudeLauncher {
 
         $result = Get-Content $resultFile -Raw | ConvertFrom-Json
 
+        # The launcher cannot replace the exe it is running from, so it asks for
+        # the update on its way out and the installer runs here, after it is gone.
+        if ($result.PSObject.Properties['action'] -and $result.action -eq 'update') {
+            $wanted = ''
+            if ($result.PSObject.Properties['version']) { $wanted = [string]$result.version }
+
+            Write-Host ''
+            if ($wanted) {
+                Write-Host "  Updating Claude Launcher to $wanted..." -ForegroundColor Cyan
+            }
+            else {
+                Write-Host '  Updating Claude Launcher...' -ForegroundColor Cyan
+            }
+
+            try {
+                $installer = 'https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/install-online.ps1'
+                & ([scriptblock]::Create((Invoke-RestMethod -Uri $installer)))
+
+                Write-Host ''
+                Write-Host '  Updated. Run claude-launcher again to start the new version.' -ForegroundColor Green
+            }
+            catch {
+                Write-Warning "Could not update: $($_.Exception.Message)"
+                Write-Host '  Run this yourself to try again:' -ForegroundColor DarkGray
+                Write-Host '  irm https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/install-online.ps1 | iex' -ForegroundColor DarkGray
+            }
+
+            return
+        }
+
         if (-not (Test-Path $result.path -PathType Container)) {
             throw "Project path does not exist: $($result.path)"
         }

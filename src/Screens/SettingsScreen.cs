@@ -5,7 +5,7 @@ namespace ClaudeLauncher.Screens;
 /// <summary>UI preferences, persisted to ~/.claude-launcher/ui.json.</summary>
 public sealed class SettingsScreen : ScreenBase
 {
-    private const int ItemCount = 6;
+    private const int ItemCount = 7;
 
     private int _index;
 
@@ -45,6 +45,10 @@ public sealed class SettingsScreen : ScreenBase
         Toggle(buffer, margin + 2, y + 5, panelWidth - 4, 4, "Remote control",
             App.Settings.RemoteControl ? "on" : "off",
             "New sessions accept input from claude.ai");
+
+        Toggle(buffer, margin + 2, y + 7, panelWidth - 4, 6, "Check for updates",
+            App.Settings.CheckForUpdates ? "on" : "off",
+            "Ask GitHub for a newer release, at most once every six hours");
 
         Toggle(buffer, margin + 2, y + 6, panelWidth - 4, 5, "Terminal tiles",
             App.Settings.TerminalTiles ? "on" : "off",
@@ -138,8 +142,14 @@ public sealed class SettingsScreen : ScreenBase
             case 4:
                 App.Settings.RemoteControl = !App.Settings.RemoteControl;
                 break;
-            default:
+            case 5:
                 App.Settings.TerminalTiles = !App.Settings.TerminalTiles;
+                break;
+            default:
+                App.Settings.CheckForUpdates = !App.Settings.CheckForUpdates;
+
+                // Off means the banner goes too, not just the next request.
+                if (!App.Settings.CheckForUpdates) UpdateCheck.Forget();
                 break;
         }
 

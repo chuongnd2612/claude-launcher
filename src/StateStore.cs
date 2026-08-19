@@ -319,6 +319,36 @@ public static class StateStore
         File.WriteAllText(ResultFile, JsonSerializer.Serialize(result, WriteOptions));
     }
 
+    /// <summary>
+    /// Asks the wrapper to install a newer release once this process is gone.
+    ///
+    /// It goes in the same file a launch does, with an action the older wrapper
+    /// has never heard of - and which it ignores, because it checks the project
+    /// path first and this record has none.
+    /// </summary>
+    public static void WriteUpdateRequest(string version)
+    {
+        var result = new
+        {
+            action = "update",
+            version,
+            profile = string.Empty,
+            label = string.Empty,
+            icon = string.Empty,
+            configDir = string.Empty,
+            project = string.Empty,
+            path = string.Empty,
+            mode = string.Empty,
+            openIn = LaunchTarget.Current,
+            sessionId = string.Empty,
+            remoteControl = false
+        };
+
+        var directory = Path.GetDirectoryName(ResultFile);
+        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+        File.WriteAllText(ResultFile, JsonSerializer.Serialize(result, WriteOptions));
+    }
+
     public static string ExpandHome(string path) =>
         string.IsNullOrEmpty(path) ? path : path.Replace("$HOME", Home, StringComparison.OrdinalIgnoreCase);
 
