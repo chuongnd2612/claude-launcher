@@ -76,13 +76,19 @@ left by the previous version. `profiles.json` is untouched and stays compatible.
 
 ## Updates
 
-The launcher asks GitHub whether there is a newer release and says so on Home:
+The launcher asks GitHub whether there is a newer release when it starts, and says so on whichever
+screen you land on — the profile picker, Home, or Settings:
 
 ```text
 update available · v1.29.0 · press u
 ```
 
-`u` opens the update screen, which shows what is installed, what is available, and how to get it.
+**`u` asks again, any time.** With an update known it opens the update screen; with none known it
+runs a check there and then and says what came back — `up to date · v1.31.0 is the newest`, or
+`could not reach github`. That works from the profile picker, Home and Settings, and it works even
+with the automatic check switched off: pressing the key is you asking, not the setting.
+
+The update screen shows what is installed, what is available, and how to get it.
 `Enter` closes the launcher and lets the wrapper run the installer — it has to happen in that order,
 because the installer replaces the very exe the launcher is running from. `n` opens the release notes
 in a browser, `s` stops the asking, `Esc` leaves it for later.

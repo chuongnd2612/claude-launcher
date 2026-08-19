@@ -65,11 +65,12 @@ public sealed class ProfileScreen : ScreenBase
 
         var afterCards = gridTop + Math.Min(totalRows - _scrollRow, rowsFit) * rowStride;
 
+        // Keep the tips box pinned above the footer so tall windows do not
+        // leave a hole in the middle of the layout.
+        var tipsY = Math.Max(afterCards, buffer.Height - 4 - 6);
+
         if (App.Settings.ShowTips)
         {
-            // Keep the tips box pinned above the footer so tall windows do not
-            // leave a hole in the middle of the layout.
-            var tipsY = Math.Max(afterCards, buffer.Height - 4 - 6);
             Widgets.Tips(buffer, tipsY, new[]
             {
                 "Profiles keep work and personal Claude sessions apart (CLAUDE_CONFIG_DIR)",
@@ -77,6 +78,18 @@ public sealed class ProfileScreen : ScreenBase
                 "Press e to edit or d to remove the highlighted profile",
                 "Projects come from your existing QuickPaths registry"
             });
+        }
+
+        // Most runs start here, not on Home, so this is where an update has to
+        // be able to say so - on the row above the tips, which is the only free
+        // one when they are shown.
+        var update = UpdateBanner.Line();
+        var updateY = App.Settings.ShowTips ? tipsY - 1 : buffer.Height - 6;
+
+        if (update is not null && updateY > afterCards - 1 && updateY < buffer.Height - 4)
+        {
+            buffer.WriteClipped(Widgets.Margin(buffer) + 1, updateY, update.Value.Text,
+                buffer.Width - Widgets.Margin(buffer) * 2 - 2, new Sty(update.Value.Color, Theme.Bg));
         }
 
         Widgets.Footer(buffer, new[]
@@ -87,6 +100,7 @@ public sealed class ProfileScreen : ScreenBase
             new KeyHint("e", "Edit"),
             new KeyHint("d", "Remove"),
             new KeyHint("s", "Settings"),
+            new KeyHint("u", "Updates"),
             new KeyHint("q", "Quit")
         });
     }
@@ -187,6 +201,7 @@ public sealed class ProfileScreen : ScreenBase
         if (ch == 'e') return Edit();
         if (ch == 'd') return Remove();
         if (ch == 's') return ScreenAction.Push(new SettingsScreen(App));
+        if (ch == 'u') return UpdateBanner.Pressed(App);
 
         if (ch >= '1' && ch <= '9')
         {
