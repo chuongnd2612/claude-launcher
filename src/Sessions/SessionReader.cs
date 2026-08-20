@@ -74,6 +74,13 @@ public static class SessionReader
     public sealed class TranscriptFacts
     {
         public string? Title { get; set; }
+
+        /// <summary>
+        /// The name someone gave the session with /rename, which Claude writes
+        /// as its own line. It outranks the title Claude derived: one was typed,
+        /// the other guessed.
+        /// </summary>
+        public string? CustomTitle { get; set; }
         public string? Model { get; set; }
 
         /// <summary>
@@ -152,6 +159,12 @@ public static class SessionReader
             if (type == "ai-title" && root.TryGetProperty("aiTitle", out var title))
             {
                 facts.Title = title.GetString();
+                return;
+            }
+
+            if (type == "custom-title" && root.TryGetProperty("customTitle", out var custom))
+            {
+                facts.CustomTitle = custom.GetString();
                 return;
             }
 
@@ -384,7 +397,10 @@ public static class SessionReader
         session.Loaded = true;
 
         var facts = ReadTranscriptTail(session.Path);
-        session.Title = facts.Title;
+
+        // A rename outranks the derived title, and is worth looking past the
+        // tail for - it is the whole reason a session has a name you recognise.
+        session.Title = facts.CustomTitle ?? ReadCustomTitle(session.Path) ?? facts.Title;
         session.Model = facts.Model;
         session.Branch = facts.Branch;
         session.ContextTokens = facts.ContextTokens;
@@ -696,6 +712,112 @@ public static class SessionReader
         element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString() ?? string.Empty
             : string.Empty;
+
+    /// <summary>How far back to look for a rename before giving up on finding one.</summary>
+    private const long CustomTitleScanLimit = 8L * 1024 * 1024;
+
+    /// <summary>
+    /// The name someone gave a session, from anywhere in its transcript.
+    ///
+    /// A rename is written once, wherever it happened, so the 64 KB tail the
+    /// rest of this file reads will usually miss it - and a session that was
+    /// renamed an hour ago would go on showing its id. This walks back from the
+    /// end looking for the line and stops at the first one it finds, which is
+    /// the most recent rename.
+    ///
+    /// Bounded on purpose: transcripts here reach 36 MB, and a list of sessions
+    /// reads one of these per row. Past the limit it gives up rather than making
+    /// the picker wait, and the caller falls back to the derived title.
+    /// </summary>
+    public static string? ReadCustomTitle(string path)
+    {
+        const int window = 512 * 1024;
+        var needle = "\"type\":\"custom-title\""u8.ToArray();
+
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete, 64 * 1024, FileOptions.RandomAccess);
+
+            var length = stream.Length;
+            var scanned = 0L;
+            var end = length;
+
+            while (end > 0 && scanned < CustomTitleScanLimit)
+            {
+                // Overlap by the needle's length so a line boundary between two
+                // windows cannot hide it.
+                var start = Math.Max(0, end - window);
+                var size = (int)(end - start);
+
+                var buffer = new byte[size];
+                stream.Seek(start, SeekOrigin.Begin);
+                stream.ReadExactly(buffer, 0, size);
+
+                var at = LastIndexOf(buffer, needle);
+                if (at >= 0)
+                {
+                    var title = TitleOnLine(buffer, at);
+                    if (title is not null) return title;
+                }
+
+                scanned += size;
+                end = start + needle.Length;
+                if (start == 0) break;
+            }
+        }
+        catch
+        {
+            // Unreadable or being written: the caller has a fallback.
+        }
+
+        return null;
+    }
+
+    private static int LastIndexOf(byte[] haystack, byte[] needle)
+    {
+        for (var i = haystack.Length - needle.Length; i >= 0; i--)
+        {
+            var found = true;
+            for (var j = 0; j < needle.Length; j++)
+            {
+                if (haystack[i + j] == needle[j]) continue;
+                found = false;
+                break;
+            }
+
+            if (found) return i;
+        }
+
+        return -1;
+    }
+
+    /// <summary>Parses the JSONL line the match sits on.</summary>
+    private static string? TitleOnLine(byte[] buffer, int at)
+    {
+        var from = at;
+        while (from > 0 && buffer[from - 1] != (byte)'\n') from--;
+
+        var to = at;
+        while (to < buffer.Length && buffer[to] != (byte)'\n') to++;
+
+        try
+        {
+            using var document = JsonDocument.Parse(buffer.AsMemory(from, to - from));
+            if (document.RootElement.TryGetProperty("customTitle", out var value) &&
+                value.ValueKind == JsonValueKind.String)
+            {
+                var title = value.GetString();
+                return string.IsNullOrWhiteSpace(title) ? null : title;
+            }
+        }
+        catch (JsonException)
+        {
+            // A half-written line, or the window cut it: not a name we can use.
+        }
+
+        return null;
+    }
 
     /// <summary>Recent projects, newest first, from history.jsonl.</summary>
     public static List<RecentProject> ReadRecentProjects(string configDir, int limit)

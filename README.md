@@ -492,7 +492,10 @@ this because Claude's own interface uses `Esc`, `Tab`, the arrows and `Ctrl`, wh
 
 **Every tile says which session it is.** After the project name comes what Claude calls this session:
 the name you gave it with `/rename`, else the title Claude derived for the conversation, else the
-short id. A rename shows on the tile within a tick — Claude records it immediately, and a name someone
+short id. The name follows the session everywhere — the wall, Home, and the resume picker — because
+Claude writes it into the transcript as well as its registry, and the launcher reads both. A rename
+made long ago is found by scanning back through the transcript for it, which is bounded at 8 MB so a
+list of sessions never stalls. A rename shows on the tile within a tick — Claude records it immediately, and a name someone
 typed wins over one that was guessed. The exception is the name Claude builds out of the folder
 (`ddks-surency-fd` for `ddks_surency`), which says less than the title and is skipped. Several panes of one
 project is the normal way to work, and without it they are the same header three times over. A long
