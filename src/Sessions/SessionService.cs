@@ -44,7 +44,19 @@ public sealed class SessionService
 
             if (recent.Count == 0) recent = SessionReader.ReadRecentProjects(configDir, 6);
 
-            foreach (var entry in SessionReader.ReadRegistry(configDir))
+            // One pane per session, not per registration. Claude can leave two
+            // live files for the same session - seen here with pids 1804 and
+            // 5308 both claiming f3e05cd5 - and the wall then showed the same
+            // conversation twice, side by side. The newest registration wins.
+            var registry = SessionReader.ReadRegistry(configDir)
+                .GroupBy(e => string.IsNullOrEmpty(e.SessionId) ? Guid.NewGuid().ToString() : e.SessionId,
+                    StringComparer.OrdinalIgnoreCase)
+                .Select(group => group
+                    .OrderByDescending(e => SessionReader.IsAlive(e.Pid, e.ProcStart))
+                    .ThenByDescending(e => e.StartedAt)
+                    .First());
+
+            foreach (var entry in registry)
             {
                 // Background agents driven by the SDK are not terminals anyone can
                 // go back to, so they do not belong on this list. An unrecognised
@@ -152,6 +164,12 @@ public sealed class SessionService
         var path = ClaudePaths.TranscriptFile(configDir, entry.Cwd, entry.SessionId);
         var facts = SessionReader.ReadTranscriptTail(path, WithEntries);
 
+        // A rename written before the last 64 KB is invisible to the tail, and
+        // a session renamed an hour ago would go on showing the title Claude
+        // guessed. The scan for it is bounded and lands in this cache, so it is
+        // one read per session per refresh rather than one per frame.
+        facts.CustomTitle ??= SessionReader.ReadCustomTitle(path);
+
         _facts[key] = facts;
         _factsAt[key] = DateTime.UtcNow;
         return facts;
@@ -174,6 +192,9 @@ public sealed class SessionService
         var named = entry.Name ?? string.Empty;
         if (named.Trim().Length > 0 && !IsDerived(named, entry.Cwd)) return named.Trim();
 
+        // The same name, from the transcript rather than the registry: it is
+        // what a session that has since been closed and resumed still carries.
+        if (!string.IsNullOrWhiteSpace(facts.CustomTitle)) return facts.CustomTitle!;
         if (!string.IsNullOrWhiteSpace(facts.Title)) return facts.Title!;
         if (named.Trim().Length > 0) return named.Trim();
 
