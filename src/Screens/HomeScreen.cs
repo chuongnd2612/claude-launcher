@@ -106,8 +106,14 @@ public sealed class HomeScreen : ScreenBase
 
         // The dashboard's headline numbers here rather than only behind d: what
         // Claude has done today, and what each profile has cost, is the first
-        // thing worth knowing on opening the launcher.
-        y = Summary(buffer, margin, y, width);
+        // thing worth knowing on opening the launcher. The one-line form is a
+        // fallback for when the panels below cannot fit.
+        var dashboard = _service is null
+            ? null
+            : Metrics.Cached(App.State, _snapshot, Period.Today, ConsoleInput.Wake);
+
+        var panelsFit = dashboard is not null && buffer.Height >= 34;
+        if (!panelsFit) y = Summary(buffer, margin, y, width, dashboard);
 
         // Running sessions
         var listHeight = Math.Clamp(running + 3, 5, Math.Max(5, buffer.Height - y - 14));
@@ -148,6 +154,40 @@ public sealed class HomeScreen : ScreenBase
             }
 
             y += recentHeight + 1;
+        }
+
+        // The dashboard's own panels, appended here rather than kept behind d.
+        // They are the last thing drawn, so a short window loses them before it
+        // loses the session list - and the summary line covers that case.
+        if (panelsFit && dashboard is not null)
+        {
+            var room = buffer.Height - 6 - y;
+            if (room >= 7)
+            {
+                var bottom = buffer.Height - 6;
+                var columns = width >= 108 ? 2 : 1;
+                var columnWidth = columns == 2 ? (width - 2) / 2 : width;
+
+                if (columns == 2)
+                {
+                    var left = DashboardPanels.Usage(buffer, margin, y, columnWidth, dashboard, bottom, App.Settings);
+                    DashboardPanels.Work(buffer, margin, left + 1, columnWidth, dashboard, bottom, App.Settings);
+
+                    var secondX = margin + columnWidth + 2;
+                    var right = DashboardPanels.Activity(buffer, secondX, y, columnWidth, dashboard, bottom, App.Settings);
+                    DashboardPanels.Projects(buffer, secondX, right + 1, columnWidth, dashboard, bottom, App.Settings);
+                }
+                else
+                {
+                    var next = DashboardPanels.Usage(buffer, margin, y, columnWidth, dashboard, bottom, App.Settings);
+                    DashboardPanels.Activity(buffer, margin, next + 1, columnWidth, dashboard, bottom, App.Settings);
+                }
+            }
+            else
+            {
+                // Not enough for a box, but the one-liner still fits.
+                Summary(buffer, margin, y, width, dashboard);
+            }
         }
 
         // A newer release is worth one line and a key, not a dialog in front of
@@ -224,11 +264,8 @@ public sealed class HomeScreen : ScreenBase
     /// absent entirely until the first answer arrives, rather than showing
     /// zeroes that are about to change.
     /// </summary>
-    private int Summary(ScreenBuffer buffer, int margin, int y, int width)
+    private int Summary(ScreenBuffer buffer, int margin, int y, int width, DashboardData? data)
     {
-        if (_service is null) return y;
-
-        var data = Metrics.Cached(App.State, _snapshot, Period.Today, ConsoleInput.Wake);
         if (data is null) return y;
 
         var totals = data.Totals;
