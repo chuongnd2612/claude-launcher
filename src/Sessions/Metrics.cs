@@ -98,6 +98,61 @@ public static class Metrics
     /// <summary>Past this the scan stops and says the counts are a floor.</summary>
     private const long ScanCeiling = 512L * 1024 * 1024;
 
+    private static readonly Dictionary<Period, DashboardData> Recent = new();
+    private static readonly Dictionary<Period, DateTime> RecentAt = new();
+    private static readonly HashSet<Period> Building = new();
+
+    /// <summary>Long enough that Home can show these without reading anything twice a minute.</summary>
+    private static readonly TimeSpan Fresh = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    /// The last answer, refreshing it in the background when it has gone stale.
+    ///
+    /// Home draws these numbers on every frame, and building them reads tens of
+    /// megabytes - so it returns what it has and asks again at most once a
+    /// minute. Null until the first answer, which is why the band on Home simply
+    /// is not there for the first moment rather than showing zeroes.
+    /// </summary>
+    public static DashboardData? Cached(LauncherState state, SessionSnapshot snapshot, Period period,
+        Action? changed = null)
+    {
+        lock (Recent)
+        {
+            var have = Recent.TryGetValue(period, out var data);
+            var stale = !RecentAt.TryGetValue(period, out var at) || DateTime.UtcNow - at > Fresh;
+
+            if (have && !stale) return data;
+            if (Building.Contains(period)) return have ? data : null;
+
+            Building.Add(period);
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    var built = Build(state, snapshot, period);
+
+                    lock (Recent)
+                    {
+                        Recent[period] = built;
+                        RecentAt[period] = DateTime.UtcNow;
+                    }
+                }
+                catch (Exception)
+                {
+                    lock (Recent) RecentAt[period] = DateTime.UtcNow;
+                }
+                finally
+                {
+                    lock (Recent) Building.Remove(period);
+                    changed?.Invoke();
+                }
+            });
+
+            return have ? data : null;
+        }
+    }
+
     public static DashboardData Build(LauncherState state, SessionSnapshot snapshot, Period period)
     {
         var watch = Stopwatch.StartNew();

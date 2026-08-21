@@ -76,7 +76,18 @@ left by the previous version. `profiles.json` is untouched and stays compatible.
 
 ## Dashboard
 
-`d` from Home or the profile picker: what Claude has been doing, and what it has cost, per profile.
+Home carries the headline numbers itself, on one dim line under the breadcrumb:
+
+```text
+  Home  /  2 sessions running · 4 started today
+  today · 4 sessions · 60 prompts · 46 files · 54 edits · 3 PRs        W Work $83.55   P Personal $37.96
+```
+
+The profiles move to a second line when the window is too narrow for both, and the whole band is
+absent until the first answer arrives — zeroes that are about to change are worse than nothing. It is
+cached and refreshed in the background at most once a minute, so drawing it costs nothing per frame.
+
+`d` opens the full screen: what Claude has been doing, and what it has cost, per profile.
 
 ```text
   Home  /  Dashboard                                                       today · p to change
