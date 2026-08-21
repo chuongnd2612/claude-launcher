@@ -76,7 +76,12 @@ left by the previous version. `profiles.json` is untouched and stays compatible.
 
 ## Dashboard
 
-Home carries the headline numbers itself, on one dim line under the breadcrumb:
+Home carries the dashboard's own panels underneath its sections, in the space the session list and
+recent projects leave — usage per profile, today's counts, the work Claude did, and the projects it
+did it in. `d` opens the same panels as a screen of their own, where the period can be changed and a
+project's sessions opened.
+
+Below 34 rows there is no room for boxes, so Home falls back to one dim line under the breadcrumb:
 
 ```text
   Home  /  2 sessions running · 4 started today
