@@ -104,6 +104,11 @@ public sealed class HomeScreen : ScreenBase
         Widgets.SectionTitle(buffer, y, "Home", status);
         y += 2;
 
+        // The dashboard's headline numbers here rather than only behind d: what
+        // Claude has done today, and what each profile has cost, is the first
+        // thing worth knowing on opening the launcher.
+        y = Summary(buffer, margin, y, width);
+
         // Running sessions
         var listHeight = Math.Clamp(running + 3, 5, Math.Max(5, buffer.Height - y - 14));
         Widgets.TitledBox(buffer, margin, y, width, listHeight, $"Running sessions · {running}", Theme.Blue);
@@ -212,6 +217,68 @@ public sealed class HomeScreen : ScreenBase
         (c.SessionId is not null && c.SessionId == row.SessionId ||
          string.IsNullOrEmpty(row.SessionId) &&
          string.Equals(c.ProjectPath, row.ProjectPath, StringComparison.OrdinalIgnoreCase)));
+
+    /// <summary>
+    /// Two dim lines: today's counts, and what each profile has cost. Cached and
+    /// refreshed in the background, so drawing it costs nothing per frame - and
+    /// absent entirely until the first answer arrives, rather than showing
+    /// zeroes that are about to change.
+    /// </summary>
+    private int Summary(ScreenBuffer buffer, int margin, int y, int width)
+    {
+        if (_service is null) return y;
+
+        var data = Metrics.Cached(App.State, _snapshot, Period.Today, ConsoleInput.Wake);
+        if (data is null) return y;
+
+        var totals = data.Totals;
+        var counts = $"today · {totals.Sessions} sessions · {totals.Prompts} prompts · " +
+                     $"{totals.FilesTouched} files · {totals.Edits} edits · {totals.PullRequests} PRs";
+
+        buffer.WriteClipped(margin + 1, y, counts, width - 2, new Sty(Theme.Muted, Theme.Bg));
+
+        var spend = new List<(string Text, Rgb Color)>();
+        foreach (var profile in data.Profiles)
+        {
+            if (profile.OutputTokens == 0 && !profile.HasCost) continue;
+
+            var text = App.Settings.ShowCosts && profile.HasCost
+                ? $"{profile.Icon} {profile.Label} ${profile.CostUsd:0.00}"
+                : $"{profile.Icon} {profile.Label} {Format.Tokens(profile.OutputTokens)}";
+
+            spend.Add((text, ProfileLook.Color(profile.Key)));
+        }
+
+        if (spend.Count == 0) return y + 2;
+
+        // On the same row when there is room, because two dim lines above the
+        // session list is already as much as this screen can spare.
+        var wanted = spend.Sum(entry => entry.Text.Length + 3);
+
+        if (counts.Length + wanted + 8 <= width)
+        {
+            var at = margin + width - wanted;
+            foreach (var (text, color) in spend)
+            {
+                at = buffer.Write(at, y, text, new Sty(color, Theme.Bg));
+                at = buffer.Write(at, y, "   ", new Sty(Theme.Dim, Theme.Bg));
+            }
+
+            return y + 2;
+        }
+
+        if (y + 1 >= buffer.Height - 6) return y + 2;
+
+        var second = margin + 1;
+        foreach (var (text, color) in spend)
+        {
+            if (second + text.Length + 3 > margin + width) break;
+            second = buffer.Write(second, y + 1, text, new Sty(color, Theme.Bg));
+            second = buffer.Write(second, y + 1, "   ", new Sty(Theme.Dim, Theme.Bg));
+        }
+
+        return y + 3;
+    }
 
     private static void Header(ScreenBuffer buffer, int y, in Columns c)
     {
