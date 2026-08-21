@@ -109,6 +109,16 @@ public sealed class UiSettings
     /// </summary>
     public bool CheckForUpdates { get; set; } = true;
 
+    /// <summary>
+    /// Show what Claude has cost on the dashboard. On by default - it is the
+    /// number people open that screen for - but a single switch hides every
+    /// figure for anyone who shares their screen.
+    /// </summary>
+    public bool ShowCosts { get; set; } = true;
+
+    /// <summary>Dashboard period: today, week or all.</summary>
+    public string DashboardPeriod { get; set; } = "today";
+
     /// <summary>Terminal wall layout: tiled, stacked or focus.</summary>
     public string TerminalLayout { get; set; } = "tiled";
 

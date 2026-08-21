@@ -74,6 +74,55 @@ left by the previous version. `profiles.json` is untouched and stays compatible.
 > First run may show a Windows SmartScreen warning, because the binary is not code-signed. Choose
 > **More info → Run anyway**, or verify the SHA256 from the release page yourself.
 
+## Dashboard
+
+`d` from Home or the profile picker: what Claude has been doing, and what it has cost, per profile.
+
+```text
+  Home  /  Dashboard                                                       today · p to change
+
+  ╭─ Today ───────────────────────╮  ╭─ Usage · recorded by Claude ────────╮
+  │  Sessions                    17 │  │  profile            cost      output │
+  │  Running now                  3 │  │  W Work · alex     $83.55        214k │
+  │  Waiting on you              2? │  │  P Personal · sam  $37.96         32k │
+  │  Prompts sent               164 │  │  total            $121.51        246k │
+  │  Busiest hour             14:00 │  ╰─────────────────────────────────╯
+  ╰───────────────────────────────╯  ╭─ Projects · today ──────────────╮
+                                      │ ▸ ddks_surency  ▪▪▪▪  8 ses   96 pr │
+  ╭─ Work ─────────────────────────╮  │   qagent        ▪▪    5 ses   41 pr │
+  │  Files touched              143 │  ╰─────────────────────────────────╯
+  │  Edits written               67 │
+  │  Commands run               312 │
+  │  Pull requests                4 │
+  ╰───────────────────────────────╯
+```
+
+`p` cycles the period (today → last 7 days → all time, remembered), `r` reads again, `↑↓` picks a
+project and `↵` opens its earlier sessions, `Esc` goes back.
+
+**Two kinds of number, kept apart.** The usage panel is Claude's own record from each profile's
+`.claude.json` — exact cost and tokens, and it carries **no dates**, so it is a total whichever period
+is showing. That is why it says "recorded by Claude" and not "this month". Everything else is counted
+from lines that have a timestamp on them, so those do follow the period.
+
+| Row | Where it comes from |
+| --- | ------------------- |
+| Cost, output tokens | `projects[<cwd>].lastModelUsage[<model>]` per profile. Cache reads are counted but never folded into the token figure — they run to hundreds of millions against a million output tokens |
+| Sessions, prompts, busiest hour | `history.jsonl`, which records a prompt with its project, session and time |
+| Running now, waiting on you | the session registry, the same source the wall uses. `2?` keeps the question mark: Claude publishes busy/idle only, so a pane needing attention is a heuristic, not a count |
+| Files touched, edits, commands | tool calls on assistant lines inside the period. Files are distinct paths, so ten edits to one file is one file |
+| Pull requests | distinct pull requests **referenced** in the period, from Claude's own `pr-link` lines |
+| Projects | prompts and sessions in the period, with that project's share of the recorded cost |
+
+**Speed.** Nothing happens on the startup path; the screen builds on a background task and says
+`reading…` until it is there. Measured on 254 transcripts totalling 395 MB: **today reads 34 MB in
+137 ms**, last 7 days 89 MB in 193 ms. The whole-history case is capped at 512 MB, and says so on
+screen rather than quietly under-counting.
+
+Not shown, because nothing records it: whether a session finished, failed or was blocked, and how
+long a task took. Test counts are absent for the same reason — guessing them from console output
+would be a number that is wrong once and never trusted again.
+
 ## Updates
 
 The launcher asks GitHub whether there is a newer release when it starts, and says so on whichever
@@ -135,6 +184,7 @@ directly without showing the selection screens.
 | Home | `↑↓` navigate · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` new session · `r` reopen last session's terminals · `t` tile · `k` stop · `p` profiles · `q` quit |
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` pick the project, then choose new / continue / resume · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
 | Adding a folder (`a`) | type a path · `↑↓` pick from the folders below · `Tab` complete into one · `Enter` use this path, then name it · `Esc` cancel |
+| Dashboard (`d`) | `p` period · `r` read again · `↑↓` pick a project · `↵` its sessions · `Esc` back |
 | Terminals (read-only tile focused) | `Alt+Shift+←→↑↓` resize the panes · `Alt+Shift+0` even them up · `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `Space` layout · `t` new terminal · `w` close a terminal, or hide a session that is not ours · `Esc` back — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
 | History (`Tab` from the search bar) | `↑↓` `PgUp/PgDn` `Home/End` move · `/` search again · `Esc` back |
 | Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Ctrl+W` / `Alt+W` close this terminal · `Alt+Z` zoom this pane · `Ctrl+F` / `Alt+F` find text, `Enter` searches back through the screen history, `Tab` searches the whole session · `Alt+S` select text · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Alt+Shift+←→↑↓` resize them · `Alt+Shift+0` even them up · `Shift+PgUp/PgDn` scroll Claude’s history · `Ctrl+]` or a click off the tiles releases the keyboard · `Ctrl+]`, `Enter` or a click on a tile resumes typing |
@@ -218,6 +268,7 @@ be removed.
 | Default open in | Where `Enter` launches Claude (`current` / `new tab` / `split right` / `split down`) |
 | Remote control | Start new sessions with `claude --remote-control`, so they accept input from claude.ai and the phone app |
 | Check for updates | On: ask GitHub once every six hours whether a newer release exists, and say so on Home |
+| Show costs | On: show what Claude has cost on the dashboard. Off hides every figure and keeps the token counts |
 | Terminal splits | Not on the settings screen: where the wall's dividers sit, written as you drag them. Delete the line to go back to equal panes |
 | Terminal tiles | On (default): a session opened inside the launcher runs under a pseudo console and shows Claude's own interface, so `/usage`, the model picker and plan mode render exactly. Off: the launcher's own styled chat view, easier to watch several sessions at once, but rich screens arrive as plain text |
 

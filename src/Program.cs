@@ -167,6 +167,7 @@ public static class Program
             ("kill-session", new KillSessionScreen(app, DemoSnapshot().Sessions[0], () => { })),
             ("chat", new ChatScreen(app, DemoChat(), ChatState.AwaitingPermission, DemoAsk())),
             ("history-search", new HistorySearchScreen(app, "resize", DemoHits())),
+            ("dashboard", new DashboardScreen(app, DemoDashboard())),
             ("resume", new ResumeScreen(app, DemoPastSessions())),
             ("session-detail", new SessionDetailScreen(app, DemoPastSessions()[0], DemoDetail())),
             ("delete-session", new DeleteSessionScreen(app, DemoPastSessions()[0], () => { })),
@@ -283,6 +284,61 @@ public static class Program
         Description = "api/router.ts",
         InputJson = "{}"
     };
+
+    /// <summary>
+    /// Fixed numbers for the dashboard, for the same reason as the rest: a
+    /// fixture that reads the machine makes the render gate depend on whatever
+    /// happens to be on it.
+    /// </summary>
+    private static DashboardData DemoDashboard()
+    {
+        var data = new DashboardData
+        {
+            Period = Period.Today,
+            BytesScanned = 33 * 1024 * 1024,
+            Milliseconds = 41
+        };
+
+        data.Profiles.Add(new ProfileUsage
+        {
+            Key = "work", Label = "Work", Icon = "W", Account = "alex",
+            CostUsd = 83.55, OutputTokens = 214_474, InputTokens = 492,
+            CacheReadTokens = 124_479_233, Projects = 8, HasCost = true
+        });
+
+        data.Profiles.Add(new ProfileUsage
+        {
+            Key = "personal", Label = "Personal", Icon = "P", Account = "sam",
+            CostUsd = 37.96, OutputTokens = 32_112, InputTokens = 1_125,
+            CacheReadTokens = 57_157_848, Projects = 7, HasCost = true
+        });
+
+        data.Projects.Add(new ProjectActivity
+        {
+            Name = "ddks_surency", Path = @"D:\demo\ddks_surency",
+            Sessions = 8, Prompts = 96, CostUsd = 31.20, HasCost = true
+        });
+
+        data.Projects.Add(new ProjectActivity
+        {
+            Name = "qagent", Path = @"D:\demo\qagent",
+            Sessions = 5, Prompts = 41, CostUsd = 12.04, HasCost = true
+        });
+
+        data.Projects.Add(new ProjectActivity
+        {
+            Name = "claude-launcher", Path = @"D:\demo\claude-launcher",
+            Sessions = 4, Prompts = 27, CostUsd = 9.87, HasCost = true
+        });
+
+        data.Totals = new ActivityTotals
+        {
+            Sessions = 17, Prompts = 164, Live = 3, Waiting = 2, BusiestHour = 14,
+            FilesTouched = 143, Edits = 67, Commands = 312, PullRequests = 4
+        };
+
+        return data;
+    }
 
     /// <summary>
     /// Fixed timestamps on purpose: the render gate compares strings, and a
