@@ -100,6 +100,7 @@ public sealed class ProfileScreen : ScreenBase
             new KeyHint("e", "Edit"),
             new KeyHint("d", "Remove"),
             new KeyHint("s", "Settings"),
+            new KeyHint("d", "Dashboard"),
             new KeyHint("u", "Updates"),
             new KeyHint("q", "Quit")
         });
@@ -202,6 +203,8 @@ public sealed class ProfileScreen : ScreenBase
         if (ch == 'd') return Remove();
         if (ch == 's') return ScreenAction.Push(new SettingsScreen(App));
         if (ch == 'u') return UpdateBanner.Pressed(App);
+        if (ch == 'd' && App.State.Profiles.Count > 0)
+            return ScreenAction.Push(new DashboardScreen(App, new Sessions.SessionService(App.State)));
 
         if (ch >= '1' && ch <= '9')
         {

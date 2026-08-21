@@ -167,6 +167,7 @@ public sealed class HomeScreen : ScreenBase
         if (Restorable.Count > 0) hints.Add(new KeyHint("r", "Reopen last"));
 
         hints.Add(new KeyHint("t", "Tile"));
+        hints.Add(new KeyHint("d", "Dashboard"));
         hints.Add(new KeyHint("k", "Kill"));
         hints.Add(new KeyHint("p", "Profile"));
         hints.Add(new KeyHint("q", "Quit"));
@@ -316,6 +317,10 @@ public sealed class HomeScreen : ScreenBase
                 return Attach();
             case 'k':
                 return Kill();
+            case 'd':
+                return _service is null
+                    ? ScreenAction.None
+                    : ScreenAction.Push(new DashboardScreen(App, _service));
             case 'u':
                 return UpdateBanner.Pressed(App);
             case 'q':
