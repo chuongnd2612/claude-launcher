@@ -37,6 +37,10 @@ public sealed class AccountLimits
     /// <summary>
     /// The window Claude marked as the live one. Both are reported at all times;
     /// this is the one it says is actually counting.
+    ///
+    /// The band no longer chooses a window with this - it always shows the
+    /// session one, so the accounts are comparable - but the detail screen still
+    /// marks whichever window Claude considers live.
     /// </summary>
     public LimitWindow Active { get; set; }
 
@@ -47,21 +51,6 @@ public sealed class AccountLimits
     public DateTime FetchedUtc { get; set; }
 
     /// <summary>
-    /// The percentage worth showing in one place: the live window's, falling back
-    /// to whichever is higher when Claude marked neither as live.
-    /// </summary>
-    public int Headline => Active switch
-    {
-        LimitWindow.Session => SessionPercent,
-        LimitWindow.Weekly => WeeklyPercent,
-        _ => Math.Max(SessionPercent, WeeklyPercent)
-    };
-
-    public LimitWindow HeadlineWindow => Active != LimitWindow.None
-        ? Active
-        : SessionPercent >= WeeklyPercent ? LimitWindow.Session : LimitWindow.Weekly;
-
-    /// <summary>
     /// True once the cache is older than the session window it describes, which
     /// makes the session figure a guess about a window that has since rolled
     /// over. Shown rather than hidden: a stale number presented as current is
@@ -70,9 +59,6 @@ public sealed class AccountLimits
     public bool Stale => FetchedUtc == DateTime.MinValue ||
                          DateTime.UtcNow - FetchedUtc > TimeSpan.FromHours(5);
 
-    /// <summary>When the headline window rolls over, if Claude said.</summary>
-    public DateTime? HeadlineResetsUtc =>
-        HeadlineWindow == LimitWindow.Session ? SessionResetsUtc : WeeklyResetsUtc;
 }
 
 /// <summary>Reads the usage percentages Claude cached for one config dir.</summary>
