@@ -63,9 +63,17 @@ public static class KeyMap
 
     // ---- Terminal wall -------------------------------------------------------
 
-    public static KeyHint[] WallFooter(int focus, bool splitting, bool wide) => splitting
-        ? new[] { new KeyHint(focus > 4 ? "1-9" : "1-4", "Focus"), new KeyHint("↵", "Attach"), new KeyHint(wide ? "v/s" : "v", "Split"), new KeyHint("space", "Layout") }
-        : new[] { new KeyHint(focus > 4 ? "1-9" : "1-4", "Focus"), new KeyHint("↵", "Attach"), new KeyHint("space", "Layout"), new KeyHint("t", "Terminal") };
+    /// <summary>
+    /// Zoom earns its place over a new terminal: the narrower the window, the
+    /// less any one tile shows, and the more often you want one of them whole.
+    /// </summary>
+    public static KeyHint[] WallFooter(int panes) => new[]
+    {
+        new KeyHint(panes > 4 ? "1-9" : "1-4", "Focus"),
+        new KeyHint("↵", "Attach"),
+        new KeyHint("z", "Zoom"),
+        new KeyHint("space", "Layout")
+    };
 
     /// <summary>The wall itself: no tile is holding the keyboard.</summary>
     public static KeyGroup[] Wall(bool splitting) => With(

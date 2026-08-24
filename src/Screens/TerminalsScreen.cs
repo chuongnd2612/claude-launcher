@@ -505,7 +505,7 @@ public sealed class TerminalsScreen : ScreenBase
             return;
         }
 
-        Widgets.Footer(buffer, KeyMap.WallFooter(count, Splitting, buffer.Width >= 104), KeyMap.Help);
+        Widgets.Footer(buffer, KeyMap.WallFooter(count), KeyMap.Help);
     }
 
     /// <summary>The key list for whichever context currently owns the keyboard.</summary>
