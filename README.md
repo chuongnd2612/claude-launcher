@@ -301,36 +301,41 @@ be removed.
 
 ## The usage band
 
-Every screen carries today's session count per account in the rule under the header:
+Every screen carries **how much of each account's plan is gone** in the rule under the
+header:
 
 ```text
 ✦ CLAUDE LAUNCHER
-─── today · W Work ███ 4 · P Personal █░░ 1 ──────────────────────────────
+─── usage · W Work ███░░░░░ 35% 5h · P Personal ███████░ ~91% 7d ─────────
 ```
 
-Every configured profile appears, in the order they are configured — idle ones included,
-so the positions stay where you learned them. The bar is three cells measured against
-whichever account is busiest, so it answers "which one am I hammering" at a glance.
+Every configured profile appears, in the order they are configured, so the positions stay
+where you learned them. The gauge is coloured by the reading — green while there is room,
+amber past 60%, red past 85% — and the marker says which window the number belongs to:
+`5h` for the rolling session allowance, `7d` for the weekly one. A `~` means the figure
+is older than the window it describes, so treat it as the last known answer rather than
+the current one.
+
+**Where the percentage comes from.** Claude works out its own utilisation when it talks
+to the API and caches it under `cachedUsageUtilization` in each config dir — which makes
+it per account. It reports both windows, marks which one is currently counting, and gives
+a reset time for each. That cache is the only place a real percentage exists: the cost and
+token figures elsewhere in `.claude.json` are running totals with no ceiling recorded
+beside them, so they can tell you what you have spent but never how close you are to the
+limit.
 
 It is drawn *into* the rule rather than on a row of its own, so it costs no space: at
-80x24 a wizard screen has only twelve content rows, and the band is not worth one of
-them. When the window is too narrow it drops the bars first, then falls back to a single
-total, and on a very narrow window it disappears rather than breaking the rule. On the
-compact header the author byline gives way to it.
+80x24 a wizard screen has only twelve content rows, and the band is not worth one of them.
+As the window narrows it drops the gauges, then the labels and window markers, then falls
+back to whichever account is closest to its limit — the percentage is the last thing to
+go, because it is the only part that answers the question. On the compact header the
+author byline gives way to it.
 
-**Why sessions and not spend.** Cost and token figures come from Claude's own record in
-`.claude.json`, which carries no timestamps — they are running totals, not a period. A
-band claiming `today · $2.14` would simply be false. Sessions and prompts come from
-`history.jsonl`, where every line is dated, so those are the numbers that can honestly be
-called today's.
-
-Reading it costs almost nothing: it reads `history.jsonl` per profile and never opens a
-transcript, refreshing at most once a minute on a background thread.
-
-**`Alt+U` opens the detail** — one row per account with sessions and prompts for the
-period, plus cost and output tokens labelled as the running totals they are, and a
-period toggle on `p`. Alt rather than a plain letter because a focused terminal takes
-every ordinary key, so `Alt+U` works from the wall mid-sentence too.
+**`Alt+U` opens the detail** — both windows per account side by side with how long until
+each resets, when each account's figure was last refreshed, and then sessions, prompts,
+cost and output tokens with a line saying which of those follow the period and which are
+running totals. Alt rather than a plain letter because a focused terminal takes every
+ordinary key, so `Alt+U` works from the wall mid-sentence too.
 
 ## Home: what is running
 
@@ -1005,6 +1010,16 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 `PackageReference`.
 
 ## Changelog
+
+### Unreleased
+
+- **The usage band now shows a real percentage.** It reads the utilisation Claude caches
+  per account under `cachedUsageUtilization`, so the number is a share of the actual plan
+  limit rather than a share of whatever the other account happened to do. The gauge is
+  coloured by the reading, the marker says whether it is the 5-hour or the weekly window,
+  and a `~` marks a figure older than the window it describes.
+- **`Alt+U` shows both windows per account** with time until each resets and when each
+  figure was last refreshed.
 
 ### 1.36.0
 

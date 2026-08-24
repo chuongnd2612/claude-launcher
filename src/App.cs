@@ -341,7 +341,7 @@ public sealed class App
     }
 
     /// <summary>
-    /// Hands the header band today's session counts.
+    /// Hands the header band each account's share of its plan.
     ///
     /// Cheap to call every frame by design: Metrics.Band returns what it already
     /// has and goes looking again at most once a minute, on a thread of its own,
@@ -357,8 +357,13 @@ public sealed class App
         var chips = new List<UsageChip>(accounts.Count);
         foreach (var account in accounts)
         {
+            var limits = account.Limits;
+
             chips.Add(new UsageChip(account.Icon, account.Label,
-                ProfileLook.Color(account.Key), account.Sessions));
+                ProfileLook.Color(account.Key),
+                limits.Known ? limits.Headline : -1,
+                limits.HeadlineWindow == LimitWindow.Weekly,
+                limits.Stale));
         }
 
         Widgets.Usage = chips;

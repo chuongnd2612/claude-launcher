@@ -31,26 +31,33 @@ public sealed class ProfileUsage
     /// <summary>False when Claude recorded no cost at all, so the row shows a dash.</summary>
     public bool HasCost { get; set; }
 
+    /// <summary>How much of this account's plan is used, as Claude recorded it.</summary>
+    public AccountLimits Limits { get; set; } = new();
+
     /// <summary>
     /// Sessions and prompts this profile ran inside the period.
     ///
     /// Unlike the cost and token figures above, these two really are the period:
-    /// they come from history.jsonl, where every line carries a timestamp. That
-    /// is the whole reason the header band shows sessions rather than spend -
-    /// spend has no date on it and could not honestly be called "today".
+    /// they come from history.jsonl, where every line carries a timestamp - so
+    /// they can be labelled "today" without lying, which the running totals
+    /// cannot. Neither is a share of anything, though, which is why the band
+    /// leads on the percentages in <see cref="Limits"/> instead.
     /// </summary>
     public int Sessions { get; set; }
 
     public int Prompts { get; set; }
 }
 
-/// <summary>One account's session count, for the header band.</summary>
+/// <summary>One account's line in the header band.</summary>
 public sealed class AccountSessions
 {
     public string Key { get; set; } = string.Empty;
     public string Label { get; set; } = string.Empty;
     public string Icon { get; set; } = string.Empty;
     public int Sessions { get; set; }
+
+    /// <summary>How much of the plan is gone, as Claude last worked it out.</summary>
+    public AccountLimits Limits { get; set; } = new();
 }
 
 /// <summary>One project's share of the period.</summary>
@@ -245,9 +252,10 @@ public static class Metrics
 
         foreach (var profile in state.Profiles)
         {
+            var configDir = StateStore.ExpandHome(profile.ConfigDir);
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var prompt in ReadHistory(StateStore.ExpandHome(profile.ConfigDir), since))
+            foreach (var prompt in ReadHistory(configDir, since))
             {
                 if (prompt.SessionId.Length > 0) seen.Add(prompt.SessionId);
             }
@@ -257,7 +265,8 @@ public static class Metrics
                 Key = profile.Name,
                 Label = profile.DisplayLabel,
                 Icon = profile.DisplayIcon,
-                Sessions = seen.Count
+                Sessions = seen.Count,
+                Limits = UsageLimits.Read(configDir)
             });
         }
 
@@ -286,6 +295,7 @@ public static class Metrics
             usage.Icon = profile.DisplayIcon;
             usage.Key = profile.Name;
             usage.Account = SessionReader.ReadAccount(configDir)?.Label ?? string.Empty;
+            usage.Limits = UsageLimits.Read(configDir);
             data.Profiles.Add(usage);
 
             foreach (var (path, cost) in ReadProjectCosts(configDir))
