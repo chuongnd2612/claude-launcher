@@ -1236,6 +1236,7 @@ public sealed class TerminalsScreen : ScreenBase
             }
 
             if (key.Key == ConsoleKey.F1) return Keys();
+            if (UsageKey(key) is { } detail) return detail;
             if (ResizeKey(key)) return ScreenAction.None;
             if (ReorderKey(key, panes)) return ScreenAction.None;
 
@@ -1291,6 +1292,7 @@ public sealed class TerminalsScreen : ScreenBase
         if (ReorderKey(key, panes)) return ScreenAction.None;
 
         if (key.Key == ConsoleKey.F1) return Keys();
+        if (UsageKey(key) is { } usage) return usage;
 
         var live = panes.Count > 0 ? Live(panes[_focus]) : null;
 
@@ -1895,6 +1897,18 @@ public sealed class TerminalsScreen : ScreenBase
             _notice = step < 0 ? "that pane is already first" : "that pane is already last";
 
         return true;
+    }
+
+    /// <summary>
+    /// Alt+U opens the usage detail. Alt because a focused terminal takes every
+    /// plain key, and this has to work mid-sentence like the other wall chords.
+    /// </summary>
+    private ScreenAction? UsageKey(ConsoleKeyInfo key)
+    {
+        if ((key.Modifiers & ConsoleModifiers.Alt) == 0) return null;
+        if (key.Key != ConsoleKey.U) return null;
+
+        return ScreenAction.Push(new UsageScreen(App, _service ?? new SessionService(App.State)));
     }
 
     private ScreenAction Leave() =>

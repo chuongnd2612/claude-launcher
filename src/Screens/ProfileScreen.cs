@@ -180,6 +180,8 @@ public sealed class ProfileScreen : ScreenBase
                 return Remove();
             case ConsoleKey.F1:
                 return Keys();
+            case ConsoleKey.U when (key.Modifiers & ConsoleModifiers.Alt) != 0:
+                return ScreenAction.Push(new UsageScreen(App, new Sessions.SessionService(App.State)));
             case ConsoleKey.Escape:
                 // Back, not Exit: this screen is the root when nothing is
                 // running (so Back still quits), but sits above Home when

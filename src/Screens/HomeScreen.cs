@@ -391,6 +391,8 @@ public sealed class HomeScreen : ScreenBase
                 return ScreenAction.Exit;
             case ConsoleKey.F1:
                 return Keys();
+            case ConsoleKey.U when (key.Modifiers & ConsoleModifiers.Alt) != 0:
+                return Usage();
         }
 
         switch (char.ToLowerInvariant(key.KeyChar))
@@ -426,6 +428,10 @@ public sealed class HomeScreen : ScreenBase
 
     private ScreenAction Keys() =>
         ScreenAction.Push(new KeysScreen(App, "Home", KeyMap.Home(Restorable.Count > 0)));
+
+    private ScreenAction Usage() => _service is null
+        ? ScreenAction.None
+        : ScreenAction.Push(new UsageScreen(App, _service));
 
     /// <summary>
     /// Raises Windows Terminal and names the pane to look for.

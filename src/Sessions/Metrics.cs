@@ -30,6 +30,27 @@ public sealed class ProfileUsage
 
     /// <summary>False when Claude recorded no cost at all, so the row shows a dash.</summary>
     public bool HasCost { get; set; }
+
+    /// <summary>
+    /// Sessions and prompts this profile ran inside the period.
+    ///
+    /// Unlike the cost and token figures above, these two really are the period:
+    /// they come from history.jsonl, where every line carries a timestamp. That
+    /// is the whole reason the header band shows sessions rather than spend -
+    /// spend has no date on it and could not honestly be called "today".
+    /// </summary>
+    public int Sessions { get; set; }
+
+    public int Prompts { get; set; }
+}
+
+/// <summary>One account's session count, for the header band.</summary>
+public sealed class AccountSessions
+{
+    public string Key { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public string Icon { get; set; } = string.Empty;
+    public int Sessions { get; set; }
 }
 
 /// <summary>One project's share of the period.</summary>
@@ -153,6 +174,96 @@ public static class Metrics
         }
     }
 
+    private static List<AccountSessions>? _band;
+    private static DateTime _bandAt;
+    private static bool _bandBuilding;
+
+    /// <summary>
+    /// How often the header band goes looking again. Longer than the dashboard's
+    /// minute because a session count barely moves, and this runs on every screen.
+    /// </summary>
+    private static readonly TimeSpan BandFresh = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// Today's session count per account, for the band in the header.
+    ///
+    /// Deliberately not <see cref="Build"/>: this reads history.jsonl and nothing
+    /// else, so it never touches a transcript. Build measures 33.6 MB for today
+    /// and 395 MB for all of history, which is fine for a screen you opened on
+    /// purpose and far too much for chrome that is drawn everywhere.
+    ///
+    /// Null until the first answer, so the band is simply absent for a moment
+    /// rather than claiming everything is zero.
+    /// </summary>
+    public static List<AccountSessions>? Band(LauncherState state, Action? changed = null)
+    {
+        lock (Recent)
+        {
+            var stale = DateTime.UtcNow - _bandAt > BandFresh;
+            if (_band is not null && !stale) return _band;
+            if (_bandBuilding) return _band;
+
+            _bandBuilding = true;
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    var built = BuildBand(state);
+
+                    lock (Recent)
+                    {
+                        _band = built;
+                        _bandAt = DateTime.UtcNow;
+                    }
+                }
+                catch (Exception)
+                {
+                    // Stamp it anyway, or a failure would retry on every frame.
+                    lock (Recent) _bandAt = DateTime.UtcNow;
+                }
+                finally
+                {
+                    lock (Recent) _bandBuilding = false;
+                    changed?.Invoke();
+                }
+            });
+
+            return _band;
+        }
+    }
+
+    /// <summary>
+    /// Every configured profile, in the order they are configured - not sorted by
+    /// size. The band is read at a glance, and accounts that swap places as the
+    /// day goes on cannot be read at a glance.
+    /// </summary>
+    private static List<AccountSessions> BuildBand(LauncherState state)
+    {
+        var since = Start(Period.Today);
+        var rows = new List<AccountSessions>();
+
+        foreach (var profile in state.Profiles)
+        {
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var prompt in ReadHistory(StateStore.ExpandHome(profile.ConfigDir), since))
+            {
+                if (prompt.SessionId.Length > 0) seen.Add(prompt.SessionId);
+            }
+
+            rows.Add(new AccountSessions
+            {
+                Key = profile.Name,
+                Label = profile.DisplayLabel,
+                Icon = profile.DisplayIcon,
+                Sessions = seen.Count
+            });
+        }
+
+        return rows;
+    }
+
     public static DashboardData Build(LauncherState state, SessionSnapshot snapshot, Period period)
     {
         var watch = Stopwatch.StartNew();
@@ -184,6 +295,8 @@ public static class Metrics
 
             // Prompts carry a timestamp and a project, which is what makes the
             // activity numbers period-accurate without touching a transcript.
+            var mine = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             foreach (var prompt in ReadHistory(configDir, since))
             {
                 var key = prompt.Project;
@@ -191,15 +304,20 @@ public static class Metrics
                     row = (0, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
 
                 row.Prompts++;
+                usage.Prompts++;
+
                 if (prompt.SessionId.Length > 0)
                 {
                     row.Sessions.Add(prompt.SessionId);
                     sessions.Add(prompt.SessionId);
+                    mine.Add(prompt.SessionId);
                 }
 
                 prompts[key] = row;
                 hours[prompt.WhenLocal.Hour]++;
             }
+
+            usage.Sessions = mine.Count;
 
             data.BytesScanned += Scan(configDir, since, data, files, prs);
             if (data.BytesScanned >= ScanCeiling) data.Capped = true;

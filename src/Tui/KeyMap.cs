@@ -33,7 +33,39 @@ public static class KeyMap
     /// </summary>
     public static readonly KeyHint Help = new("f1", "Keys");
 
+    /// <summary>
+    /// Usage detail. An Alt chord rather than a letter because it has to work on
+    /// the wall too, where a focused terminal takes every plain key - Alt is the
+    /// half of the keyboard Claude's own UI leaves alone. Plain 'u' is already
+    /// the update check.
+    /// </summary>
+    public static readonly KeyHint UsageKey = new("alt+u", "Usage");
+
     private static KeyGroup[] With(params KeyGroup[] groups) => groups;
+
+    // ---- Usage ---------------------------------------------------------------
+
+    public static KeyHint[] UsageFooter() => new[]
+    {
+        new KeyHint("p", "Period"),
+        new KeyHint("r", "Refresh"),
+        new KeyHint("↑↓", "Account"),
+        new KeyHint("esc", "Back")
+    };
+
+    public static KeyGroup[] Usage() => With(
+        new KeyGroup("Reading it",
+            new KeyHint("p", "Today, this week, all time"),
+            new KeyHint("r", "Read it again"),
+            new KeyHint("↑↓", "Between accounts")),
+        new KeyGroup("What the numbers mean",
+            new KeyHint("", "Sessions and prompts follow the period."),
+            new KeyHint("", "Cost and tokens are Claude's running"),
+            new KeyHint("", "totals - they carry no dates.")),
+        new KeyGroup("Leaving",
+            new KeyHint("esc bksp", "Back"),
+            new KeyHint("q", "Quit"),
+            Help));
 
     // ---- Home ----------------------------------------------------------------
 
@@ -57,6 +89,7 @@ public static class KeyMap
             new KeyHint("k", "Stop a session")),
         new KeyGroup("Elsewhere",
             new KeyHint("d", "Dashboard"),
+            UsageKey,
             new KeyHint("s", "Settings"),
             new KeyHint("u", "Check for updates"),
             new KeyHint("q / esc", "Quit the launcher")));
@@ -98,6 +131,7 @@ public static class KeyMap
                 ? new KeyHint("v / s", "Split right / down")
                 : new KeyHint("v / s", "Split (off while tiles are on)")),
         new KeyGroup("Leaving",
+            UsageKey,
             new KeyHint("esc", "Back to Home"),
             new KeyHint("q", "Quit"),
             Help));
@@ -134,6 +168,7 @@ public static class KeyMap
             new KeyHint("drag a tile", "Move it onto another")),
         new KeyGroup("Note",
             new KeyHint("esc", "Goes to Claude, not back"),
+            UsageKey,
             Help));
 
     public static KeyHint[] ReleasedFooter() => new[]
@@ -259,6 +294,7 @@ public static class KeyMap
             new KeyHint("x / del", "Remove this one")),
         new KeyGroup("Elsewhere",
             new KeyHint("d", "Dashboard"),
+            UsageKey,
             new KeyHint("s", "Settings"),
             new KeyHint("u", "Check for updates"),
             new KeyHint("esc", "Back"),
@@ -324,7 +360,8 @@ public static class KeyMap
             new KeyHint("p", "Today, this week, all time"),
             new KeyHint("r", "Recount from disk"),
             new KeyHint("↑↓", "Between projects"),
-            new KeyHint("↵", "That project's sessions")),
+            new KeyHint("↵", "That project's sessions"),
+            UsageKey),
         new KeyGroup("Leaving",
             new KeyHint("esc bksp", "Back"),
             new KeyHint("q", "Quit"),

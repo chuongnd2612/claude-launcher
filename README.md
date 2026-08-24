@@ -202,10 +202,11 @@ nothing to type into.
 
 | Screen  | Keys |
 | ------- | ---- |
-| Home | `↑↓` navigate · `Tab` next · `Home/End` first / last · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` / `p` new session · `r` reopen last session's terminals · `t` tile · `k` stop · `d` dashboard · `s` settings · `u` check for updates · `Esc` / `q` quit the launcher |
+| Home | `↑↓` navigate · `Tab` next · `Home/End` first / last · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` / `p` new session · `r` reopen last session's terminals · `t` tile · `k` stop · `d` dashboard · `Alt+U` usage · `s` settings · `u` check for updates · `Esc` / `q` quit the launcher |
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` pick the project, then choose new / continue / resume · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
 | Adding a folder (`a`) | type a path · `↑↓` pick from the folders below · `Tab` complete into one · `Enter` use this path, then name it · `Esc` cancel |
 | Dashboard (`d`) | `p` period · `r` read again · `↑↓` pick a project · `↵` its sessions · `Esc` back |
+| Usage (`Alt+U`, from anywhere) | `p` period · `r` read again · `↑↓` pick an account · `Esc` back · `q` quit |
 | Terminals (the wall — no tile holding the keyboard) | `1..9` focus · `↑↓←→` / `Tab` move · `Enter` attach · `Ctrl+Shift+←→↑↓` move the focused pane along the wall · `Alt+Shift+←→↑↓` resize the panes · `Alt+Shift+0` even them up · `z` zoom · `Space` layout · `t` new terminal · `n` new session · `w` close a terminal, or hide a session that is not ours · `Esc` back · `q` quit — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
 | Terminals (terminal tile released) | `Enter` or `Ctrl+]` start typing into it again · every wall key above also works · `Ctrl+F` find · `Shift+PgUp/PgDn` scroll its history |
 | History (`Tab` from the Terminals find bar) | `↑↓` `PgUp/PgDn` `Home/End` move · `/`, `f` or `Ctrl+F` search again · `Esc` / `q` back |
@@ -297,6 +298,39 @@ be removed.
 | Terminal splits | Not on the settings screen: where the wall's dividers sit, written as you drag them. Delete the line to go back to equal panes |
 | Terminal order | Not on the settings screen: the order the wall's tiles sit in, written when you move one. Delete the line to go back to the order sessions were opened in |
 | Terminal tiles | On (default): a session opened inside the launcher runs under a pseudo console and shows Claude's own interface, so `/usage`, the model picker and plan mode render exactly. Off: the launcher's own styled chat view, easier to watch several sessions at once, but rich screens arrive as plain text |
+
+## The usage band
+
+Every screen carries today's session count per account in the rule under the header:
+
+```text
+✦ CLAUDE LAUNCHER
+─── today · W Work ███ 4 · P Personal █░░ 1 ──────────────────────────────
+```
+
+Every configured profile appears, in the order they are configured — idle ones included,
+so the positions stay where you learned them. The bar is three cells measured against
+whichever account is busiest, so it answers "which one am I hammering" at a glance.
+
+It is drawn *into* the rule rather than on a row of its own, so it costs no space: at
+80x24 a wizard screen has only twelve content rows, and the band is not worth one of
+them. When the window is too narrow it drops the bars first, then falls back to a single
+total, and on a very narrow window it disappears rather than breaking the rule. On the
+compact header the author byline gives way to it.
+
+**Why sessions and not spend.** Cost and token figures come from Claude's own record in
+`.claude.json`, which carries no timestamps — they are running totals, not a period. A
+band claiming `today · $2.14` would simply be false. Sessions and prompts come from
+`history.jsonl`, where every line is dated, so those are the numbers that can honestly be
+called today's.
+
+Reading it costs almost nothing: it reads `history.jsonl` per profile and never opens a
+transcript, refreshing at most once a minute on a background thread.
+
+**`Alt+U` opens the detail** — one row per account with sessions and prompts for the
+period, plus cost and output tokens labelled as the running totals they are, and a
+period toggle on `p`. Alt rather than a plain letter because a focused terminal takes
+every ordinary key, so `Alt+U` works from the wall mid-sentence too.
 
 ## Home: what is running
 
@@ -971,6 +1005,18 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 `PackageReference`.
 
 ## Changelog
+
+### Unreleased
+
+- **A usage band in the header on every screen**: today's session count per account, with
+  a bar scaled against the busiest one. Written into the rule under the header so it
+  costs no rows, degrading to counts-only and then to a single total on narrow windows.
+- **`Alt+U` opens a Usage screen** — per-account sessions, prompts, cost and output
+  tokens, with a period toggle. It states which figures follow the period and which are
+  running totals, because cost and tokens in `.claude.json` carry no dates and cannot
+  honestly be called "today".
+- Per-profile session and prompt counts are new on the dashboard's data, filled from the
+  history read that was already happening per profile.
 
 ### 1.35.0
 
