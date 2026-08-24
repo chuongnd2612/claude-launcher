@@ -148,16 +148,7 @@ public sealed class ResumeScreen : ScreenBase
                 new KeyHint("↵", "Apply"),
                 new KeyHint("esc", "Clear")
             }
-            : new[]
-            {
-                new KeyHint("↑↓", "Navigate"),
-                new KeyHint("↵", "Resume"),
-                new KeyHint("c", "Chat view"),
-                new KeyHint("/", "Filter"),
-                new KeyHint("l", "Logs"),
-                new KeyHint("d", "Delete"),
-                new KeyHint("esc", "Back")
-            });
+            : KeyMap.ResumeFooter(), KeyMap.Help);
     }
 
     public override ScreenAction HandleKey(ConsoleKeyInfo key)
@@ -168,6 +159,8 @@ public sealed class ResumeScreen : ScreenBase
         {
             switch (key.Key)
             {
+                case ConsoleKey.F1:
+                    return ScreenAction.Push(new KeysScreen(App, "Past sessions", KeyMap.Resume()));
                 case ConsoleKey.Escape:
                     _filter = string.Empty;
                     _filtering = false;
@@ -229,6 +222,8 @@ public sealed class ResumeScreen : ScreenBase
                 }
 
                 return ScreenAction.Resume(items[_index].SessionId, _openIn);
+            case ConsoleKey.F1:
+                return ScreenAction.Push(new KeysScreen(App, "Past sessions", KeyMap.Resume()));
             case ConsoleKey.Escape:
             case ConsoleKey.Backspace:
                 return ScreenAction.Back;

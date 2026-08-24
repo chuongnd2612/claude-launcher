@@ -93,7 +93,7 @@ public sealed class UpdateScreen : ScreenBase
             new KeyHint("n", "Release notes"),
             new KeyHint("s", "Stop asking"),
             new KeyHint("esc", "Later")
-        });
+        }, KeyMap.Help);
     }
 
     private string Released() =>
@@ -152,6 +152,8 @@ public sealed class UpdateScreen : ScreenBase
 
         switch (key.Key)
         {
+            case ConsoleKey.F1:
+                return ScreenAction.Push(new KeysScreen(App, "Update", KeyMap.Update()));
             case ConsoleKey.Escape:
             case ConsoleKey.Backspace:
                 return ScreenAction.Back;

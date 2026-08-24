@@ -118,20 +118,7 @@ public sealed class SessionScreen : ScreenBase
         if (_notice is not null)
             buffer.WriteClipped(margin + 1, buffer.Height - 5, _notice, width - 2, new Sty(Theme.Amber, Theme.Bg));
 
-        var hints = new List<KeyHint>
-        {
-            new("↑↓", "Navigate"),
-            new("↵", "Launch")
-        };
-
-        if (App.State.Profiles.Count > 1) hints.Add(new KeyHint("p", "Profile"));
-
-        hints.Add(new KeyHint("o", "Open in"));
-        hints.Add(new KeyHint("n/c/r", "Quick mode"));
-        hints.Add(new KeyHint("esc", "Back"));
-        hints.Add(new KeyHint("q", "Quit"));
-
-        Widgets.Footer(buffer, hints.ToArray());
+        Widgets.Footer(buffer, KeyMap.SessionFooter(App.State.Profiles.Count > 1), KeyMap.Help);
     }
 
     /// <summary>One line per option, for windows too short to box them.</summary>
@@ -179,6 +166,8 @@ public sealed class SessionScreen : ScreenBase
             case ConsoleKey.RightArrow:
                 _openIn = LaunchTarget.Next(_openIn);
                 return ScreenAction.None;
+            case ConsoleKey.F1:
+                return ScreenAction.Push(new KeysScreen(App, "Session", KeyMap.Session()));
             case ConsoleKey.Escape:
             case ConsoleKey.Backspace:
                 return ScreenAction.Back;

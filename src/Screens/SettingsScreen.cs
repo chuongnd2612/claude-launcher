@@ -80,13 +80,7 @@ public sealed class SettingsScreen : ScreenBase
                 new Sty(update.Value.Color, Theme.Bg));
         }
 
-        Widgets.Footer(buffer, new[]
-        {
-            new KeyHint("↑↓", "Navigate"),
-            new KeyHint("↵/←→", "Change"),
-            new KeyHint("u", "Check now"),
-            new KeyHint("esc", "Back")
-        });
+        Widgets.Footer(buffer, KeyMap.SettingsFooter(), KeyMap.Help);
     }
 
     private void Toggle(ScreenBuffer buffer, int x, int y, int width, int index, string label, string value, string detail)
@@ -126,6 +120,8 @@ public sealed class SettingsScreen : ScreenBase
             case ConsoleKey.LeftArrow:
                 Change(-1);
                 return ScreenAction.None;
+            case ConsoleKey.F1:
+                return ScreenAction.Push(new KeysScreen(App, "Settings", KeyMap.Settings()));
             case ConsoleKey.Escape:
                 return ScreenAction.Back;
         }

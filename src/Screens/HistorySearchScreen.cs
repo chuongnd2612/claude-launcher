@@ -78,12 +78,7 @@ public sealed class HistorySearchScreen : ScreenBase
         if (wantDetail && _hits.Count > 0)
             DrawDetail(buffer, margin, y + listHeight + 1, width, detailHeight);
 
-        Widgets.Footer(buffer, new[]
-        {
-            new KeyHint("up/down", "move"),
-            new KeyHint("/", "search again"),
-            new KeyHint("esc", "back")
-        });
+        Widgets.Footer(buffer, KeyMap.HistoryFooter(), KeyMap.Help);
     }
 
     private void DrawList(ScreenBuffer buffer, int margin, int y, int width, int height)
@@ -221,6 +216,8 @@ public sealed class HistorySearchScreen : ScreenBase
 
         switch (key.Key)
         {
+            case ConsoleKey.F1:
+                return ScreenAction.Push(new KeysScreen(App, "History", KeyMap.History()));
             case ConsoleKey.Escape:
             case ConsoleKey.Backspace:
                 return ScreenAction.Back;
@@ -267,6 +264,8 @@ public sealed class HistorySearchScreen : ScreenBase
     {
         switch (key.Key)
         {
+            case ConsoleKey.F1:
+                return ScreenAction.Push(new KeysScreen(App, "History", KeyMap.History()));
             case ConsoleKey.Escape:
                 _typing = false;
                 return ScreenAction.None;

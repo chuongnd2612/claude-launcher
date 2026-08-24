@@ -92,18 +92,7 @@ public sealed class ProfileScreen : ScreenBase
                 buffer.Width - Widgets.Margin(buffer) * 2 - 2, new Sty(update.Value.Color, Theme.Bg));
         }
 
-        Widgets.Footer(buffer, new[]
-        {
-            new KeyHint("↑↓←→", "Navigate"),
-            new KeyHint("↵", "Select"),
-            new KeyHint("a", "Add"),
-            new KeyHint("e", "Edit"),
-            new KeyHint("d", "Remove"),
-            new KeyHint("s", "Settings"),
-            new KeyHint("d", "Dashboard"),
-            new KeyHint("u", "Updates"),
-            new KeyHint("q", "Quit")
-        });
+        Widgets.Footer(buffer, KeyMap.ProfileFooter(), KeyMap.Help);
     }
 
     private static void DrawProfileTile(ScreenBuffer buffer, int x, int y, int width, int height, ProfileEntry profile, int index, bool selected)
@@ -189,6 +178,8 @@ public sealed class ProfileScreen : ScreenBase
                 return Choose();
             case ConsoleKey.Delete:
                 return Remove();
+            case ConsoleKey.F1:
+                return Keys();
             case ConsoleKey.Escape:
                 // Back, not Exit: this screen is the root when nothing is
                 // running (so Back still quits), but sits above Home when
@@ -200,9 +191,14 @@ public sealed class ProfileScreen : ScreenBase
         if (ch == 'q') return ScreenAction.Exit;
         if (ch == 'a') return ScreenAction.Push(new AddProfileScreen(App));
         if (ch == 'e') return Edit();
-        if (ch == 'd') return Remove();
+
+        // Remove used to be 'd' as well, and being first it took every press -
+        // so the dashboard this screen advertised could never be opened from it.
+        // Removing keeps Delete, and 'd' now means the same thing it does on Home.
+        if (ch == 'x') return Remove();
         if (ch == 's') return ScreenAction.Push(new SettingsScreen(App));
         if (ch == 'u') return UpdateBanner.Pressed(App);
+        if (ch == '?') return Keys();
         if (ch == 'd' && App.State.Profiles.Count > 0)
             return ScreenAction.Push(new DashboardScreen(App, new Sessions.SessionService(App.State)));
 
@@ -227,6 +223,9 @@ public sealed class ProfileScreen : ScreenBase
         App.Project = null;
         return ScreenAction.Push(new ProjectScreen(App));
     }
+
+    private ScreenAction Keys() =>
+        ScreenAction.Push(new KeysScreen(App, "Profiles", KeyMap.Profile()));
 
     /// <summary>Edit and remove only apply to real profiles, never the "add" tile.</summary>
     private ScreenAction Edit()

@@ -126,14 +126,19 @@ public sealed class TerminalPreviewScreen : ScreenBase
         TerminalRender.Draw(buffer, _screen, x + 2, y + 1,
             Math.Max(0, boxWidth - 4), Math.Max(0, height - 2), Theme.PanelSelected, focused: true);
 
+        // This is a replayed capture with no child behind it. The footer used
+        // to be copied from the live wall and offered typing and Ctrl+], neither
+        // of which does anything here.
         Widgets.Footer(buffer, new[]
         {
-            new KeyHint("type", "Claude's own UI"),
-            new KeyHint("^]", "Release keyboard"),
             new KeyHint("esc", "Back")
-        });
+        }, KeyMap.Help);
     }
 
-    public override ScreenAction HandleKey(ConsoleKeyInfo key) =>
-        key.Key == ConsoleKey.Escape ? ScreenAction.Back : ScreenAction.None;
+    public override ScreenAction HandleKey(ConsoleKeyInfo key) => key.Key switch
+    {
+        ConsoleKey.Escape => ScreenAction.Back,
+        ConsoleKey.F1 => ScreenAction.Push(new KeysScreen(App, "Preview", KeyMap.Preview())),
+        _ => ScreenAction.None
+    };
 }

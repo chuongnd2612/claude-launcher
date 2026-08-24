@@ -40,10 +40,11 @@ public sealed class DeleteProfileScreen : ScreenBase
 
         Widgets.Footer(buffer, new[]
         {
+            new KeyHint("y", "Yes"),
+            new KeyHint("n", "No"),
             new KeyHint("←→", "Choose"),
-            new KeyHint("↵", "Confirm"),
             new KeyHint("esc", "Cancel")
-        });
+        }, KeyMap.Help);
     }
 
     private static void Choice(ScreenBuffer buffer, int x, int y, string label, bool active, Rgb color)
@@ -63,6 +64,8 @@ public sealed class DeleteProfileScreen : ScreenBase
             case ConsoleKey.Tab:
                 _confirm = !_confirm;
                 return ScreenAction.None;
+            case ConsoleKey.F1:
+                return ScreenAction.Push(new KeysScreen(App, "Remove profile", KeyMap.Confirm()));
             case ConsoleKey.Escape:
                 return ScreenAction.Back;
             case ConsoleKey.Enter:

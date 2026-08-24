@@ -102,7 +102,7 @@ public sealed class AddProfileScreen : ScreenBase
             new KeyHint("↑↓/tab", "Field"),
             new KeyHint("↵", "Save"),
             new KeyHint("esc", "Cancel")
-        });
+        }, KeyMap.Help);
     }
 
     private void Field(ScreenBuffer buffer, int x, int y, int width, string label, string value, string placeholder, int index)
@@ -132,6 +132,8 @@ public sealed class AddProfileScreen : ScreenBase
         {
             case ConsoleKey.Escape:
                 return ScreenAction.Back;
+            case ConsoleKey.F1:
+                return ScreenAction.Push(new KeysScreen(App, "Profile details", KeyMap.AddProfile(_field == 1)));
             case ConsoleKey.Tab:
             case ConsoleKey.DownArrow:
                 _field = (_field + 1) % FieldCount;
