@@ -346,15 +346,23 @@ header:
 
 ```text
 ✦ CLAUDE LAUNCHER
-─── usage · W Work ███░░░░░ 35% 5h · P Personal ███████░ ~91% 7d ─────────
+─── usage 5h · W Work ███░░░░░ 35% · P Personal █░░░░░░░ ~4%! ────────────
 ```
 
 Every configured profile appears, in the order they are configured, so the positions stay
 where you learned them. The gauge is coloured by the reading — green while there is room,
-amber past 60%, red past 85% — and the marker says which window the number belongs to:
-`5h` for the rolling session allowance, `7d` for the weekly one. A `~` means the figure
-is older than the window it describes, so treat it as the last known answer rather than
-the current one.
+amber past 60%, red past 85%.
+
+**It is always the five-hour session window, for every account.** That is what makes the
+numbers worth putting side by side: an earlier version showed whichever window Claude had
+marked as currently counting, which meant one account's 5h figure could sit next to
+another's weekly one — two different measurements dressed as a comparison.
+
+A `~` means the figure is older than the window it describes, so treat it as the last
+known answer rather than the current one. A `!` means that account is nearly out of its
+*weekly* allowance — the band is about the next five hours, and an account that is fine
+for those but almost done for the week should not look untroubled. `Alt+U` has both
+numbers in full.
 
 **Where the percentage comes from.** Claude works out its own utilisation when it talks
 to the API and caches it under `cachedUsageUtilization` in each config dir — which makes
@@ -1050,6 +1058,14 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 `PackageReference`.
 
 ## Changelog
+
+### Unreleased
+
+- **The band always shows the five-hour session window now**, for every account, so the
+  percentages can be read against each other. It used to show whichever window Claude had
+  marked as live, which put one account's 5h figure beside another's weekly one. A `!`
+  flags an account that is nearly out of its weekly allowance, and `Alt+U` still has both
+  windows in full.
 
 ### 1.37.0
 
