@@ -129,7 +129,7 @@ public sealed class ChatScreen : ScreenBase
         if (_notice is not null)
             buffer.WriteClipped(margin + 1, inputY + 1, _notice, width - 2, new Sty(Theme.Amber, Theme.Bg));
 
-        Widgets.Footer(buffer, Hints());
+        Widgets.Footer(buffer, Hints(), KeyMap.Help);
     }
 
     /// <summary>
@@ -373,6 +373,9 @@ public sealed class ChatScreen : ScreenBase
 
         switch (key.Key)
         {
+            case ConsoleKey.F1:
+                return ScreenAction.Push(new KeysScreen(App, "Chat",
+                    KeyMap.Chat(_session?.Pending is not null, State == ChatState.Working)));
             case ConsoleKey.Escape:
                 if (matches.Count > 0) { _input = string.Empty; return ScreenAction.None; }
                 if (State == ChatState.Working) { _session.Interrupt(); return ScreenAction.None; }

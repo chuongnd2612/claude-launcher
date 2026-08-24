@@ -142,14 +142,8 @@ public sealed class DashboardScreen : ScreenBase
         Footer(buffer);
     }
 
-    private void Footer(ScreenBuffer buffer) => Widgets.Footer(buffer, new[]
-    {
-        new KeyHint("p", "Period"),
-        new KeyHint("r", "Refresh"),
-        new KeyHint("↑↓", "Project"),
-        new KeyHint("↵", "Sessions"),
-        new KeyHint("esc", "Back")
-    });
+    private void Footer(ScreenBuffer buffer) =>
+        Widgets.Footer(buffer, KeyMap.DashboardFooter(), KeyMap.Help);
 
     public override ScreenAction HandleKey(ConsoleKeyInfo key)
     {
@@ -157,6 +151,8 @@ public sealed class DashboardScreen : ScreenBase
 
         switch (key.Key)
         {
+            case ConsoleKey.F1:
+                return ScreenAction.Push(new KeysScreen(App, "Dashboard", KeyMap.Dashboard()));
             case ConsoleKey.Escape:
             case ConsoleKey.Backspace:
                 return ScreenAction.Back;

@@ -201,23 +201,7 @@ public sealed class HomeScreen : ScreenBase
                 new Sty(_notice is null ? update!.Value.Color : Theme.Amber, Theme.Bg));
         }
 
-        var hints = new List<KeyHint>
-        {
-            new("↑↓", "Navigate"),
-            new("↵", "Open"),
-            new("a", "Attach"),
-            new("n", "New")
-        };
-
-        if (Restorable.Count > 0) hints.Add(new KeyHint("r", "Reopen last"));
-
-        hints.Add(new KeyHint("t", "Tile"));
-        hints.Add(new KeyHint("d", "Dashboard"));
-        hints.Add(new KeyHint("k", "Kill"));
-        hints.Add(new KeyHint("p", "Profile"));
-        hints.Add(new KeyHint("q", "Quit"));
-
-        Widgets.Footer(buffer, hints.ToArray());
+        Widgets.Footer(buffer, KeyMap.HomeFooter(Restorable.Count > 0), KeyMap.Help);
     }
 
     /// <summary>
@@ -405,10 +389,16 @@ public sealed class HomeScreen : ScreenBase
                 return Open();
             case ConsoleKey.Escape:
                 return ScreenAction.Exit;
+            case ConsoleKey.F1:
+                return Keys();
         }
 
         switch (char.ToLowerInvariant(key.KeyChar))
         {
+            case '?':
+                return Keys();
+            case 's':
+                return ScreenAction.Push(new SettingsScreen(App));
             case 'n':
             case 'p':
                 return ScreenAction.Push(new ProfileScreen(App));
@@ -433,6 +423,9 @@ public sealed class HomeScreen : ScreenBase
 
         return ScreenAction.None;
     }
+
+    private ScreenAction Keys() =>
+        ScreenAction.Push(new KeysScreen(App, "Home", KeyMap.Home(Restorable.Count > 0)));
 
     /// <summary>
     /// Raises Windows Terminal and names the pane to look for.

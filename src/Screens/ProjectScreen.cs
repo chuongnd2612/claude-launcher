@@ -141,25 +141,23 @@ public sealed class ProjectScreen : ScreenBase
                 new Sty(Theme.Amber, Theme.Bg));
         }
 
-        Widgets.Footer(buffer, _editor.Active
-            ? _editor.Hints
-            : _filtering
-                ? new[]
-                {
-                    new KeyHint("type", "Filter"),
-                    new KeyHint("↑↓", "Navigate"),
-                    new KeyHint("↵", "Apply"),
-                    new KeyHint("esc", "Clear")
-                }
-                : new[]
-                {
-                    new KeyHint("↑↓", "Navigate"),
-                    new KeyHint("↵", "Select"),
-                    new KeyHint("a", "Add"),
-                    new KeyHint("d", "Forget"),
-                    new KeyHint("/", "Filter"),
-                    new KeyHint("esc", "Back")
-                });
+        // The editor owns the keyboard while it is up, so it keeps its own
+        // hints and no key list - F1 would be a character in a path.
+        if (_editor.Active)
+        {
+            Widgets.Footer(buffer, _editor.Hints);
+            return;
+        }
+
+        Widgets.Footer(buffer, _filtering
+            ? new[]
+            {
+                new KeyHint("type", "Filter"),
+                new KeyHint("↑↓", "Navigate"),
+                new KeyHint("↵", "Apply"),
+                new KeyHint("esc", "Clear")
+            }
+            : KeyMap.ProjectFooter(), KeyMap.Help);
     }
 
     private static void DrawScrollbar(ScreenBuffer buffer, int x, int top, int height, int count, int scroll)
@@ -191,6 +189,8 @@ public sealed class ProjectScreen : ScreenBase
         {
             switch (key.Key)
             {
+                case ConsoleKey.F1:
+                    return ScreenAction.Push(new KeysScreen(App, "Projects", KeyMap.Project()));
                 case ConsoleKey.Escape:
                     _filter = string.Empty;
                     _filtering = false;
@@ -228,6 +228,8 @@ public sealed class ProjectScreen : ScreenBase
             case ConsoleKey.DownArrow:
                 Move(1, items.Count);
                 return ScreenAction.None;
+            case ConsoleKey.F1:
+                return ScreenAction.Push(new KeysScreen(App, "Projects", KeyMap.Project()));
             case ConsoleKey.PageUp:
                 Move(-8, items.Count);
                 return ScreenAction.None;

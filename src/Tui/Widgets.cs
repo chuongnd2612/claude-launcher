@@ -273,8 +273,16 @@ public static class Widgets
         buffer.Write(x + 2, y, label, new Sty(titleColor, Theme.Panel, bold: true));
     }
 
-    /// <summary>Footer key hints inside a rounded bar pinned to the bottom.</summary>
-    public static void Footer(ScreenBuffer buffer, IReadOnlyList<KeyHint> hints)
+    /// <summary>
+    /// Footer key hints inside a rounded bar pinned to the bottom.
+    ///
+    /// A hint that will not fit is dropped rather than squeezed, and the ones
+    /// dropped are the last - so <paramref name="pinned"/> is measured out of the
+    /// room first and written from the right. That is how the way in to the full
+    /// key list stays on screen at eighty columns, where it would otherwise be
+    /// the first thing to go.
+    /// </summary>
+    public static void Footer(ScreenBuffer buffer, IReadOnlyList<KeyHint> hints, KeyHint? pinned = null)
     {
         var margin = Margin(buffer);
         var width = buffer.Width - margin * 2;
@@ -283,25 +291,40 @@ public static class Widgets
 
         buffer.Box(margin, y, width, 3, new Sty(Theme.BorderMuted, Theme.BgSoft), BoxStyle.Rounded, Theme.BgSoft);
 
+        // Claimed before anything is laid out, plus a gap to sit behind.
+        var pinnedWidth = pinned is { } pin ? pin.Key.Length + 1 + pin.Label.Length : 0;
+        var reserved = pinnedWidth > 0 ? pinnedWidth + 4 : 0;
+
         // Tighten the gaps before letting a long hint row spill out of the bar.
         var text = hints.Sum(h => h.Key.Length + 1 + h.Label.Length);
         var gaps = Math.Max(0, hints.Count - 1);
-        var room = width - 4;
+        var room = width - 4 - reserved;
         var spacing = 4;
         while (spacing > 1 && gaps > 0 && text + spacing * gaps > room) spacing--;
 
         var total = text + spacing * gaps;
-        var x = margin + Math.Max(2, (width - total) / 2);
-        var limit = margin + width - 2;
+        var x = margin + Math.Max(2, (width - reserved - total) / 2);
+        var limit = margin + width - 2 - reserved;
+
+        var right = margin + width - 2;
+
+        if (pinnedWidth > 0)
+        {
+            var at = right - pinnedWidth;
+            at = buffer.Write(at, y + 1, pinned!.Value.Key, new Sty(Theme.Amber, Theme.BgSoft, bold: true));
+            at = buffer.Write(at, y + 1, " ", new Sty(Theme.Muted, Theme.BgSoft));
+            buffer.Write(at, y + 1, pinned.Value.Label, new Sty(Theme.Muted, Theme.BgSoft));
+            right -= pinnedWidth + 2;
+        }
 
         // Version sits at the right end of the bar, and only when it cannot
         // crowd the hints - a hint that vanishes matters more than the number.
         if (Version.Length > 0)
         {
             var label = "v" + Version;
-            var free = margin + width - 2 - (x + total);
+            var free = right - 1 - (x + total);
             if (free >= label.Length + 3)
-                buffer.WriteRight(margin + width - 3, y + 1, label, new Sty(Theme.Dim, Theme.BgSoft));
+                buffer.WriteRight(right - 1, y + 1, label, new Sty(Theme.Dim, Theme.BgSoft));
         }
 
         foreach (var hint in hints)

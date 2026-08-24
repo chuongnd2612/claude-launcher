@@ -195,27 +195,36 @@ directly without showing the selection screens.
 
 ## Keys
 
+**`F1` on any screen lists every key that screen answers to**, grouped and scrollable. The footer
+only has room for four or five, so it shows the ones worth a permanent line and `F1` has the rest —
+including the chords that depend on which pane has the keyboard. `?` does the same on screens with
+nothing to type into.
+
 | Screen  | Keys |
 | ------- | ---- |
-| Home | `↑↓` navigate · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` new session · `r` reopen last session's terminals · `t` tile · `k` stop · `p` profiles · `q` quit |
+| Home | `↑↓` navigate · `Tab` next · `Home/End` first / last · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` / `p` new session · `r` reopen last session's terminals · `t` tile · `k` stop · `d` dashboard · `s` settings · `u` check for updates · `Esc` / `q` quit the launcher |
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` pick the project, then choose new / continue / resume · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
 | Adding a folder (`a`) | type a path · `↑↓` pick from the folders below · `Tab` complete into one · `Enter` use this path, then name it · `Esc` cancel |
 | Dashboard (`d`) | `p` period · `r` read again · `↑↓` pick a project · `↵` its sessions · `Esc` back |
-| Terminals (read-only tile focused) | `Alt+Shift+←→↑↓` resize the panes · `Alt+Shift+0` even them up · `1..9` focus · `↑↓←→` move · `Enter` attach · `z` zoom · `Space` layout · `t` new terminal · `w` close a terminal, or hide a session that is not ours · `Esc` back — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
-| History (`Tab` from the search bar) | `↑↓` `PgUp/PgDn` `Home/End` move · `/` search again · `Esc` back |
-| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers · `Ctrl+T` / `Alt+T` new terminal · `Ctrl+W` / `Alt+W` close this terminal · `Alt+Z` zoom this pane · `Ctrl+F` / `Alt+F` find text, `Enter` searches back through the screen history, `Tab` searches the whole session · `Alt+S` select text · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Alt+Shift+←→↑↓` resize them · `Alt+Shift+0` even them up · `Shift+PgUp/PgDn` scroll Claude’s history · `Ctrl+]` or a click off the tiles releases the keyboard · `Ctrl+]`, `Enter` or a click on a tile resumes typing |
-| Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` new terminal · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` remove tile · `Esc` clear, stop, back |
+| Terminals (the wall — no tile holding the keyboard) | `1..9` focus · `↑↓←→` / `Tab` move · `Enter` attach · `Ctrl+Shift+←→↑↓` move the focused pane along the wall · `Alt+Shift+←→↑↓` resize the panes · `Alt+Shift+0` even them up · `z` zoom · `Space` layout · `t` new terminal · `n` new session · `w` close a terminal, or hide a session that is not ours · `Esc` back · `q` quit — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
+| Terminals (terminal tile released) | `Enter` or `Ctrl+]` start typing into it again · every wall key above also works · `Ctrl+F` find · `Shift+PgUp/PgDn` scroll its history |
+| History (`Tab` from the Terminals find bar) | `↑↓` `PgUp/PgDn` `Home/End` move · `/`, `f` or `Ctrl+F` search again · `Esc` / `q` back |
+| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers, `Esc` and `Tab` included · `Ctrl+T` / `Alt+T` new terminal · `Ctrl+W` / `Alt+W` close this terminal · `Alt+Z` zoom this pane · `Ctrl+F` / `Alt+F` find text, `Enter` searches back through the screen history, `Tab` searches the whole session · `Alt+S` select text · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Ctrl+Shift+←→↑↓` move this pane · `Alt+Shift+←→↑↓` resize them · `Alt+Shift+0` even them up · `Shift+PgUp/PgDn` scroll Claude’s history · `F1` keys · `Ctrl+]` or a click off the tiles releases the keyboard · `Ctrl+]`, `Enter` or a click on a tile resumes typing |
+| Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` new terminal · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` hide this tile · `Ctrl+Shift+←→↑↓` move it · `Esc` clear, stop, back |
+| Terminals (find bar) | type the query · `Enter` next hit · `Shift+Enter` previous · `↑↓` step · `Tab` search the whole session · `Ctrl+F` / `Esc` close |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
-| Profile | `↑↓←→` navigate · `Enter` select · `1..9` jump · `a` add · `e` edit · `d` / `Del` remove · `s` settings · `q` quit |
-| Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `a` add a folder · `d` forget one · `/` filter · `Esc` back · `q` quit |
-| Session | `↑↓` navigate · `Enter` launch · `p` change profile · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `h` chat view (only with terminal tiles off) · `Esc` back |
-| Chat | type · `Enter` send · `/` commands (`↑↓` pick, `Tab` complete) · `y`/`a`/`n` answer a permission request · `Ctrl+D` detach to a pane · `Esc` stop a turn, then back · `PgUp/PgDn` scroll · `End` follow |
+| Profile | `↑↓←→` / `Tab` navigate · `Home/End` first / last · `Enter` / `Space` select · `1..9` jump · `a` add · `e` edit · `x` / `Del` remove · `d` dashboard · `s` settings · `u` check for updates · `Esc` back · `q` quit |
+| Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `a` add a folder · `d` forget one · `/` filter · `Esc` / `Backspace` back · `q` quit |
+| Session | `↑↓` / `Tab` navigate · `Enter` / `Space` launch · `p` change profile · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `h` chat view (only with terminal tiles off) · `Esc` / `Backspace` back · `q` quit |
+| Chat | type · `Enter` send · `/` commands (`↑↓` pick, `Tab` complete) · `y`/`a`/`n` answer a permission request · `Ctrl+D` detach to a pane · `Esc` clear, then stop the turn, then Home · `↑↓` `PgUp/PgDn` scroll · `End` follow. Keystrokes are ignored while Claude is working |
 | Resume | `↑↓` navigate · `Enter` resume (a terminal tile, or a real terminal when tiles are off) · `t` force a terminal tile · `c` resume in the chat view · `/` filter · `l` logs · `d` delete · `Esc` back |
-| Session detail | `↑↓` scroll · `PgUp/PgDn` page · `Home/End` jump · `Esc` back |
+| Session detail | `↑↓` scroll · `PgUp/PgDn` page · `Home/End` jump · `Esc` / `Backspace` back · `q` quit |
 | Delete session | `←→` / `Tab` choose · `Enter` confirm · `y` delete · `n` / `Esc` cancel |
-| Add / Edit profile | `Tab` / `↑↓` next field · `Enter` save · `Esc` cancel |
+| Add / Edit profile | `Tab` / `↑↓` next field · `←→` cycle the icon, on the icon field · `Enter` save · `Esc` cancel |
 | Remove profile | `←→` / `Tab` choose · `Enter` confirm · `y` remove · `n` / `Esc` cancel |
-| Settings | `↑↓` navigate · `Enter` / `←→` change · `Esc` back |
+| Settings | `↑↓` / `Tab` navigate · `Enter` / `Space` / `←→` change · `u` check for updates now · `Esc`, `q` or `s` back — `q` does not quit here |
+| Update available | `Enter` update now · `n` release notes · `s` stop asking · `Esc` / `Backspace` later · `q` quit |
+| Dashboard (`d`) | `p` period · `r` read again · `↑↓` pick a project · `Enter` its sessions · `Esc` / `Backspace` back · `q` quit |
 
 The window can be resized at any time; the UI redraws itself.
 
@@ -286,6 +295,7 @@ be removed.
 | Check for updates | On: ask GitHub once every six hours whether a newer release exists, and say so on Home |
 | Show costs | On: show what Claude has cost on the dashboard. Off hides every figure and keeps the token counts |
 | Terminal splits | Not on the settings screen: where the wall's dividers sit, written as you drag them. Delete the line to go back to equal panes |
+| Terminal order | Not on the settings screen: the order the wall's tiles sit in, written when you move one. Delete the line to go back to the order sessions were opened in |
 | Terminal tiles | On (default): a session opened inside the launcher runs under a pseudo console and shows Claude's own interface, so `/usage`, the model picker and plan mode render exactly. Off: the launcher's own styled chat view, easier to watch several sessions at once, but rich screens arrive as plain text |
 
 ## Home: what is running
@@ -599,6 +609,17 @@ be read, and the far edge stays flush whatever the fractions come to. Positions 
 arrangements and keep their own splits, written as `0#2:0.68,0.32|1#2:0.39,0.61`. A layout saved
 before rows had their own splits still loads. Row heights are not saved, because they follow a window
 height that changes on its own.
+
+**Reordering panes: drag a tile, or `Ctrl+Shift+←→↑↓`.** Press on a tile and drag it onto another to
+move it there; the rest shift up or down to make room, so the pane numbers stay a sequence you can
+read. The tile you are carrying is marked `moving` and the one you would drop it on `drop here`, and
+letting go over the tile you started on cancels. `Ctrl+Shift` and an arrow does the same from the
+keyboard and works even while a terminal has the keyboard, which is the only way to rearrange the
+wall in a host with no mouse.
+
+The order is remembered in `ui.json` as `terminalOrder`, a list of session ids. Ids that are not on
+the wall are kept, so a session you close today comes back to the same slot when you resume it
+tomorrow; the most recent two dozen survive.
 
 **Finding text: `Ctrl+F`.** Opens a search bar under the wall and searches the focused terminal.
 Typing narrows as you go and jumps to the first hit, `Enter` walks to the next, `Shift+Enter` back,
@@ -950,6 +971,26 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 `PackageReference`.
 
 ## Changelog
+
+### Unreleased
+
+- **Reorder the wall's tiles**: drag one onto another, or `Ctrl+Shift+←→↑↓` to move the focused pane.
+  The arrangement is saved to `ui.json` as `terminalOrder` and comes back next launch.
+- **`F1` lists every key the current screen answers to**, grouped and scrollable, with `?` as an alias
+  where nothing is expecting text. Footers now show four or five hints and always keep the way in to
+  the full list — previously a hint that did not fit was dropped silently, so on narrow windows keys
+  like `Quit` and `Back` simply vanished. Around forty working shortcuts had never been advertised
+  anywhere; they are all listed now, including which pane has to have the keyboard for each to work.
+- Fixed: `d` on the profile screen removed a profile instead of opening the dashboard, which the
+  footer advertised and no key could reach. `d` is now the dashboard, matching Home, and **remove
+  moved to `x`** (`Del` still works).
+- Fixed: the terminal preview screen offered `type` and `Ctrl+]`, neither of which does anything on a
+  replayed capture.
+- Fixed: a released terminal tile showed the wall's footer, which promised `Enter` would attach when
+  it actually starts typing again. It has its own hints now.
+- Home gained `s` for settings, which was previously reachable only from the profile picker, and now
+  advertises `u` for the update check.
+- `y` / `n` are advertised on the stop, delete and remove confirmations, where they always worked.
 
 ### 1.5.0
 

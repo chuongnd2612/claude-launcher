@@ -178,6 +178,7 @@ public static class Program
             ("edit-profile", new AddProfileScreen(app, app.State.Profiles[0])),
             ("delete-profile", new DeleteProfileScreen(app, app.State.Profiles[0])),
             ("settings", new SettingsScreen(app)),
+            ("keys", new KeysScreen(app, "Terminals · the wall", KeyMap.Wall(splitting: false))),
             ("update", new UpdateScreen(app, new UpdateInfo
             {
                 Latest = "v9.9.9",

@@ -92,12 +92,7 @@ public sealed class SessionDetailScreen : ScreenBase
         var transcriptHeight = bottom - y;
         if (transcriptHeight >= 4) Transcript(buffer, margin, y, width, transcriptHeight);
 
-        Widgets.Footer(buffer, new[]
-        {
-            new KeyHint("↑↓", "Scroll"),
-            new KeyHint("PgUp/PgDn", "Page"),
-            new KeyHint("esc", "Back")
-        });
+        Widgets.Footer(buffer, KeyMap.DetailFooter(), KeyMap.Help);
     }
 
     private void Transcript(ScreenBuffer buffer, int x, int y, int width, int height)
@@ -170,6 +165,8 @@ public sealed class SessionDetailScreen : ScreenBase
             case ConsoleKey.End:
                 _scroll = int.MaxValue;
                 return ScreenAction.None;
+            case ConsoleKey.F1:
+                return ScreenAction.Push(new KeysScreen(App, "Session log", KeyMap.Detail()));
             case ConsoleKey.Escape:
             case ConsoleKey.Backspace:
                 return ScreenAction.Back;

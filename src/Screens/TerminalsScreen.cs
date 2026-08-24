@@ -62,6 +62,16 @@ public sealed class TerminalsScreen : ScreenBase
     /// <summary>The divider being dragged: its axis, index and row, or null.</summary>
     private (bool Vertical, int Index, int Row)? _dragging;
 
+    /// <summary>
+    /// A tile being taken hold of: where it started, where it would land, and
+    /// whether the pointer has actually moved with the button down.
+    ///
+    /// That last flag is not optional. A move with no button held arrives as
+    /// MouseUp - see ConsoleInput - so without it, sweeping the mouse across the
+    /// wall after any click would reorder it.
+    /// </summary>
+    private (int From, int To, bool Moved)? _carry;
+
     /// <summary>Divider positions from the last frame, for hit testing a drag.</summary>
     private readonly List<(bool Vertical, int Index, int Row, int At, int From, int To)> _dividers = new();
 
@@ -136,6 +146,19 @@ public sealed class TerminalsScreen : ScreenBase
         _snapshot = service.Build();
         _mode = Parse(app.Settings.TerminalLayout);
         _columnsByRow = PaneSplits.ParseRows(app.Settings.TerminalSplits);
+
+        // Seeded before the Panes call below, because Stable() appends whatever
+        // it has not seen - so seeding after it would put every restored
+        // terminal ahead of the slot it was saved in.
+        //
+        // A remembered project path can be adopted by a different new chat in
+        // the same project, through the provisional swap in Stable(). That is
+        // the point: the slot belongs to the project until a session claims it.
+        foreach (var key in (app.Settings.TerminalOrder ?? string.Empty)
+                 .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!_order.Contains(key, StringComparer.Ordinal)) _order.Add(key);
+        }
 
         // Open on a tile that can be acted on. A read-only terminal tile is a
         // poor landing spot now that chat tiles accept typing.
@@ -312,6 +335,56 @@ public sealed class TerminalsScreen : ScreenBase
             .ToList();
     }
 
+    /// <summary>
+    /// Moves one pane along the wall, shifting the rest rather than swapping:
+    /// the pane numbers are read as a sequence, so putting one third has to
+    /// renumber what it passes.
+    ///
+    /// The remembered order can hold keys for sessions that are not on the wall,
+    /// which is why this never does index arithmetic against it. The panes that
+    /// are showing get lifted out and re-inserted at the front in their new
+    /// order; the rest trail behind, keeping their slots for when they return.
+    /// </summary>
+    /// <returns>False when the pane is already at that end, so a key can say so.</returns>
+    private bool MovePane(List<SessionRow> panes, int from, int to)
+    {
+        if (from < 0 || from >= panes.Count) return false;
+        if (to < 0 || to >= panes.Count || to == from) return false;
+
+        var keys = panes.Select(DraftKey).ToList();
+        var moved = keys[from];
+        keys.RemoveAt(from);
+        keys.Insert(to, moved);
+
+        _order.RemoveAll(k => keys.Contains(k, StringComparer.Ordinal));
+        _order.InsertRange(0, keys);
+
+        var name = panes[from].ProjectName;
+        SaveOrder(keys);
+
+        // Focus() clears the notice, so it has to be set after, not before.
+        Focus(to);
+        _notice = $"moved {name} to pane {to + 1}";
+        return true;
+    }
+
+    /// <summary>Slots remembered, for the same reason Workspace caps its own list.</summary>
+    private const int MaxRemembered = 24;
+
+    /// <summary>
+    /// Writes the order down. What is on the wall goes first, then everything
+    /// remembered before it - merged rather than replaced, so one run with two
+    /// tiles open does not throw away the rest of an arrangement.
+    /// </summary>
+    private void SaveOrder(IReadOnlyList<string> keys)
+    {
+        var all = keys.ToList();
+        all.AddRange(_order.Where(k => !all.Contains(k, StringComparer.Ordinal)));
+
+        App.Settings.TerminalOrder = string.Join('|', all.Take(MaxRemembered));
+        StateStore.SaveSettings(App.Settings);
+    }
+
     public override void Render(ScreenBuffer buffer)
     {
         var y = Widgets.CompactChrome(buffer);
@@ -382,26 +455,36 @@ public sealed class TerminalsScreen : ScreenBase
         Footer(buffer, panes.Count);
     }
 
+    /// <summary>
+    /// The keys that are live right now, which is not the same set in every
+    /// context: a focused terminal takes almost all of them, and a released one
+    /// takes almost none. Only a few fit on the bar - F1 has the rest.
+    /// </summary>
     private void Footer(ScreenBuffer buffer, int count)
     {
-        var focus = count > 4 ? "1-9" : "1-4";
-
         var panes = Panes;
         var terminal = panes.Count > 0 && _focus < panes.Count ? LiveTerminal(panes[_focus]) : null;
+        var alive = terminal is not null && !terminal.HasExited;
+
+        if (alive && _finding)
+        {
+            Widgets.Footer(buffer, KeyMap.FindFooter(), KeyMap.Help);
+            return;
+        }
 
         // A terminal takes every key, so the only hint that can be honest is the
         // one that gets the keyboard back.
-        if (terminal is not null && !terminal.HasExited && !_released)
+        if (alive && !_released)
         {
-            Widgets.Footer(buffer, new[]
-            {
-                new KeyHint("type", "Claude's own UI"),
-                new KeyHint("^t", "New terminal"),
-                new KeyHint("alt+z", _zoom ? "Wall" : "Zoom"),
-                new KeyHint("alt+1-9", "Pane"),
-                new KeyHint("^]", "Release")
-            });
+            Widgets.Footer(buffer, KeyMap.TerminalFooter(_zoom), KeyMap.Help);
+            return;
+        }
 
+        // A released tile used to show the wall's own footer, which promised
+        // Enter would attach when it actually starts typing again.
+        if (alive)
+        {
+            Widgets.Footer(buffer, KeyMap.ReleasedFooter(), KeyMap.Help);
             return;
         }
 
@@ -411,56 +494,31 @@ public sealed class TerminalsScreen : ScreenBase
         // still work rather than ones a message would eat.
         if (live is not null)
         {
-            Widgets.Footer(buffer, live.Pending is not null
-                ? new[]
-                {
-                    new KeyHint("y", "Allow"),
-                    new KeyHint("a", "Always"),
-                    new KeyHint("n", "Deny"),
-                    new KeyHint("esc", "Back")
-                }
-                : new[]
-                {
-                    new KeyHint("type", "Message"),
-                    new KeyHint("↵", "Send"),
-                    new KeyHint("↑↓ tab", "Tile"),
-                    new KeyHint("^t", "Terminal"),
-                    new KeyHint("^z", "Zoom"),
-                    new KeyHint("^l", "Layout"),
-                    new KeyHint("esc", "Back")
-                });
-
+            Widgets.Footer(buffer, KeyMap.ChatFooter(live.Pending is not null), KeyMap.Help);
             return;
         }
 
-        // Widgets.Footer drops hints that would overflow the bar, and the ones
-        // it drops are the last - which would be Back. Shorten instead.
-        var hints = new List<KeyHint>
+        Widgets.Footer(buffer, KeyMap.WallFooter(count, Splitting, buffer.Width >= 104), KeyMap.Help);
+    }
+
+    /// <summary>The key list for whichever context currently owns the keyboard.</summary>
+    private ScreenAction Keys()
+    {
+        var panes = Panes;
+        var terminal = panes.Count > 0 && _focus < panes.Count ? LiveTerminal(panes[_focus]) : null;
+        var alive = terminal is not null && !terminal.HasExited;
+
+        var (context, groups) = alive switch
         {
-            new(focus, "Focus"),
-            new("↵", "Attach"),
-            new("z", "Zoom")
+            true when _finding => ("Terminals · find", KeyMap.Find()),
+            true when !_released => ("Terminals · typing", KeyMap.Terminal()),
+            true => ("Terminals · released", KeyMap.Released()),
+            _ => panes.Count > 0 && Live(panes[_focus]) is { } live
+                ? ("Terminals · chat tile", KeyMap.ChatTile(live.Pending is not null))
+                : ("Terminals · the wall", KeyMap.Wall(Splitting))
         };
 
-        if (Splitting)
-        {
-            if (buffer.Width >= 104)
-            {
-                hints.Add(new KeyHint("v", "Split right"));
-                hints.Add(new KeyHint("s", "Split down"));
-            }
-            else
-            {
-                hints.Add(new KeyHint("v/s", "Split"));
-            }
-        }
-
-        hints.Add(new KeyHint("space", "Layout"));
-        hints.Add(new KeyHint("t", "Terminal"));
-        hints.Add(new KeyHint("w", buffer.Width >= 104 ? "Remove tile" : "Remove"));
-        hints.Add(new KeyHint("esc", "Back"));
-
-        Widgets.Footer(buffer, hints.ToArray());
+        return ScreenAction.Push(new KeysScreen(App, context, groups));
     }
 
     /// <summary>
@@ -851,6 +909,25 @@ public sealed class TerminalsScreen : ScreenBase
     /// </summary>
     private readonly List<(int X, int Y, int W, int H, int Index)> _rects = new();
 
+    /// <summary>The pane drawn at a point, or -1 for none. Shared by click and drag.</summary>
+    private int Under(int x, int y)
+    {
+        foreach (var rect in _rects)
+        {
+            if (x >= rect.X && x < rect.X + rect.W && y >= rect.Y && y < rect.Y + rect.H)
+                return rect.Index;
+        }
+
+        return -1;
+    }
+
+    /// <summary>The pane being carried, once the drag is real.</summary>
+    private bool Held(int index) => _carry is { Moved: true } carry && carry.From == index;
+
+    /// <summary>The pane it would drop onto.</summary>
+    private bool Landing(int index) =>
+        _carry is { Moved: true } carry && carry.To == index && carry.To != carry.From;
+
     private void Tile(ScreenBuffer buffer, int x, int y, int width, int height,
         SessionRow row, int index, bool focused)
     {
@@ -887,8 +964,9 @@ public sealed class TerminalsScreen : ScreenBase
             };
         }
 
-        var border = row.State == SessionState.Waiting
-            ? Theme.Amber
+        var border = Held(index) ? Theme.Blue
+            : Landing(index) ? Theme.Amber
+            : row.State == SessionState.Waiting ? Theme.Amber
             : focused ? Theme.Blue : Theme.Border;
 
         var fill = focused ? Theme.PanelSelected : Theme.Panel;
@@ -898,9 +976,18 @@ public sealed class TerminalsScreen : ScreenBase
         var title = $" {index + 1} · {row.ProjectName} ";
         buffer.WriteClipped(x + 2, y, title, width - 4, new Sty(border, fill, bold: true));
 
-        var state = $" {Format.State(row.State, row.StateAge)} ";
+        // While a tile is being carried, the badge says so - it is the one slot
+        // in the border that is already there to be borrowed.
+        var state = Held(index) ? " moving "
+            : Landing(index) ? " drop here "
+            : $" {Format.State(row.State, row.StateAge)} ";
+
         if (title.Length + state.Length + 6 <= width)
-            buffer.WriteRight(x + width - 3, y, state, new Sty(Theme.Dim, fill));
+        {
+            buffer.WriteRight(x + width - 3, y, state,
+                new Sty(Held(index) ? Theme.Blue : Landing(index) ? Theme.Amber : Theme.Dim,
+                    fill, bold: Held(index) || Landing(index)));
+        }
 
         var titled = Named(buffer, x, y, width, row, title.Length, state.Length, fill);
         Whose(buffer, x, y, width, row, null, titled, state.Length, fill);
@@ -968,8 +1055,9 @@ public sealed class TerminalsScreen : ScreenBase
     {
         var typing = focused && !_released;
 
-        var border = terminal.HasExited
-            ? Theme.Dim
+        var border = Held(index) ? Theme.Blue
+            : Landing(index) ? Theme.Amber
+            : terminal.HasExited ? Theme.Dim
             : typing ? Theme.Blue : focused ? Theme.BorderAccent : Theme.Border;
 
         var fill = focused ? Theme.PanelSelected : Theme.Panel;
@@ -979,11 +1067,20 @@ public sealed class TerminalsScreen : ScreenBase
         buffer.WriteClipped(x + 2, y, title, width - 4, new Sty(border, fill, bold: true));
 
         var searching = focused && _finding;
-        var badge = terminal.HasExited ? " ended "
+        var carrying = Held(index) || Landing(index);
+        var badge = Held(index) ? " moving "
+            : Landing(index) ? " drop here "
+            : terminal.HasExited ? " ended "
             : searching ? " find " : typing ? " typing " : " terminal ";
+
         if (title.Length + badge.Length + 6 <= width)
+        {
             buffer.WriteRight(x + width - 3, y, badge,
-                new Sty(searching ? Theme.Amber : typing ? Theme.Blue : Theme.Dim, fill));
+                new Sty(Held(index) ? Theme.Blue
+                    : Landing(index) ? Theme.Amber
+                    : searching ? Theme.Amber : typing ? Theme.Blue : Theme.Dim,
+                    fill, bold: carrying));
+        }
 
         var named = Named(buffer, x, y, width, row, title.Length, badge.Length, fill);
         Whose(buffer, x, y, width, row, terminal, named, badge.Length, fill);
@@ -1131,7 +1228,9 @@ public sealed class TerminalsScreen : ScreenBase
                 return ScreenAction.None;
             }
 
+            if (key.Key == ConsoleKey.F1) return Keys();
             if (ResizeKey(key)) return ScreenAction.None;
+            if (ReorderKey(key, panes)) return ScreenAction.None;
 
             // Switching panes has to work mid-sentence, so a few Alt chords are
             // kept back from the child. Alt is the safe half of the keyboard:
@@ -1178,6 +1277,13 @@ public sealed class TerminalsScreen : ScreenBase
         // Resizing works from anywhere on the wall, including with a chat tile
         // focused: alt+shift is not a chord any tile wants for itself.
         if (ResizeKey(key)) return ScreenAction.None;
+
+        // Before the chat and wall blocks below, both of which match arrows
+        // without looking at modifiers - reached after them, this chord would
+        // quietly turn into plain focus movement.
+        if (ReorderKey(key, panes)) return ScreenAction.None;
+
+        if (key.Key == ConsoleKey.F1) return Keys();
 
         var live = panes.Count > 0 ? Live(panes[_focus]) : null;
 
@@ -1434,6 +1540,8 @@ public sealed class TerminalsScreen : ScreenBase
 
         switch (key.Key)
         {
+            case ConsoleKey.F1:
+                return Keys();
             case ConsoleKey.Escape:
                 CloseSearch(terminal);
                 return ScreenAction.None;
@@ -1755,6 +1863,33 @@ public sealed class TerminalsScreen : ScreenBase
         return false;
     }
 
+    /// <summary>
+    /// Ctrl+Shift and an arrow moves the focused pane along the wall. Alt+Shift
+    /// already resizes, so order takes Ctrl - and Alt has to be off, because
+    /// AltGr arrives as Ctrl+Alt and would otherwise reshuffle the wall from a
+    /// dead key.
+    /// </summary>
+    private bool ReorderKey(ConsoleKeyInfo key, List<SessionRow> panes)
+    {
+        if ((key.Modifiers & ConsoleModifiers.Control) == 0) return false;
+        if ((key.Modifiers & ConsoleModifiers.Shift) == 0) return false;
+        if ((key.Modifiers & ConsoleModifiers.Alt) != 0) return false;
+
+        var step = key.Key switch
+        {
+            ConsoleKey.LeftArrow or ConsoleKey.UpArrow => -1,
+            ConsoleKey.RightArrow or ConsoleKey.DownArrow => 1,
+            _ => 0
+        };
+
+        if (step == 0) return false;
+
+        if (!MovePane(panes, _focus, _focus + step))
+            _notice = step < 0 ? "that pane is already first" : "that pane is already last";
+
+        return true;
+    }
+
     private ScreenAction Leave() =>
         ScreenAction.Root(new HomeScreen(App, new SessionService(App.State)));
 
@@ -1805,7 +1940,13 @@ public sealed class TerminalsScreen : ScreenBase
 
     public override ScreenAction HandleInput(InputEvent input)
     {
-        if (input.Kind == InputKind.Key) return HandleKey(input.Key);
+        // A press whose release never arrived - the window lost focus mid-drag -
+        // must not leave a tile still held.
+        if (input.Kind == InputKind.Key)
+        {
+            _carry = null;
+            return HandleKey(input.Key);
+        }
 
         // A divider being dragged owns the mouse until it is let go, so the
         // pointer can cross a tile on the way without focusing it.
@@ -1823,7 +1964,44 @@ public sealed class TerminalsScreen : ScreenBase
             return ScreenAction.None;
         }
 
-        if (input.Kind is InputKind.MouseDrag or InputKind.MouseUp) return ScreenAction.None;
+        // Carrying a tile: follow the pointer, and drop it where it was let go.
+        if (input.Kind == InputKind.MouseDrag)
+        {
+            if (_carry is not { } carry) return ScreenAction.None;
+
+            if (_rects.Count < 2)
+            {
+                _notice = "one pane is showing · ctrl+shift+arrows moves it, space shows the wall";
+                return ScreenAction.None;
+            }
+
+            var over = Under(input.X, input.Y);
+            _carry = (carry.From, over, true);
+
+            _notice = over < 0 || over == carry.From
+                ? $"holding pane {carry.From + 1} · drop it on another to move it"
+                : $"moving pane {carry.From + 1} to slot {over + 1} · let go to drop";
+
+            return ScreenAction.None;
+        }
+
+        if (input.Kind == InputKind.MouseUp)
+        {
+            // Cleared first and always: a button-less move arrives here too, so
+            // anything conditional would leave a tile held across the wall.
+            var carried = _carry;
+            _carry = null;
+
+            if (carried is not { Moved: true } drop) return ScreenAction.None;
+            if (drop.To < 0 || drop.To == drop.From)
+            {
+                _notice = null;
+                return ScreenAction.None;
+            }
+
+            MovePane(Panes, drop.From, drop.To);
+            return ScreenAction.None;
+        }
 
         var panes = Panes;
         var hit = _rects.FirstOrDefault(r =>
@@ -1847,6 +2025,10 @@ public sealed class TerminalsScreen : ScreenBase
         if (input.Kind == InputKind.MouseDown)
         {
             Focus(hit.Index);
+
+            // Pending, not moving: with Moved false this is still just a click,
+            // and stays one unless the pointer moves with the button down.
+            _carry = (hit.Index, hit.Index, false);
             return ScreenAction.None;
         }
 

@@ -115,17 +115,14 @@ public sealed class NewTerminalScreen : ScreenBase
         if (notice is not null)
             buffer.WriteClipped(margin + 1, buffer.Height - 5, notice, width - 2, new Sty(Theme.Amber, Theme.Bg));
 
-        Widgets.Footer(buffer, _editor.Active
-            ? _editor.Hints
-            : new[]
-            {
-                new KeyHint("↑↓", "Navigate"),
-                new KeyHint("↵", "New / continue / resume"),
-                new KeyHint("a", "Add folder"),
-                new KeyHint("d", "Forget"),
-                new KeyHint("/", "Filter"),
-                new KeyHint("esc", "Back")
-            });
+        // While the editor is up it owns the keyboard, so no key list here.
+        if (_editor.Active)
+        {
+            Widgets.Footer(buffer, _editor.Hints);
+            return;
+        }
+
+        Widgets.Footer(buffer, KeyMap.NewTerminalFooter(), KeyMap.Help);
     }
 
     public override ScreenAction HandleKey(ConsoleKeyInfo key)
@@ -157,6 +154,8 @@ public sealed class NewTerminalScreen : ScreenBase
                 return ScreenAction.None;
             case ConsoleKey.Enter:
                 return items.Count == 0 ? ScreenAction.None : Open(items[_index]);
+            case ConsoleKey.F1:
+                return ScreenAction.Push(new KeysScreen(App, "New terminal", KeyMap.NewTerminal()));
             case ConsoleKey.Escape:
                 return ScreenAction.Back;
         }
@@ -182,6 +181,8 @@ public sealed class NewTerminalScreen : ScreenBase
     {
         switch (key.Key)
         {
+            case ConsoleKey.F1:
+                return ScreenAction.Push(new KeysScreen(App, "New terminal", KeyMap.NewTerminal()));
             case ConsoleKey.Escape:
                 _filter = string.Empty;
                 _filtering = false;

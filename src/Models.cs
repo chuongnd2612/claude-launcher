@@ -130,6 +130,15 @@ public sealed class UiSettings
     public string TerminalSplits { get; set; } = string.Empty;
 
     /// <summary>
+    /// The order tiles sit in, as session ids - or a project path, for a chat
+    /// that has no id yet - joined by '|', which neither can contain. Ids that
+    /// are not on the wall are kept anyway, so a session closed today keeps its
+    /// slot when it is resumed tomorrow. Empty means the order tiles were first
+    /// seen in, which is what it was before they could be moved.
+    /// </summary>
+    public string TerminalOrder { get; set; } = string.Empty;
+
+    /// <summary>
     /// Start new sessions with claude --remote-control, so they accept input
     /// from claude.ai and the phone app. Off by default: it opens a relay
     /// through Anthropic's servers, which is the user's call to make.
