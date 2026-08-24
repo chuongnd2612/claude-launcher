@@ -362,8 +362,15 @@ public sealed class TerminalsScreen : ScreenBase
         var name = panes[from].ProjectName;
         SaveOrder(keys);
 
-        // Focus() clears the notice, so it has to be set after, not before.
+        // Follow the pane, but do not start typing into it. Focus() hands the
+        // keyboard over, which is right when you are switching panes and wrong
+        // here: someone arranging the wall released it on purpose, and would
+        // have found their next wall key inside Claude instead.
+        var released = _released;
         Focus(to);
+        _released = released;
+
+        // Focus() clears the notice, so it has to be set after, not before.
         _notice = $"moved {name} to pane {to + 1}";
         return true;
     }
