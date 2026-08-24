@@ -19,21 +19,39 @@ public readonly struct KeyHint
     }
 }
 
-/// <summary>One account's slice of the usage band in the header.</summary>
+/// <summary>
+/// One account's slice of the usage band: how much of its plan is gone.
+///
+/// A percentage, not a count. A count answers "how much did I do", which is only
+/// a share of anything if you already know the ceiling - and the ceiling is the
+/// thing Claude records under cachedUsageUtilization and nowhere else.
+/// </summary>
 public readonly struct UsageChip
 {
     public readonly string Icon;
     public readonly string Label;
     public readonly Rgb Color;
-    public readonly int Sessions;
 
-    public UsageChip(string icon, string label, Rgb color, int sessions)
+    /// <summary>0-100, or -1 when this account has no cached answer.</summary>
+    public readonly int Percent;
+
+    /// <summary>The window the percentage belongs to: the weekly one, or the 5h session.</summary>
+    public readonly bool Weekly;
+
+    /// <summary>The cache is older than the window it describes.</summary>
+    public readonly bool Stale;
+
+    public UsageChip(string icon, string label, Rgb color, int percent, bool weekly, bool stale)
     {
         Icon = icon;
         Label = label;
         Color = color;
-        Sessions = sessions;
+        Percent = percent;
+        Weekly = weekly;
+        Stale = stale;
     }
+
+    public bool Known => Percent >= 0;
 }
 
 /// <summary>Reusable pieces of the launcher chrome.</summary>
@@ -149,93 +167,164 @@ public static class Widgets
         buffer.HLine(margin, y, width, '─', new Sty(Theme.BorderMuted, Theme.Bg));
 
         var chips = Usage;
-        if (chips is null || chips.Count == 0 || width < 24) return;
+        if (chips is null || chips.Count == 0 || width < 22) return;
 
         // Room for the band, less the rule stub either side of it.
         var room = width - 8;
 
-        var bars = Fits(chips, room, bars: true);
-        var plain = bars || Fits(chips, room, bars: false);
-
-        // Neither fitted: say the one thing that always does.
-        if (!plain)
+        // Most to least informative, first that fits wins. The percentage is the
+        // last thing to go, because it is the only part that answers the question.
+        var shape = Widest(chips, room);
+        if (shape == Shape.None)
         {
-            var total = 0;
-            foreach (var chip in chips) total += chip.Sessions;
-
-            var only = total == 1 ? "today · 1 session" : $"today · {total} sessions";
-            if (only.Length + 2 > room) return;
-
-            var at = margin + 3;
-            buffer.Write(at, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
-            buffer.Write(at + 1, y, only, new Sty(Theme.Dim, Theme.Bg));
-            buffer.Write(at + 1 + only.Length, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
+            Worst(buffer, margin, y, room, chips);
             return;
         }
 
-        var most = Busiest(chips);
         var x = margin + 3;
-
         buffer.Write(x++, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
-        x = buffer.Write(x, y, "today", new Sty(Theme.Muted, Theme.Bg));
+        x = buffer.Write(x, y, "usage", new Sty(Theme.Muted, Theme.Bg));
 
         foreach (var chip in chips)
         {
             x = buffer.Write(x, y, " · ", new Sty(Theme.Dim, Theme.Bg));
-            x = buffer.Write(x, y, chip.Icon + " ", new Sty(chip.Color, Theme.Bg, bold: true));
-            x = buffer.Write(x, y, chip.Label + " ", new Sty(Theme.TextSoft, Theme.Bg));
+            x = buffer.Write(x, y, chip.Icon, new Sty(chip.Color, Theme.Bg, bold: true));
 
-            if (bars)
+            if (shape != Shape.Tight)
+                x = buffer.Write(x, y, " " + chip.Label, new Sty(Theme.TextSoft, Theme.Bg));
+
+            x = buffer.Write(x, y, " ", new Sty(Theme.Dim, Theme.Bg));
+
+            if (!chip.Known)
             {
-                x = buffer.Write(x, y, Bar(chip.Sessions, most), new Sty(chip.Color, Theme.Bg));
-                x = buffer.Write(x, y, " ", new Sty(Theme.Dim, Theme.Bg));
+                x = buffer.Write(x, y, "—", new Sty(Theme.Dim, Theme.Bg));
+                continue;
             }
 
-            x = buffer.Write(x, y, chip.Sessions.ToString(),
-                new Sty(chip.Sessions > 0 ? Theme.Text : Theme.Dim, Theme.Bg, bold: chip.Sessions > 0));
+            if (shape == Shape.Full) x = Meter(buffer, x, y, chip);
+
+            // A stale reading keeps its colour and loses its weight. Muting it
+            // instead would take the warning off the one number most worth
+            // warning about; the tilde is what says "and this is an old answer".
+            x = buffer.Write(x, y, Reading(chip),
+                new Sty(Heat(chip.Percent), Theme.Bg, bold: !chip.Stale));
+
+            if (shape != Shape.Tight)
+                x = buffer.Write(x, y, " " + Window(chip), new Sty(Theme.Dim, Theme.Bg));
         }
 
         buffer.Write(x, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
     }
 
-    private static int Busiest(IReadOnlyList<UsageChip> chips)
+    private enum Shape
     {
-        var most = 0;
-        foreach (var chip in chips)
-        {
-            if (chip.Sessions > most) most = chip.Sessions;
-        }
+        None,
 
-        return most;
+        /// <summary>Icon and percentage only.</summary>
+        Tight,
+
+        /// <summary>Labels and the window marker, no meter.</summary>
+        Plain,
+
+        /// <summary>Everything, meter included.</summary>
+        Full
     }
 
-    /// <summary>Three cells against the busiest account, so the bars are comparable.</summary>
-    private static string Bar(int sessions, int most)
-    {
-        const int cells = 3;
-        if (most <= 0) return new string('░', cells);
-
-        var filled = (int)Math.Round((double)sessions / most * cells);
-        if (sessions > 0 && filled == 0) filled = 1;
-
-        return new string('█', filled) + new string('░', cells - filled);
-    }
+    private const int MeterCells = 8;
 
     /// <summary>
-    /// Whether the band fits the room it has. Asked once with bars and once
-    /// without, so a narrow window loses the bars before it loses the counts.
+    /// The gauge itself: filled cells coloured by how bad the number is, empty
+    /// ones left dim. The colour belongs to the reading, not to the account -
+    /// painting the whole bar in the account's colour was the thing that made an
+    /// earlier version unreadable, because a coloured blob says nothing about
+    /// magnitude.
     /// </summary>
-    private static bool Fits(IReadOnlyList<UsageChip> chips, int room, bool bars)
+    private static int Meter(ScreenBuffer buffer, int x, int y, UsageChip chip)
     {
-        var width = "today".Length;
+        var filled = (int)Math.Round(Math.Clamp(chip.Percent, 0, 100) / 100.0 * MeterCells);
+        if (chip.Percent > 0 && filled == 0) filled = 1;
+
+        var heat = Heat(chip.Percent);
+
+        for (var i = 0; i < MeterCells; i++)
+        {
+            var on = i < filled;
+            buffer.Set(x + i, y, on ? '█' : '░', new Sty(on ? heat : Theme.Dim, Theme.Bg));
+        }
+
+        // Written, not skipped: an unwritten cell leaves the rule showing
+        // through and the gauge reads as if it were joined to the number.
+        buffer.Set(x + MeterCells, y, ' ', new Sty(Theme.Dim, Theme.Bg));
+        return x + MeterCells + 1;
+    }
+
+    /// <summary>Green while there is room, amber when it is going, red near the end.</summary>
+    private static Rgb Heat(int percent) => percent >= 85 ? Theme.Red
+        : percent >= 60 ? Theme.Amber
+        : Theme.Green;
+
+    private static string Window(UsageChip chip) => chip.Weekly ? "7d" : "5h";
+
+    /// <summary>The most detailed shape that fits, or None when even the tight one does not.</summary>
+    private static Shape Widest(IReadOnlyList<UsageChip> chips, int room)
+    {
+        if (Fits(chips, room, Shape.Full)) return Shape.Full;
+        if (Fits(chips, room, Shape.Plain)) return Shape.Plain;
+        return Fits(chips, room, Shape.Tight) ? Shape.Tight : Shape.None;
+    }
+
+    private static bool Fits(IReadOnlyList<UsageChip> chips, int room, Shape shape)
+    {
+        var width = "usage".Length;
 
         foreach (var chip in chips)
         {
-            width += 3 + chip.Icon.Length + 1 + chip.Label.Length + 1
-                     + chip.Sessions.ToString().Length + (bars ? 4 : 0);
+            // " · " + icon + " "
+            width += 3 + chip.Icon.Length + 1;
+            width += chip.Known ? Reading(chip).Length : 1;
+
+            if (shape == Shape.Tight) continue;
+
+            width += 1 + chip.Label.Length;
+            if (chip.Known) width += 1 + Window(chip).Length;
+            if (shape == Shape.Full && chip.Known) width += MeterCells + 1;
         }
 
         return width + 2 <= room;
+    }
+
+    private static string Reading(UsageChip chip) =>
+        (chip.Stale ? "~" : string.Empty) + chip.Percent + "%";
+
+    /// <summary>
+    /// The fallback when nothing else fits: the account closest to its limit,
+    /// because that is the one number worth the space.
+    /// </summary>
+    private static void Worst(ScreenBuffer buffer, int margin, int y, int room,
+        IReadOnlyList<UsageChip> chips)
+    {
+        var worst = -1;
+        var stale = false;
+
+        foreach (var chip in chips)
+        {
+            if (!chip.Known || chip.Percent <= worst) continue;
+
+            worst = chip.Percent;
+            stale = chip.Stale;
+        }
+
+        if (worst < 0) return;
+
+        var reading = (stale ? "~" : string.Empty) + worst + "%";
+        if ("usage ".Length + reading.Length + 2 > room) return;
+
+        var at = margin + 3;
+        buffer.Write(at, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
+
+        var x = buffer.Write(at + 1, y, "usage ", new Sty(Theme.Muted, Theme.Bg));
+        x = buffer.Write(x, y, reading, new Sty(Heat(worst), Theme.Bg, bold: !stale));
+        buffer.Write(x, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
     }
 
     /// <summary>Author byline, centered under the subtitle.</summary>

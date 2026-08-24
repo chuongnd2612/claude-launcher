@@ -109,6 +109,7 @@ public sealed class UsageScreen : ScreenBase
         var money = App.Settings.ShowCosts;
         var bottom = buffer.Height - 5;
 
+        y = Plan(buffer, margin, y, width, profiles, bottom);
         y = Rows(buffer, margin, y, width, profiles, money, bottom);
 
         // Which figures the period applies to, said plainly rather than left to
@@ -116,8 +117,8 @@ public sealed class UsageScreen : ScreenBase
         if (y < bottom)
         {
             var note = money
-                ? "sessions and prompts are this period · cost and tokens are Claude's running totals"
-                : "sessions and prompts are this period · tokens are Claude's running total";
+                ? "plan percentages are Claude's own · sessions and prompts are this period · cost and tokens are running totals"
+                : "plan percentages are Claude's own · sessions and prompts are this period · tokens are a running total";
 
             buffer.WriteClipped(margin + 1, y + 1, note, width - 2,
                 new Sty(Theme.Dim, Theme.Bg, italic: true));
@@ -125,6 +126,94 @@ public sealed class UsageScreen : ScreenBase
 
         Footer(buffer);
     }
+
+    /// <summary>
+    /// How much of each plan is gone, which is the only thing here that is a
+    /// share of anything. Both windows are shown side by side rather than the
+    /// band's single headline, because which one is biting is the question the
+    /// band has no room to answer.
+    /// </summary>
+    private int Plan(ScreenBuffer buffer, int margin, int y, int width,
+        List<ProfileUsage> profiles, int bottom)
+    {
+        var any = profiles.Any(p => p.Limits.Known);
+        if (!any || y + 2 >= bottom)
+        {
+            if (!any && y < bottom)
+            {
+                buffer.WriteClipped(margin + 1, y, "Claude has not recorded a plan limit for these accounts yet.",
+                    width - 2, new Sty(Theme.Dim, Theme.Bg, italic: true));
+
+                return y + 2;
+            }
+
+            return y;
+        }
+
+        var right = margin + width - 2;
+
+        buffer.WriteClipped(margin + 2, y, "plan", width - 30, new Sty(Theme.Dim, Theme.Bg));
+        buffer.WriteRight(right, y, $"{"session",16} {"weekly",16}", new Sty(Theme.Dim, Theme.Bg));
+        y++;
+
+        foreach (var profile in profiles)
+        {
+            if (y >= bottom) break;
+
+            var limits = profile.Limits;
+
+            buffer.WriteClipped(margin + 3, y, profile.Icon + " " + profile.Label, width - 40,
+                new Sty(ProfileLook.Color(profile.Key), Theme.Bg));
+
+            if (!limits.Known)
+            {
+                buffer.WriteRight(right, y, "not recorded", new Sty(Theme.Dim, Theme.Bg, italic: true));
+                y++;
+                continue;
+            }
+
+            var session = Gauge(limits.SessionPercent, limits.SessionResetsUtc);
+            var weekly = Gauge(limits.WeeklyPercent, limits.WeeklyResetsUtc);
+
+            buffer.WriteRight(right - 17, y, session,
+                new Sty(Heat(limits.SessionPercent), Theme.Bg,
+                    bold: limits.Active == LimitWindow.Session));
+
+            buffer.WriteRight(right, y, weekly,
+                new Sty(Heat(limits.WeeklyPercent), Theme.Bg,
+                    bold: limits.Active == LimitWindow.Weekly));
+
+            y++;
+        }
+
+        if (y >= bottom) return y;
+
+        // When each account was last told, because a percentage nobody refreshed
+        // is a percentage about a window that may already have rolled over.
+        var ages = profiles
+            .Where(p => p.Limits.Known)
+            .Select(p => $"{p.Label} {Format.Ago(p.Limits.FetchedUtc)}");
+
+        buffer.WriteClipped(margin + 3, y, "as of · " + string.Join(" · ", ages), width - 6,
+            new Sty(Theme.Dim, Theme.Bg, italic: true));
+
+        return y + 2;
+    }
+
+    /// <summary>"35% · 2h left", or just the percentage when there is no reset time.</summary>
+    private static string Gauge(int percent, DateTime? resetsUtc)
+    {
+        if (resetsUtc is not { } at) return percent + "%";
+
+        var left = at - DateTime.UtcNow;
+        if (left <= TimeSpan.Zero) return percent + "% · due";
+
+        return percent + "% · " + Format.Duration(left) + " left";
+    }
+
+    private static Rgb Heat(int percent) => percent >= 85 ? Theme.Red
+        : percent >= 60 ? Theme.Amber
+        : Theme.Green;
 
     /// <summary>One row per account, widest column first so the numbers line up.</summary>
     private int Rows(ScreenBuffer buffer, int margin, int y, int width,

@@ -201,17 +201,23 @@ public static class Program
         }
     }
 
-    /// <summary>Fixed per-account session counts for the header band.</summary>
+    /// <summary>
+    /// Fixed per-account percentages for the header band. Deliberately spread
+    /// across the colour thresholds, and one of them stale, so a render check
+    /// covers every way a reading can be drawn.
+    /// </summary>
     private static List<UsageChip> DemoUsage(App app)
     {
-        var counts = new[] { 4, 1, 2 };
+        var readings = new[] { (35, false, false), (91, true, true), (0, false, false) };
         var chips = new List<UsageChip>();
 
         for (var i = 0; i < app.State.Profiles.Count; i++)
         {
             var profile = app.State.Profiles[i];
+            var (percent, weekly, stale) = readings[i % readings.Length];
+
             chips.Add(new UsageChip(profile.DisplayIcon, profile.DisplayLabel,
-                ProfileLook.Color(profile.Name), counts[i % counts.Length]));
+                ProfileLook.Color(profile.Name), percent, weekly, stale));
         }
 
         return chips;
@@ -324,6 +330,14 @@ public static class Program
 
         data.Profiles.Add(new ProfileUsage
         {
+            Limits = new AccountLimits
+            {
+                Known = true, SessionPercent = 35, WeeklyPercent = 22,
+                Active = LimitWindow.Session, Severity = "normal",
+                FetchedUtc = new DateTime(2026, 8, 24, 12, 44, 0, DateTimeKind.Utc),
+                SessionResetsUtc = new DateTime(2026, 8, 24, 17, 50, 0, DateTimeKind.Utc),
+                WeeklyResetsUtc = new DateTime(2026, 8, 29, 17, 0, 0, DateTimeKind.Utc)
+            },
             Key = "work", Label = "Work", Icon = "W", Account = "alex",
             CostUsd = 83.55, OutputTokens = 214_474, InputTokens = 492,
             CacheReadTokens = 124_479_233, Projects = 8, HasCost = true,
@@ -332,6 +346,13 @@ public static class Program
 
         data.Profiles.Add(new ProfileUsage
         {
+            Limits = new AccountLimits
+            {
+                Known = true, SessionPercent = 0, WeeklyPercent = 91,
+                Active = LimitWindow.Weekly, Severity = "warning",
+                FetchedUtc = new DateTime(2026, 8, 20, 9, 52, 0, DateTimeKind.Utc),
+                WeeklyResetsUtc = new DateTime(2026, 8, 29, 12, 59, 0, DateTimeKind.Utc)
+            },
             Key = "personal", Label = "Personal", Icon = "P", Account = "sam",
             CostUsd = 37.96, OutputTokens = 32_112, InputTokens = 1_125,
             CacheReadTokens = 57_157_848, Projects = 7, HasCost = true,
