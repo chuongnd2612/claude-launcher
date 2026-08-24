@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace ClaudeLauncher;
@@ -42,6 +43,109 @@ public static class StateStore
     /// does not, so adding one never means editing the wrapper's own list.
     /// </summary>
     public static string ProjectsFile => Path.Combine(DataDir, "projects.json");
+
+    /// <summary>
+    /// Rebound keys. Its own file rather than a corner of ui.json because it is
+    /// one a person may well open and edit by hand, and the readers here already
+    /// forgive comments and trailing commas.
+    /// </summary>
+    public static string KeysFile => Environment.GetEnvironmentVariable("CLAUDE_LAUNCHER_KEYS")
+        ?? Path.Combine(DataDir, "keys.json");
+
+    /// <summary>
+    /// keys.json is meant to be opened and edited, so it gets camelCase names to
+    /// match what the README documents and a relaxed encoder - the default one
+    /// writes "alt+d" as "alt+d", which is correct JSON and no way to ask
+    /// someone to type a shortcut.
+    /// </summary>
+    private static readonly JsonSerializerOptions KeysWriteOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
+    /// <summary>
+    /// Reads the rebound keys, as action name to chord. A file that will not
+    /// parse is kept as .bak and treated as empty, the way profiles.json is -
+    /// losing a keyboard layout silently would be worse than saying nothing.
+    /// </summary>
+    public static Dictionary<string, string> LoadKeys()
+    {
+        var bindings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!File.Exists(KeysFile)) return bindings;
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(KeysFile), new JsonDocumentOptions
+            {
+                AllowTrailingCommas = true,
+                CommentHandling = JsonCommentHandling.Skip
+            });
+
+            // Matched without regard to case, because TryGetProperty is exact and
+            // this file is written by us and edited by hand - "Bindings" from an
+            // older build has to keep working, and it did not before this.
+            var bound = default(JsonElement);
+            var found = false;
+
+            foreach (var property in document.RootElement.EnumerateObject())
+            {
+                if (!property.NameEquals("bindings") &&
+                    !string.Equals(property.Name, "bindings", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                bound = property.Value;
+                found = true;
+                break;
+            }
+
+            if (!found || bound.ValueKind != JsonValueKind.Object) return bindings;
+
+            foreach (var entry in bound.EnumerateObject())
+            {
+                if (entry.Value.ValueKind == JsonValueKind.String)
+                    bindings[entry.Name] = entry.Value.GetString() ?? string.Empty;
+            }
+        }
+        catch (JsonException)
+        {
+            try { File.Copy(KeysFile, KeysFile + ".bak", overwrite: true); }
+            catch (Exception) { /* the copy is a courtesy, not the point */ }
+
+            bindings.Clear();
+        }
+        catch (Exception)
+        {
+            bindings.Clear();
+        }
+
+        return bindings;
+    }
+
+    /// <summary>Writes only what differs from the defaults; best effort, like settings.</summary>
+    public static void SaveKeys(IReadOnlyDictionary<string, string> bindings)
+    {
+        try
+        {
+            Directory.CreateDirectory(DataDir);
+
+            if (bindings.Count == 0)
+            {
+                if (File.Exists(KeysFile)) File.Delete(KeysFile);
+                return;
+            }
+
+            var file = new KeysFileModel { Bindings = new Dictionary<string, string>(bindings) };
+            File.WriteAllText(KeysFile, JsonSerializer.Serialize(file, KeysWriteOptions));
+        }
+        catch (Exception)
+        {
+            // Key changes are a preference; never block a launch on them.
+        }
+    }
 
     public static LauncherState LoadState()
     {

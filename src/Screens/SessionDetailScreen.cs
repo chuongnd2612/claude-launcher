@@ -172,7 +172,7 @@ public sealed class SessionDetailScreen : ScreenBase
                 return ScreenAction.Back;
         }
 
-        if (char.ToLowerInvariant(key.KeyChar) == 'q') return ScreenAction.Exit;
+        if (KeyBindings.Is(KeyAction.Quit, key)) return ScreenAction.Exit;
         return ScreenAction.None;
     }
 }

@@ -229,16 +229,15 @@ public sealed class ResumeScreen : ScreenBase
                 return ScreenAction.Back;
         }
 
-        var ch = char.ToLowerInvariant(key.KeyChar);
-        if (ch == '/') { _filtering = true; return ScreenAction.None; }
-        if (ch == 'q') return ScreenAction.Exit;
+        if (KeyBindings.Is(KeyAction.Filter, key)) { _filtering = true; return ScreenAction.None; }
+        if (KeyBindings.Is(KeyAction.Quit, key)) return ScreenAction.Exit;
 
         if (items.Count == 0) return ScreenAction.None;
 
         // Pick the conversation back up in the launcher's own chat view, even
         // when tiles are on - the one way to get the styled transcript for a
         // session without changing the setting.
-        if (ch == 'c')
+        if (KeyBindings.Is(KeyAction.ResumeChat, key))
         {
             var session = new Sessions.StreamSession(App.Profile!, App.Project!.Path);
             session.Start(items[_index].SessionId);
@@ -246,15 +245,16 @@ public sealed class ResumeScreen : ScreenBase
             return ScreenAction.Push(new ChatScreen(App, session));
         }
 
-        if (ch == 'l') return ScreenAction.Push(new SessionDetailScreen(App, items[_index]));
+        if (KeyBindings.Is(KeyAction.ResumeLog, key))
+            return ScreenAction.Push(new SessionDetailScreen(App, items[_index]));
 
-        if (ch == 't')
+        if (KeyBindings.Is(KeyAction.ResumeTile, key))
         {
             var tile = OpenTile(items[_index].SessionId);
             if (tile is not null) return tile;
         }
 
-        if (ch == 'd')
+        if (KeyBindings.Is(KeyAction.DeleteSession, key))
         {
             var session = items[_index];
             return ScreenAction.Push(new DeleteSessionScreen(App, session, () => _all.Remove(session)));

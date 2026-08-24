@@ -293,26 +293,26 @@ public sealed class UsageScreen : ScreenBase
                 return ScreenAction.None;
         }
 
-        switch (char.ToLowerInvariant(key.KeyChar))
+        if (KeyBindings.Is(KeyAction.Period, key))
         {
-            case 'p':
-                _period = _period switch
-                {
-                    Period.Today => Period.Week,
-                    Period.Week => Period.All,
-                    _ => Period.Today
-                };
+            _period = _period switch
+            {
+                Period.Today => Period.Week,
+                Period.Week => Period.All,
+                _ => Period.Today
+            };
 
-                Rebuild();
-                return ScreenAction.None;
-
-            case 'r':
-                Rebuild();
-                return ScreenAction.None;
-
-            case 'q':
-                return ScreenAction.Exit;
+            Rebuild();
+            return ScreenAction.None;
         }
+
+        if (KeyBindings.Is(KeyAction.Refresh, key))
+        {
+            Rebuild();
+            return ScreenAction.None;
+        }
+
+        if (KeyBindings.Is(KeyAction.Quit, key)) return ScreenAction.Exit;
 
         return ScreenAction.None;
     }

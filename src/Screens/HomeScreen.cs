@@ -395,32 +395,26 @@ public sealed class HomeScreen : ScreenBase
                 return Usage();
         }
 
-        switch (char.ToLowerInvariant(key.KeyChar))
+        if (KeyBindings.Is(KeyAction.Settings, key)) return ScreenAction.Push(new SettingsScreen(App));
+        if (KeyBindings.Is(KeyAction.NewSession, key)) return ScreenAction.Push(new ProfileScreen(App));
+        if (KeyBindings.Is(KeyAction.SwitchProfile, key)) return ScreenAction.Push(new ProfileScreen(App));
+        if (KeyBindings.Is(KeyAction.ReopenLast, key)) return Restore();
+        if (KeyBindings.Is(KeyAction.Attach, key)) return Attach();
+        if (KeyBindings.Is(KeyAction.StopSession, key)) return Kill();
+        if (KeyBindings.Is(KeyAction.Updates, key)) return UpdateBanner.Pressed(App);
+        if (KeyBindings.Is(KeyAction.Quit, key)) return ScreenAction.Exit;
+
+        if (KeyBindings.Is(KeyAction.ShowWall, key))
         {
-            case '?':
-                return Keys();
-            case 's':
-                return ScreenAction.Push(new SettingsScreen(App));
-            case 'n':
-            case 'p':
-                return ScreenAction.Push(new ProfileScreen(App));
-            case 'r':
-                return Restore();
-            case 't':
-                if (_service is null || Rows.Count == 0) return ScreenAction.None;
-                return ScreenAction.Push(new TerminalsScreen(App, _service));
-            case 'a':
-                return Attach();
-            case 'k':
-                return Kill();
-            case 'd':
-                return _service is null
-                    ? ScreenAction.None
-                    : ScreenAction.Push(new DashboardScreen(App, _service));
-            case 'u':
-                return UpdateBanner.Pressed(App);
-            case 'q':
-                return ScreenAction.Exit;
+            if (_service is null || Rows.Count == 0) return ScreenAction.None;
+            return ScreenAction.Push(new TerminalsScreen(App, _service));
+        }
+
+        if (KeyBindings.Is(KeyAction.Dashboard, key))
+        {
+            return _service is null
+                ? ScreenAction.None
+                : ScreenAction.Push(new DashboardScreen(App, _service));
         }
 
         return ScreenAction.None;

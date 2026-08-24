@@ -163,22 +163,22 @@ public sealed class UpdateScreen : ScreenBase
                 return ScreenAction.Exit;
         }
 
-        switch (char.ToLowerInvariant(key.KeyChar))
+        if (KeyBindings.Is(KeyAction.ReleaseNotes, key))
         {
-            case 'n':
-                Open(_info.Url);
-                return ScreenAction.None;
-
-            case 's':
-                App.Settings.CheckForUpdates = false;
-                StateStore.SaveSettings(App.Settings);
-                UpdateCheck.Forget();
-                _notice = "update checks are off · turn them back on in settings";
-                return ScreenAction.None;
-
-            case 'q':
-                return ScreenAction.Exit;
+            Open(_info.Url);
+            return ScreenAction.None;
         }
+
+        if (KeyBindings.Is(KeyAction.StopAsking, key))
+        {
+            App.Settings.CheckForUpdates = false;
+            StateStore.SaveSettings(App.Settings);
+            UpdateCheck.Forget();
+            _notice = "update checks are off · turn them back on in settings";
+            return ScreenAction.None;
+        }
+
+        if (KeyBindings.Is(KeyAction.Quit, key)) return ScreenAction.Exit;
 
         return ScreenAction.None;
     }

@@ -173,16 +173,13 @@ public sealed class SessionScreen : ScreenBase
                 return ScreenAction.Back;
         }
 
-        switch (char.ToLowerInvariant(key.KeyChar))
-        {
-            case 'o': _openIn = LaunchTarget.Next(_openIn); return ScreenAction.None;
-            case 'p': CycleProfile(); return ScreenAction.None;
-            case 'n': return Choose("new");
-            case 'c': return Choose("continue");
-            case 'r': return Choose("resume");
-            case 'h': return Choose("chat");
-            case 'q': return ScreenAction.Exit;
-        }
+        if (KeyBindings.Is(KeyAction.OpenIn, key)) { _openIn = LaunchTarget.Next(_openIn); return ScreenAction.None; }
+        if (KeyBindings.Is(KeyAction.SwitchProfile, key)) { CycleProfile(); return ScreenAction.None; }
+        if (KeyBindings.Is(KeyAction.ModeNew, key)) return Choose("new");
+        if (KeyBindings.Is(KeyAction.ModeContinue, key)) return Choose("continue");
+        if (KeyBindings.Is(KeyAction.ModeResume, key)) return Choose("resume");
+        if (KeyBindings.Is(KeyAction.ModeChat, key)) return Choose("chat");
+        if (KeyBindings.Is(KeyAction.Quit, key)) return ScreenAction.Exit;
 
         return ScreenAction.None;
     }

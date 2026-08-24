@@ -1445,25 +1445,31 @@ public sealed class TerminalsScreen : ScreenBase
             return ScreenAction.None;
         }
 
-        switch (char.ToLowerInvariant(ch))
+        if (KeyBindings.Is(KeyAction.Zoom, key))
         {
-            case 'z':
-                if (panes.Count > 0) _zoom = !_zoom;
-                return ScreenAction.None;
-            case 'w':
-                if (panes.Count > 0) Remove(panes[_focus]);
-                return ScreenAction.None;
-            case 'v':
-                return Splitting ? Split(panes, vertical: true) : ScreenAction.None;
-            case 's':
-                return Splitting ? Split(panes, vertical: false) : ScreenAction.None;
-            case 'n':
-                return ScreenAction.Push(new ProfileScreen(App));
-            case 't':
-                return ScreenAction.Push(new NewTerminalScreen(App));
-            case 'q':
-                return ScreenAction.Exit;
+            if (panes.Count > 0) _zoom = !_zoom;
+            return ScreenAction.None;
         }
+
+        if (KeyBindings.Is(KeyAction.CloseTile, key))
+        {
+            if (panes.Count > 0) Remove(panes[_focus]);
+            return ScreenAction.None;
+        }
+
+        if (KeyBindings.Is(KeyAction.SplitRight, key))
+            return Splitting ? Split(panes, vertical: true) : ScreenAction.None;
+
+        if (KeyBindings.Is(KeyAction.SplitDown, key))
+            return Splitting ? Split(panes, vertical: false) : ScreenAction.None;
+
+        if (KeyBindings.Is(KeyAction.NewSession, key))
+            return ScreenAction.Push(new ProfileScreen(App));
+
+        if (KeyBindings.Is(KeyAction.NewTerminal, key))
+            return ScreenAction.Push(new NewTerminalScreen(App));
+
+        if (KeyBindings.Is(KeyAction.Quit, key)) return ScreenAction.Exit;
 
         return ScreenAction.None;
     }

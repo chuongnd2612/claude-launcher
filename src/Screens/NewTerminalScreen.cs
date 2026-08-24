@@ -160,18 +160,23 @@ public sealed class NewTerminalScreen : ScreenBase
                 return ScreenAction.Back;
         }
 
-        switch (char.ToLowerInvariant(key.KeyChar))
+        if (KeyBindings.Is(KeyAction.Filter, key))
         {
-            case '/':
-                _filtering = true;
-                return ScreenAction.None;
-            case 'a':
-                _editor.Begin();
-                _notice = null;
-                return ScreenAction.None;
-            case 'd':
-                if (items.Count > 0) _editor.Forget(items[_index]);
-                return ScreenAction.None;
+            _filtering = true;
+            return ScreenAction.None;
+        }
+
+        if (KeyBindings.Is(KeyAction.AddFolder, key))
+        {
+            _editor.Begin();
+            _notice = null;
+            return ScreenAction.None;
+        }
+
+        if (KeyBindings.Is(KeyAction.ForgetFolder, key))
+        {
+            if (items.Count > 0) _editor.Forget(items[_index]);
+            return ScreenAction.None;
         }
 
         return ScreenAction.None;

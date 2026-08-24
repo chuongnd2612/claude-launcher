@@ -31,7 +31,17 @@ public static class KeyMap
     /// The way in to the full list. F1 rather than '?', which is a character a
     /// chat draft or a filter box is entitled to keep.
     /// </summary>
-    public static readonly KeyHint Help = new("f1", "Keys");
+    public static KeyHint Help => Bound(KeyAction.Keys, "Keys");
+
+    /// <summary>
+    /// A hint that reads its key from the bindings rather than a literal, so a
+    /// rebound command says the right thing in the footer and the key list
+    /// without either being told about it. This is the whole reason KeyMap
+    /// exists: the drift it was written to prevent would come straight back if
+    /// the strings stayed hard-coded once keys became changeable.
+    /// </summary>
+    public static KeyHint Bound(KeyAction action, string label) =>
+        new(KeyBindings.Describe(action), label);
 
     /// <summary>
     /// Usage detail. An Alt chord rather than a letter because it has to work on
@@ -39,7 +49,7 @@ public static class KeyMap
     /// half of the keyboard Claude's own UI leaves alone. Plain 'u' is already
     /// the update check.
     /// </summary>
-    public static readonly KeyHint UsageKey = new("alt+u", "Usage");
+    public static KeyHint UsageKey => Bound(KeyAction.Usage, "Usage");
 
     private static KeyGroup[] With(params KeyGroup[] groups) => groups;
 
@@ -47,16 +57,16 @@ public static class KeyMap
 
     public static KeyHint[] UsageFooter() => new[]
     {
-        new KeyHint("p", "Period"),
-        new KeyHint("r", "Refresh"),
+        Bound(KeyAction.Period, "Period"),
+        Bound(KeyAction.Refresh, "Refresh"),
         new KeyHint("↑↓", "Account"),
         new KeyHint("esc", "Back")
     };
 
     public static KeyGroup[] Usage() => With(
         new KeyGroup("Reading it",
-            new KeyHint("p", "Today, this week, all time"),
-            new KeyHint("r", "Read it again"),
+            Bound(KeyAction.Period, "Today, this week, all time"),
+            Bound(KeyAction.Refresh, "Read it again"),
             new KeyHint("↑↓", "Between accounts")),
         new KeyGroup("What the numbers mean",
             new KeyHint("", "Sessions and prompts follow the period."),
@@ -64,14 +74,14 @@ public static class KeyMap
             new KeyHint("", "totals - they carry no dates.")),
         new KeyGroup("Leaving",
             new KeyHint("esc bksp", "Back"),
-            new KeyHint("q", "Quit"),
+            Bound(KeyAction.Quit, "Quit"),
             Help));
 
     // ---- Home ----------------------------------------------------------------
 
     public static KeyHint[] HomeFooter(bool restorable) => restorable
-        ? new[] { new KeyHint("↑↓", "Navigate"), new KeyHint("↵", "Open"), new KeyHint("r", "Reopen"), new KeyHint("n", "New") }
-        : new[] { new KeyHint("↑↓", "Navigate"), new KeyHint("↵", "Open"), new KeyHint("n", "New") };
+        ? new[] { new KeyHint("↑↓", "Navigate"), new KeyHint("↵", "Open"), Bound(KeyAction.ReopenLast, "Reopen"), Bound(KeyAction.NewSession, "New") }
+        : new[] { new KeyHint("↑↓", "Navigate"), new KeyHint("↵", "Open"), Bound(KeyAction.NewSession, "New") };
 
     public static KeyGroup[] Home(bool restorable) => With(
         new KeyGroup("Move around",
@@ -88,11 +98,12 @@ public static class KeyMap
                 : new KeyHint("r", "Reopen last terminals (none saved)"),
             new KeyHint("k", "Stop a session")),
         new KeyGroup("Elsewhere",
-            new KeyHint("d", "Dashboard"),
+            Bound(KeyAction.Dashboard, "Dashboard"),
             UsageKey,
-            new KeyHint("s", "Settings"),
-            new KeyHint("u", "Check for updates"),
-            new KeyHint("q / esc", "Quit the launcher")));
+            Bound(KeyAction.Settings, "Settings"),
+            Bound(KeyAction.Updates, "Check for updates"),
+            Bound(KeyAction.Quit, "Quit the launcher"),
+            new KeyHint("esc", "Quit as well, from Home")));
 
     // ---- Terminal wall -------------------------------------------------------
 
@@ -104,7 +115,7 @@ public static class KeyMap
     {
         new KeyHint(panes > 4 ? "1-9" : "1-4", "Focus"),
         new KeyHint("↵", "Attach"),
-        new KeyHint("z", "Zoom"),
+        Bound(KeyAction.Zoom, "Zoom"),
         new KeyHint("space", "Layout")
     };
 
@@ -278,8 +289,8 @@ public static class KeyMap
     {
         new KeyHint("↑↓←→", "Navigate"),
         new KeyHint("↵", "Select"),
-        new KeyHint("a", "Add"),
-        new KeyHint("e", "Edit")
+        Bound(KeyAction.AddProfile, "Add"),
+        Bound(KeyAction.EditProfile, "Edit")
     };
 
     public static KeyGroup[] Profile() => With(
@@ -305,8 +316,8 @@ public static class KeyMap
     {
         new KeyHint("↑↓", "Navigate"),
         new KeyHint("↵", "Select"),
-        new KeyHint("a", "Add"),
-        new KeyHint("/", "Filter")
+        Bound(KeyAction.AddFolder, "Add"),
+        Bound(KeyAction.Filter, "Filter")
     };
 
     public static KeyGroup[] Project() => With(
@@ -349,8 +360,8 @@ public static class KeyMap
 
     public static KeyHint[] DashboardFooter() => new[]
     {
-        new KeyHint("p", "Period"),
-        new KeyHint("r", "Refresh"),
+        Bound(KeyAction.Period, "Period"),
+        Bound(KeyAction.Refresh, "Refresh"),
         new KeyHint("↑↓", "Project"),
         new KeyHint("↵", "Sessions")
     };
@@ -371,7 +382,8 @@ public static class KeyMap
     {
         new KeyHint("↑↓", "Navigate"),
         new KeyHint("↵/←→", "Change"),
-        new KeyHint("u", "Check now")
+        Bound(KeyAction.EditKeys, "Keys"),
+        Bound(KeyAction.Updates, "Check now")
     };
 
     public static KeyGroup[] Settings() => With(
@@ -388,8 +400,8 @@ public static class KeyMap
     {
         new KeyHint("↑↓", "Navigate"),
         new KeyHint("↵", "Resume"),
-        new KeyHint("c", "Chat view"),
-        new KeyHint("/", "Filter")
+        Bound(KeyAction.ResumeChat, "Chat view"),
+        Bound(KeyAction.Filter, "Filter")
     };
 
     public static KeyGroup[] Resume() => With(
@@ -448,8 +460,8 @@ public static class KeyMap
     {
         new KeyHint("↑↓", "Navigate"),
         new KeyHint("↵", "Start"),
-        new KeyHint("a", "Add folder"),
-        new KeyHint("/", "Filter")
+        Bound(KeyAction.AddFolder, "Add folder"),
+        Bound(KeyAction.Filter, "Filter")
     };
 
     public static KeyGroup[] NewTerminal() => With(

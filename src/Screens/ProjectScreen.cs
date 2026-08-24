@@ -251,17 +251,16 @@ public sealed class ProjectScreen : ScreenBase
                 return ScreenAction.Back;
         }
 
-        var ch = char.ToLowerInvariant(key.KeyChar);
-        if (ch == '/') { _filtering = true; return ScreenAction.None; }
-        if (ch == 'q') return ScreenAction.Exit;
+        if (KeyBindings.Is(KeyAction.Filter, key)) { _filtering = true; return ScreenAction.None; }
+        if (KeyBindings.Is(KeyAction.Quit, key)) return ScreenAction.Exit;
 
-        if (ch == 'a')
+        if (KeyBindings.Is(KeyAction.AddFolder, key))
         {
             _editor.Begin();
             return ScreenAction.None;
         }
 
-        if (ch == 'd')
+        if (KeyBindings.Is(KeyAction.ForgetFolder, key))
         {
             var listed = Visible;
             if (listed.Count > 0 && !IsCurrentDirectory(listed[_index])) _editor.Forget(listed[_index]);
