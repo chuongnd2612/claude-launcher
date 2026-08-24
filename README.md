@@ -1051,14 +1051,13 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 
 ## Changelog
 
-### Unreleased
+### 1.37.0
 
 - **Keys can be rebound.** `Alt+K` opens an editor: pick a command, press a key, done.
   Saved to `keys.json`, which you can also edit by hand. Clashes within a screen are
   detected and reported — the first thing the check found was a clash in the new defaults
   themselves. What a key *says* in the footers and the `F1` list now comes from the
   binding, so a rebound command cannot be advertised wrongly.
-
 - **The usage band now shows a real percentage.** It reads the utilisation Claude caches
   per account under `cachedUsageUtilization`, so the number is a share of the actual plan
   limit rather than a share of whatever the other account happened to do. The gauge is
