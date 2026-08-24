@@ -94,6 +94,12 @@ public static class LaunchTarget
 }
 
 /// <summary>Persisted UI preferences (~/.claude-launcher/ui.json).</summary>
+/// <summary>keys.json: action name to chord, only where it differs from default.</summary>
+public sealed class KeysFileModel
+{
+    public Dictionary<string, string> Bindings { get; set; } = new();
+}
+
 public sealed class UiSettings
 {
     public bool PaintBackground { get; set; } = true;

@@ -157,8 +157,10 @@ public sealed class KeysScreen : ScreenBase
                 return ScreenAction.None;
         }
 
-        var ch = char.ToLowerInvariant(key.KeyChar);
-        if (ch is 'q' or '?') return ScreenAction.Back;
+        if (KeyBindings.Is(KeyAction.EditKeys, key))
+            return ScreenAction.Push(new KeysEditScreen(App));
+
+        if (KeyBindings.Is(KeyAction.Quit, key)) return ScreenAction.Back;
 
         return ScreenAction.None;
     }

@@ -189,21 +189,21 @@ public sealed class ProfileScreen : ScreenBase
                 return ScreenAction.Back;
         }
 
-        var ch = char.ToLowerInvariant(key.KeyChar);
-        if (ch == 'q') return ScreenAction.Exit;
-        if (ch == 'a') return ScreenAction.Push(new AddProfileScreen(App));
-        if (ch == 'e') return Edit();
+        if (KeyBindings.Is(KeyAction.Quit, key)) return ScreenAction.Exit;
+        if (KeyBindings.Is(KeyAction.AddProfile, key)) return ScreenAction.Push(new AddProfileScreen(App));
+        if (KeyBindings.Is(KeyAction.EditProfile, key)) return Edit();
 
-        // Remove used to be 'd' as well, and being first it took every press -
-        // so the dashboard this screen advertised could never be opened from it.
-        // Removing keeps Delete, and 'd' now means the same thing it does on Home.
-        if (ch == 'x') return Remove();
-        if (ch == 's') return ScreenAction.Push(new SettingsScreen(App));
-        if (ch == 'u') return UpdateBanner.Pressed(App);
-        if (ch == '?') return Keys();
-        if (ch == 'd' && App.State.Profiles.Count > 0)
+        // Remove used to share 'd' with the dashboard, and being first it took
+        // every press - so the dashboard this screen advertised could never be
+        // opened from it. Nothing checked for that; KeyBindings.Clashes does now.
+        if (KeyBindings.Is(KeyAction.RemoveProfile, key)) return Remove();
+        if (KeyBindings.Is(KeyAction.Settings, key)) return ScreenAction.Push(new SettingsScreen(App));
+        if (KeyBindings.Is(KeyAction.Updates, key)) return UpdateBanner.Pressed(App);
+
+        if (KeyBindings.Is(KeyAction.Dashboard, key) && App.State.Profiles.Count > 0)
             return ScreenAction.Push(new DashboardScreen(App, new Sessions.SessionService(App.State)));
 
+        var ch = char.ToLowerInvariant(key.KeyChar);
         if (ch >= '1' && ch <= '9')
         {
             var target = ch - '1';

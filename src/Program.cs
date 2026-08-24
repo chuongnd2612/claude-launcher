@@ -31,6 +31,7 @@ public static class Program
         }
 
         Widgets.Version = Version;
+        KeyBindings.Load(StateStore.LoadKeys());
 
         try
         {
@@ -185,6 +186,7 @@ public static class Program
             ("delete-profile", new DeleteProfileScreen(app, app.State.Profiles[0])),
             ("settings", new SettingsScreen(app)),
             ("keys", new KeysScreen(app, "Terminals · the wall", KeyMap.Wall(splitting: false))),
+            ("keys-edit", new KeysEditScreen(app)),
             ("update", new UpdateScreen(app, new UpdateInfo
             {
                 Latest = "v9.9.9",

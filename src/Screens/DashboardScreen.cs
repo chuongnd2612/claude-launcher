@@ -173,31 +173,31 @@ public sealed class DashboardScreen : ScreenBase
                 return Open();
         }
 
-        switch (char.ToLowerInvariant(key.KeyChar))
+        if (KeyBindings.Is(KeyAction.Period, key))
         {
-            case 'p':
-                _period = _period switch
-                {
-                    Period.Today => Period.Week,
-                    Period.Week => Period.All,
-                    _ => Period.Today
-                };
+            _period = _period switch
+            {
+                Period.Today => Period.Week,
+                Period.Week => Period.All,
+                _ => Period.Today
+            };
 
-                App.Settings.DashboardPeriod = _period.ToString().ToLowerInvariant();
-                StateStore.SaveSettings(App.Settings);
+            App.Settings.DashboardPeriod = _period.ToString().ToLowerInvariant();
+            StateStore.SaveSettings(App.Settings);
 
-                _data = null;
-                Rebuild();
-                return ScreenAction.None;
-
-            case 'r':
-                _data = null;
-                Rebuild();
-                return ScreenAction.None;
-
-            case 'q':
-                return ScreenAction.Exit;
+            _data = null;
+            Rebuild();
+            return ScreenAction.None;
         }
+
+        if (KeyBindings.Is(KeyAction.Refresh, key))
+        {
+            _data = null;
+            Rebuild();
+            return ScreenAction.None;
+        }
+
+        if (KeyBindings.Is(KeyAction.Quit, key)) return ScreenAction.Exit;
 
         return ScreenAction.None;
     }

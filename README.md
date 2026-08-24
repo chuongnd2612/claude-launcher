@@ -193,6 +193,46 @@ Profile -> Project -> Session -> Launch
 The profile shortcuts preselect the profile. If a project is supplied, the launcher can launch
 directly without showing the selection screens.
 
+## Changing the keys
+
+**`Alt+K` opens the key editor**, from the key list or from Settings. Pick a command, press
+the key you want, and it is saved. `Del` unbinds a command, `r` puts it back to its
+default, and a `•` marks anything you have changed.
+
+Only what differs from the defaults is written, to
+`$HOME\.claude-launcher\keys.json`:
+
+```json
+{
+  "bindings": {
+    "Dashboard": "alt+d",
+    "Zoom": "none"
+  }
+}
+```
+
+Edit it by hand if you prefer — comments and trailing commas are allowed, `"none"`
+unbinds a command, and an unreadable file is kept as `keys.json.bak` and ignored rather
+than losing your layout silently. `CLAUDE_LAUNCHER_KEYS` points somewhere else for a run.
+
+Chords are written `ctrl+`, `alt+` and `shift+` in any order before a key name: a letter
+or digit, `f1`-`f12`, `enter`, `escape`, `space`, `tab`, `backspace`, `delete`, `insert`,
+`home`, `end`, `pageup`, `pagedown`, `left`, `right`, `up`, `down`, or a punctuation key.
+Shift is part of the chord for punctuation, where it changes what the key means, and
+ignored on letters and digits.
+
+**Commands are shared between screens**, so rebinding *Quit* changes it everywhere it
+exists. Two commands on the same key *within one screen* is a clash, and the editor says
+so at the bottom — nothing checked that before, which is how removing a profile came to
+shadow the dashboard on the screen that advertised both.
+
+**What cannot be rebound, and why.** `Enter`, `Esc`, `Tab`, the arrows, `Backspace` and
+anything that types a character are how a screen works rather than what it does. Neither
+can the chords a focused terminal tile reserves (`Ctrl+]`, `Alt+Z`, `Alt+1..9`,
+`Alt+Shift+arrows`, `Ctrl+Shift+arrows`): every key not on that short list is forwarded
+straight to Claude, so a rebinding there would have to be *withheld* from it — and a
+chord Claude itself wants would quietly stop working inside the pane.
+
 ## Keys
 
 **`F1` on any screen lists every key that screen answers to**, grouped and scrollable. The footer
@@ -1012,6 +1052,12 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 ## Changelog
 
 ### Unreleased
+
+- **Keys can be rebound.** `Alt+K` opens an editor: pick a command, press a key, done.
+  Saved to `keys.json`, which you can also edit by hand. Clashes within a screen are
+  detected and reported — the first thing the check found was a clash in the new defaults
+  themselves. What a key *says* in the footers and the `F1` list now comes from the
+  binding, so a rebound command cannot be advertised wrongly.
 
 - **The usage band now shows a real percentage.** It reads the utilisation Claude caches
   per account under `cachedUsageUtilization`, so the number is a share of the actual plan

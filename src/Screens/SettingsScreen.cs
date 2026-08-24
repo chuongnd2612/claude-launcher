@@ -126,9 +126,14 @@ public sealed class SettingsScreen : ScreenBase
                 return ScreenAction.Back;
         }
 
-        var ch = char.ToLowerInvariant(key.KeyChar);
-        if (ch == 'u') return UpdateBanner.Pressed(App);
-        if (ch == 's' || ch == 'q') return ScreenAction.Back;
+        if (KeyBindings.Is(KeyAction.Updates, key)) return UpdateBanner.Pressed(App);
+        if (KeyBindings.Is(KeyAction.EditKeys, key))
+            return ScreenAction.Push(new KeysEditScreen(App));
+
+        // Back rather than Exit, and both keys mean it: this screen is a detour,
+        // so the key that quits elsewhere returns from here instead.
+        if (KeyBindings.Is(KeyAction.Settings, key) || KeyBindings.Is(KeyAction.Quit, key))
+            return ScreenAction.Back;
 
         return ScreenAction.None;
     }
