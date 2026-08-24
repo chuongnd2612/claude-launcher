@@ -1006,7 +1006,7 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 
 ## Changelog
 
-### Unreleased
+### 1.36.0
 
 - **A usage band in the header on every screen**: today's session count per account, with
   a bar scaled against the busiest one. Written into the rule under the header so it
