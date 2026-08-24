@@ -972,7 +972,7 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 
 ## Changelog
 
-### Unreleased
+### 1.35.0
 
 - **Reorder the wall's tiles**: drag one onto another, or `Ctrl+Shift+←→↑↓` to move the focused pane.
   The arrangement is saved to `ui.json` as `terminalOrder` and comes back next launch.
