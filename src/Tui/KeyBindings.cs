@@ -176,7 +176,58 @@ public static class KeyBindings
     public static void Set(KeyAction action, Chord chord) => Bound[action] = chord;
 
     /// <summary>
-    /// Two commands on the same key in the same screen. Nothing checked this
+    /// What each screen actually answers to, listed rather than derived.
+    ///
+    /// A binding's Scope says where it belongs for the editor's grouping, which
+    /// is not the same as where it is live: Filter is a projects command that the
+    /// resume and new-terminal lists also use, and Period and Refresh are shared
+    /// by the dashboard and the usage screen. Deriving the clash check from Scope
+    /// alone quietly missed those, so the screens say for themselves.
+    /// </summary>
+    private static readonly (KeyScope Scope, KeyAction[] Actions)[] Screens =
+    {
+        (KeyScope.Home, new[]
+        {
+            KeyAction.Settings, KeyAction.Updates, KeyAction.Dashboard, KeyAction.NewSession,
+            KeyAction.SwitchProfile, KeyAction.Attach, KeyAction.ReopenLast, KeyAction.ShowWall,
+            KeyAction.StopSession
+        }),
+        (KeyScope.Wall, new[]
+        {
+            KeyAction.Zoom, KeyAction.CloseTile, KeyAction.SplitRight, KeyAction.SplitDown,
+            KeyAction.NewSession, KeyAction.NewTerminal
+        }),
+        (KeyScope.Profiles, new[]
+        {
+            KeyAction.AddProfile, KeyAction.EditProfile, KeyAction.RemoveProfile,
+            KeyAction.Settings, KeyAction.Updates, KeyAction.Dashboard
+        }),
+        (KeyScope.Projects, new[] { KeyAction.Filter, KeyAction.AddFolder, KeyAction.ForgetFolder }),
+        (KeyScope.Session, new[]
+        {
+            KeyAction.OpenIn, KeyAction.SwitchProfile, KeyAction.ModeNew,
+            KeyAction.ModeContinue, KeyAction.ModeResume, KeyAction.ModeChat
+        }),
+        (KeyScope.Dashboard, new[] { KeyAction.Period, KeyAction.Refresh }),
+        (KeyScope.Usage, new[] { KeyAction.Period, KeyAction.Refresh }),
+        (KeyScope.Resume, new[]
+        {
+            KeyAction.Filter, KeyAction.ResumeChat, KeyAction.ResumeLog,
+            KeyAction.ResumeTile, KeyAction.DeleteSession
+        }),
+        (KeyScope.Settings, new[] { KeyAction.Updates, KeyAction.Settings }),
+        (KeyScope.Update, new[] { KeyAction.ReleaseNotes, KeyAction.StopAsking }),
+        (KeyScope.History, new[] { KeyAction.Search })
+    };
+
+    /// <summary>Live on every screen, so they clash with all of the above.</summary>
+    private static readonly KeyAction[] Global =
+    {
+        KeyAction.Keys, KeyAction.Usage, KeyAction.Quit, KeyAction.EditKeys
+    };
+
+    /// <summary>
+    /// Two commands on the same key on the same screen. Nothing checked this
     /// before, which is how removing a profile came to shadow the dashboard on
     /// the screen that advertised both.
     /// </summary>
@@ -184,30 +235,35 @@ public static class KeyBindings
     {
         var found = new List<string>();
 
-        foreach (var scope in Enum.GetValues<KeyScope>())
-        {
-            var seen = new Dictionary<Chord, KeyAction>();
-
-            foreach (var binding in All)
-            {
-                if (binding.Scope != scope && binding.Scope != KeyScope.Everywhere) continue;
-                if (scope == KeyScope.Everywhere && binding.Scope != KeyScope.Everywhere) continue;
-
-                var chord = Of(binding.Action);
-                if (chord.None) continue;
-
-                if (seen.TryGetValue(chord, out var other) && other != binding.Action)
-                {
-                    found.Add($"{scope}: {chord.Describe()} is both {Name(other)} and {Name(binding.Action)}");
-                    continue;
-                }
-
-                seen[chord] = binding.Action;
-            }
-        }
+        foreach (var (scope, actions) in Screens) Check(scope, actions, found);
+        Check(KeyScope.Everywhere, Array.Empty<KeyAction>(), found);
 
         return found;
     }
+
+    private static void Check(KeyScope scope, KeyAction[] actions, List<string> found)
+    {
+        var seen = new Dictionary<Chord, KeyAction>();
+
+        foreach (var action in Global.Concat(actions))
+        {
+            var chord = Of(action);
+            if (chord.None) continue;
+
+            if (seen.TryGetValue(chord, out var other) && other != action)
+            {
+                var note = $"{Where(scope)}: {chord.Compact()} is both {Name(other)} and {Name(action)}";
+                if (!found.Contains(note)) found.Add(note);
+
+                continue;
+            }
+
+            seen[chord] = action;
+        }
+    }
+
+    private static string Where(KeyScope scope) =>
+        scope == KeyScope.Everywhere ? "everywhere" : scope.ToString().ToLowerInvariant();
 
     public static string Name(KeyAction action)
     {
