@@ -153,6 +153,10 @@ public sealed class DashboardScreen : ScreenBase
         {
             case ConsoleKey.F1:
                 return ScreenAction.Push(new KeysScreen(App, "Dashboard", KeyMap.Dashboard()));
+            case ConsoleKey.U when (key.Modifiers & ConsoleModifiers.Alt) != 0:
+                return _service is null
+                    ? ScreenAction.None
+                    : ScreenAction.Push(new UsageScreen(App, _service));
             case ConsoleKey.Escape:
             case ConsoleKey.Backspace:
                 return ScreenAction.Back;

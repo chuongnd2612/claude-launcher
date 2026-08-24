@@ -1,3 +1,4 @@
+using ClaudeLauncher.Sessions;
 using ClaudeLauncher.Tui;
 
 namespace ClaudeLauncher;
@@ -325,6 +326,8 @@ public sealed class App
                 _buffer.Resize(width, height);
             }
 
+            RefreshUsage();
+
             _buffer.PaintBackground = Settings.PaintBackground;
             _buffer.Clear();
             Current.Render(_buffer);
@@ -335,6 +338,30 @@ public sealed class App
 
             Apply(Current.HandleInput(input.Value));
         }
+    }
+
+    /// <summary>
+    /// Hands the header band today's session counts.
+    ///
+    /// Cheap to call every frame by design: Metrics.Band returns what it already
+    /// has and goes looking again at most once a minute, on a thread of its own,
+    /// waking the loop when it has an answer. Nothing here reads a file.
+    /// </summary>
+    private void RefreshUsage()
+    {
+        if (State.Profiles.Count == 0) return;
+
+        var accounts = Metrics.Band(State, ConsoleInput.Wake);
+        if (accounts is null) return;
+
+        var chips = new List<UsageChip>(accounts.Count);
+        foreach (var account in accounts)
+        {
+            chips.Add(new UsageChip(account.Icon, account.Label,
+                ProfileLook.Color(account.Key), account.Sessions));
+        }
+
+        Widgets.Usage = chips;
     }
 
     /// <summary>

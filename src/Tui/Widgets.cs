@@ -19,6 +19,23 @@ public readonly struct KeyHint
     }
 }
 
+/// <summary>One account's slice of the usage band in the header.</summary>
+public readonly struct UsageChip
+{
+    public readonly string Icon;
+    public readonly string Label;
+    public readonly Rgb Color;
+    public readonly int Sessions;
+
+    public UsageChip(string icon, string label, Rgb color, int sessions)
+    {
+        Icon = icon;
+        Label = label;
+        Color = color;
+        Sessions = sessions;
+    }
+}
+
 /// <summary>Reusable pieces of the launcher chrome.</summary>
 public static class Widgets
 {
@@ -30,6 +47,17 @@ public static class Widgets
 
     /// <summary>Stamped from the assembly at startup and shown on every footer.</summary>
     public static string Version { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Today's sessions per account, drawn into the rule under the header.
+    ///
+    /// A static for the same reason <see cref="Version"/> is one: every screen
+    /// draws the chrome, and threading this through both chrome helpers would
+    /// mean changing all nineteen call sites to say the same thing. The app sets
+    /// it off the render path; null means draw a plain rule, which is also what
+    /// --selftest gets, so a render check stays free of live numbers.
+    /// </summary>
+    public static IReadOnlyList<UsageChip>? Usage { get; set; }
 
     public static int Margin(ScreenBuffer buffer) => buffer.Width >= 110 ? 4 : 2;
 
@@ -81,8 +109,7 @@ public static class Widgets
         y = Steps(buffer, y, activeStep);
         y += 1;
 
-        var margin = Margin(buffer);
-        buffer.HLine(margin, y, Math.Max(0, buffer.Width - margin * 2), '─', new Sty(Theme.BorderMuted, Theme.Bg));
+        UsageRule(buffer, y);
         return y + 2;
     }
 
@@ -96,14 +123,119 @@ public static class Widgets
         var x = buffer.Write(margin, y, LogoMark + " ", new Sty(Theme.GradientStart, Theme.Bg, bold: true));
         GradientText(buffer, x, y, "CLAUDE LAUNCHER", Theme.GradientStart, Theme.GradientEnd, bold: true);
 
+        // The byline gives way to the band: a number that changes earns the room
+        // over one that never does.
         var credit = $"{Author} - {AuthorHandle}";
-        if (margin + 20 + credit.Length < buffer.Width - margin)
+        if (Usage is null && margin + 20 + credit.Length < buffer.Width - margin)
             buffer.WriteRight(buffer.Width - margin - 1, y, credit, new Sty(Theme.Dim, Theme.Bg));
 
-        buffer.HLine(margin, y + 1, Math.Max(0, buffer.Width - margin * 2), '─',
-            new Sty(Theme.BorderMuted, Theme.Bg));
-
+        UsageRule(buffer, y + 1);
         return y + 3;
+    }
+
+    /// <summary>
+    /// The rule under the header, with the usage band written into it - the way
+    /// TitledBox lays a label over a box edge.
+    ///
+    /// Into the rule rather than onto a row of its own, because a row is the one
+    /// thing the small sizes have none of: a Chrome screen at 80x24 has twelve
+    /// content rows in total, and the band is not worth one of them.
+    /// </summary>
+    public static void UsageRule(ScreenBuffer buffer, int y)
+    {
+        var margin = Margin(buffer);
+        var width = Math.Max(0, buffer.Width - margin * 2);
+
+        buffer.HLine(margin, y, width, '─', new Sty(Theme.BorderMuted, Theme.Bg));
+
+        var chips = Usage;
+        if (chips is null || chips.Count == 0 || width < 24) return;
+
+        // Room for the band, less the rule stub either side of it.
+        var room = width - 8;
+
+        var bars = Fits(chips, room, bars: true);
+        var plain = bars || Fits(chips, room, bars: false);
+
+        // Neither fitted: say the one thing that always does.
+        if (!plain)
+        {
+            var total = 0;
+            foreach (var chip in chips) total += chip.Sessions;
+
+            var only = total == 1 ? "today · 1 session" : $"today · {total} sessions";
+            if (only.Length + 2 > room) return;
+
+            var at = margin + 3;
+            buffer.Write(at, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
+            buffer.Write(at + 1, y, only, new Sty(Theme.Dim, Theme.Bg));
+            buffer.Write(at + 1 + only.Length, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
+            return;
+        }
+
+        var most = Busiest(chips);
+        var x = margin + 3;
+
+        buffer.Write(x++, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
+        x = buffer.Write(x, y, "today", new Sty(Theme.Muted, Theme.Bg));
+
+        foreach (var chip in chips)
+        {
+            x = buffer.Write(x, y, " · ", new Sty(Theme.Dim, Theme.Bg));
+            x = buffer.Write(x, y, chip.Icon + " ", new Sty(chip.Color, Theme.Bg, bold: true));
+            x = buffer.Write(x, y, chip.Label + " ", new Sty(Theme.TextSoft, Theme.Bg));
+
+            if (bars)
+            {
+                x = buffer.Write(x, y, Bar(chip.Sessions, most), new Sty(chip.Color, Theme.Bg));
+                x = buffer.Write(x, y, " ", new Sty(Theme.Dim, Theme.Bg));
+            }
+
+            x = buffer.Write(x, y, chip.Sessions.ToString(),
+                new Sty(chip.Sessions > 0 ? Theme.Text : Theme.Dim, Theme.Bg, bold: chip.Sessions > 0));
+        }
+
+        buffer.Write(x, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
+    }
+
+    private static int Busiest(IReadOnlyList<UsageChip> chips)
+    {
+        var most = 0;
+        foreach (var chip in chips)
+        {
+            if (chip.Sessions > most) most = chip.Sessions;
+        }
+
+        return most;
+    }
+
+    /// <summary>Three cells against the busiest account, so the bars are comparable.</summary>
+    private static string Bar(int sessions, int most)
+    {
+        const int cells = 3;
+        if (most <= 0) return new string('░', cells);
+
+        var filled = (int)Math.Round((double)sessions / most * cells);
+        if (sessions > 0 && filled == 0) filled = 1;
+
+        return new string('█', filled) + new string('░', cells - filled);
+    }
+
+    /// <summary>
+    /// Whether the band fits the room it has. Asked once with bars and once
+    /// without, so a narrow window loses the bars before it loses the counts.
+    /// </summary>
+    private static bool Fits(IReadOnlyList<UsageChip> chips, int room, bool bars)
+    {
+        var width = "today".Length;
+
+        foreach (var chip in chips)
+        {
+            width += 3 + chip.Icon.Length + 1 + chip.Label.Length + 1
+                     + chip.Sessions.ToString().Length + (bars ? 4 : 0);
+        }
+
+        return width + 2 <= room;
     }
 
     /// <summary>Author byline, centered under the subtitle.</summary>

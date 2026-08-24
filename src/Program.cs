@@ -158,6 +158,11 @@ public static class Program
             ? app.State.Projects[0]
             : new ProjectEntry { Name = "current", Path = Environment.CurrentDirectory };
 
+        // Fixed counts, never this machine's: the band is chrome on every screen,
+        // so its layout is worth checking at every size, and a render check that
+        // depended on today's real usage could not be asserted against.
+        Widgets.Usage = DemoUsage(app);
+
         var screens = new (string Name, ScreenBase Screen)[]
         {
             ("home", new HomeScreen(app, DemoSnapshot())),
@@ -168,6 +173,7 @@ public static class Program
             ("chat", new ChatScreen(app, DemoChat(), ChatState.AwaitingPermission, DemoAsk())),
             ("history-search", new HistorySearchScreen(app, "resize", DemoHits())),
             ("dashboard", new DashboardScreen(app, DemoDashboard())),
+            ("usage", new UsageScreen(app, DemoDashboard())),
             ("resume", new ResumeScreen(app, DemoPastSessions())),
             ("session-detail", new SessionDetailScreen(app, DemoPastSessions()[0], DemoDetail())),
             ("delete-session", new DeleteSessionScreen(app, DemoPastSessions()[0], () => { })),
@@ -193,6 +199,22 @@ public static class Program
             Console.WriteLine(app.RenderToText(screen, width, height));
             Console.WriteLine();
         }
+    }
+
+    /// <summary>Fixed per-account session counts for the header band.</summary>
+    private static List<UsageChip> DemoUsage(App app)
+    {
+        var counts = new[] { 4, 1, 2 };
+        var chips = new List<UsageChip>();
+
+        for (var i = 0; i < app.State.Profiles.Count; i++)
+        {
+            var profile = app.State.Profiles[i];
+            chips.Add(new UsageChip(profile.DisplayIcon, profile.DisplayLabel,
+                ProfileLook.Color(profile.Name), counts[i % counts.Length]));
+        }
+
+        return chips;
     }
 
     /// <summary>
@@ -304,14 +326,16 @@ public static class Program
         {
             Key = "work", Label = "Work", Icon = "W", Account = "alex",
             CostUsd = 83.55, OutputTokens = 214_474, InputTokens = 492,
-            CacheReadTokens = 124_479_233, Projects = 8, HasCost = true
+            CacheReadTokens = 124_479_233, Projects = 8, HasCost = true,
+            Sessions = 4, Prompts = 118
         });
 
         data.Profiles.Add(new ProfileUsage
         {
             Key = "personal", Label = "Personal", Icon = "P", Account = "sam",
             CostUsd = 37.96, OutputTokens = 32_112, InputTokens = 1_125,
-            CacheReadTokens = 57_157_848, Projects = 7, HasCost = true
+            CacheReadTokens = 57_157_848, Projects = 7, HasCost = true,
+            Sessions = 1, Prompts = 46
         });
 
         data.Projects.Add(new ProjectActivity
