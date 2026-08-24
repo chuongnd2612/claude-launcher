@@ -57,8 +57,12 @@ public sealed class UsageScreen : ScreenBase
         {
             try
             {
-                _data = Metrics.Cached(state, snapshot, period, ConsoleInput.Wake)
-                        ?? Metrics.Build(state, snapshot, period);
+                // Build, not Cached: Cached returns null on a first call and
+                // starts a build of its own, so asking it here and falling back
+                // would run two of them at once over the same tens of megabytes.
+                // This is a screen opened on purpose, which is where the
+                // dashboard pays that cost too.
+                _data = Metrics.Build(state, snapshot, period);
             }
             catch (Exception)
             {
@@ -195,7 +199,8 @@ public sealed class UsageScreen : ScreenBase
                 _index = Math.Max(0, _index - 1);
                 return ScreenAction.None;
             case ConsoleKey.DownArrow:
-                _index++;
+                var last = (_data?.Profiles.Count ?? 0) - 1;
+                if (_index < last) _index++;
                 return ScreenAction.None;
         }
 
