@@ -346,23 +346,21 @@ header:
 
 ```text
 ✦ CLAUDE LAUNCHER
-─── usage 5h · W Work ███░░░░░ 35% · P Personal █░░░░░░░ ~4%! ────────────
+─── usage · W Work 5h █░░░░░ 3% 7d ██░░░░ 28% · P Personal 5h █░░░░░ ~4% 7d █████░ 91% ───
 ```
 
 Every configured profile appears, in the order they are configured, so the positions stay
-where you learned them. The gauge is coloured by the reading — green while there is room,
-amber past 60%, red past 85%.
+where you learned them, and **both windows are shown for each**: `5h` is the rolling
+session allowance, `7d` the weekly one. An account can be comfortable on one and nearly
+out on the other — Claude reports them separately and so does this.
 
-**It is always the five-hour session window, for every account.** That is what makes the
-numbers worth putting side by side: an earlier version showed whichever window Claude had
-marked as currently counting, which meant one account's 5h figure could sit next to
-another's weekly one — two different measurements dressed as a comparison.
+Each gauge is coloured by its own reading: green while there is room, amber past 60%, red
+past 85%. A `~` marks a figure older than the window it describes, so treat it as the
+last known answer rather than the current one.
 
-A `~` means the figure is older than the window it describes, so treat it as the last
-known answer rather than the current one. A `!` means that account is nearly out of its
-*weekly* allowance — the band is about the next five hours, and an account that is fine
-for those but almost done for the week should not look untroubled. `Alt+U` has both
-numbers in full.
+As the window narrows the band drops the gauges, then the account names, and finally
+falls back to whichever single number across every account and window is closest to its
+limit — that being the one worth the last of the room.
 
 **Where the percentage comes from.** Claude works out its own utilisation when it talks
 to the API and caches it under `cachedUsageUtilization` in each config dir — which makes
@@ -1061,11 +1059,10 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 
 ### Unreleased
 
-- **The band always shows the five-hour session window now**, for every account, so the
-  percentages can be read against each other. It used to show whichever window Claude had
-  marked as live, which put one account's 5h figure beside another's weekly one. A `!`
-  flags an account that is nearly out of its weekly allowance, and `Alt+U` still has both
-  windows in full.
+- **The band shows both windows for every account** — the five-hour session allowance and
+  the weekly one, each with its own gauge and colour. It used to show whichever single
+  window Claude had marked as live, which put one account's 5h figure beside another's
+  weekly one and made the two look comparable when they were not.
 
 ### 1.37.0
 

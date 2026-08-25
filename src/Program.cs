@@ -210,19 +210,19 @@ public static class Program
     /// </summary>
     private static List<UsageChip> DemoUsage(App app)
     {
-        // Spread across the colour thresholds, one stale, and one that is quiet
-        // for the session but nearly out for the week - so a render check covers
-        // every way a reading can be drawn.
-        var readings = new[] { (35, false, false), (4, true, true), (92, false, false) };
+        // Spread across the colour thresholds, one of them stale, and one quiet
+        // for the session while nearly out for the week - so a render check
+        // covers every way a reading can be drawn.
+        var readings = new[] { (3, 28, false), (4, 91, true), (0, 0, false) };
         var chips = new List<UsageChip>();
 
         for (var i = 0; i < app.State.Profiles.Count; i++)
         {
             var profile = app.State.Profiles[i];
-            var (percent, stale, weeklyLow) = readings[i % readings.Length];
+            var (session, weekly, stale) = readings[i % readings.Length];
 
             chips.Add(new UsageChip(profile.DisplayIcon, profile.DisplayLabel,
-                ProfileLook.Color(profile.Name), percent, stale, weeklyLow));
+                ProfileLook.Color(profile.Name), session, weekly, stale));
         }
 
         return chips;
