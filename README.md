@@ -1061,7 +1061,7 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 
 ## Changelog
 
-### Unreleased
+### 1.38.0
 
 - **Fixed: a tile you asked to close could stay while others vanished.** Hiding was keyed
   by session id alone, and a chat has no id until Claude's first reply — so closing one
@@ -1073,7 +1073,6 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 - **The chords a focused tile reserves are rebindable** — release, find, close, select,
   zoom and new terminal, under `tile` in the key editor. `Alt+F`, `Alt+W` and `Alt+T` were
   duplicates of the `Ctrl` chords and are gone; bind them back if you want them.
-
 - **The band shows both windows for every account** — the five-hour session allowance and
   the weekly one, each with its own gauge and colour. It used to show whichever single
   window Claude had marked as live, which put one account's 5h figure beside another's
