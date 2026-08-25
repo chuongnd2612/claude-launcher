@@ -1069,7 +1069,7 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 
 ## Changelog
 
-### Unreleased
+### 1.39.0
 
 - **The usage band can be refreshed by hand**: `Alt+R`, or a click on the word `usage` in
   the rule. It reads `usage…` while it is reading. The key is handled before any screen
@@ -1080,7 +1080,6 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
   minute, but only when something else woke the render loop — so on a screen that sits
   still, profiles or settings, the numbers held whatever they said when you arrived. The
   loop now comes round for the band's own deadline.
-
 - **Fixed: a tile you closed came back, and could not be got rid of.** The closed set lived
   on the wall screen, and every route back to the wall builds a new one — starting a
   terminal lands on a fresh wall by itself — so a session running in someone else's
