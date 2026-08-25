@@ -1061,6 +1061,17 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 
 ## Changelog
 
+### Unreleased
+
+- **Fixed: a tile you closed came back, and could not be got rid of.** The closed set lived
+  on the wall screen, and every route back to the wall builds a new one — starting a
+  terminal lands on a fresh wall by itself — so a session running in someone else's
+  terminal reappeared on the next visit. Closings are kept for the run now. A tile closed
+  before Claude assigned it an id also stays closed once the id arrives: the hiding moves
+  onto the id with it, and frees the project key so the next tile opened there is not
+  hidden by a closing that was never about it. Opening a session from Home puts its tile
+  back, so a closing is undoable without restarting.
+
 ### 1.38.1
 
 - **Fixed: the key editor could not record a chord with a modifier.** Holding Alt is a key
