@@ -1061,7 +1061,7 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 
 ## Changelog
 
-### Unreleased
+### 1.38.1
 
 - **Fixed: the key editor could not record a chord with a modifier.** Holding Alt is a key
   press of its own and arrives before the combination, so `Alt+Z` reaches the editor as
