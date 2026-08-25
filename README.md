@@ -226,12 +226,16 @@ exists. Two commands on the same key *within one screen* is a clash, and the edi
 so at the bottom — nothing checked that before, which is how removing a profile came to
 shadow the dashboard on the screen that advertised both.
 
-**What cannot be rebound, and why.** `Enter`, `Esc`, `Tab`, the arrows, `Backspace` and
-anything that types a character are how a screen works rather than what it does. Neither
-can the chords a focused terminal tile reserves (`Ctrl+]`, `Alt+Z`, `Alt+1..9`,
-`Alt+Shift+arrows`, `Ctrl+Shift+arrows`): every key not on that short list is forwarded
-straight to Claude, so a rebinding there would have to be *withheld* from it — and a
-chord Claude itself wants would quietly stop working inside the pane.
+**The chords a focused tile reserves can be rebound too**, under `tile` in the editor:
+release the keyboard, find, close, select, zoom and new terminal. Every key *not* on that
+list is forwarded straight to Claude, so binding one of these is really saying "withhold
+this key from Claude" — pick a chord Claude itself wants and it will stop working inside
+the pane, which is the trade and worth knowing before you make it.
+
+**What still cannot be rebound.** `Enter`, `Esc`, `Tab`, the arrows, `Backspace` and
+anything that types a character are how a screen works rather than what it does. Nor are
+the ranged chords — `Alt+1..9`, `Alt+arrows`, `Alt+Shift+arrows`, `Ctrl+Shift+arrows` —
+which are a family of keys rather than one.
 
 ## Keys
 
@@ -250,7 +254,7 @@ nothing to type into.
 | Terminals (the wall — no tile holding the keyboard) | `1..9` focus · `↑↓←→` / `Tab` move · `Enter` attach · `Ctrl+Shift+←→↑↓` move the focused pane along the wall · `Alt+Shift+←→↑↓` resize the panes · `Alt+Shift+0` even them up · `z` zoom · `Space` layout · `t` new terminal · `n` new session · `w` close a terminal, or hide a session that is not ours · `Esc` back · `q` quit — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
 | Terminals (terminal tile released) | `Enter` or `Ctrl+]` start typing into it again · every wall key above also works · `Ctrl+F` find · `Shift+PgUp/PgDn` scroll its history |
 | History (`Tab` from the Terminals find bar) | `↑↓` `PgUp/PgDn` `Home/End` move · `/`, `f` or `Ctrl+F` search again · `Esc` / `q` back |
-| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers, `Esc` and `Tab` included · `Ctrl+T` / `Alt+T` new terminal · `Ctrl+W` / `Alt+W` close this terminal · `Alt+Z` zoom this pane · `Ctrl+F` / `Alt+F` find text, `Enter` searches back through the screen history, `Tab` searches the whole session · `Alt+S` select text · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Ctrl+Shift+←→↑↓` move this pane · `Alt+Shift+←→↑↓` resize them · `Alt+Shift+0` even them up · `Shift+PgUp/PgDn` scroll Claude’s history · `F1` keys · `Ctrl+]` or a click off the tiles releases the keyboard · `Ctrl+]`, `Enter` or a click on a tile resumes typing |
+| Terminals (terminal tile focused) | every key goes to Claude — its own UI, prompts and pickers, `Esc` and `Tab` included · `Ctrl+T` new terminal · `Ctrl+W` close this terminal · `Alt+Z` zoom this pane · `Ctrl+F` find text, `Enter` searches back through the screen history, `Tab` searches the whole session · `Alt+S` select text · `Alt+1..9` jump to a pane · `Alt+←→↑↓` step between panes · `Ctrl+Shift+←→↑↓` move this pane · `Alt+Shift+←→↑↓` resize them · `Alt+Shift+0` even them up · `Shift+PgUp/PgDn` scroll Claude’s history · `F1` keys · `Ctrl+]` or a click off the tiles releases the keyboard · `Ctrl+]`, `Enter` or a click on a tile resumes typing. All six of those chords are rebindable |
 | Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` new terminal · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` hide this tile · `Ctrl+Shift+←→↑↓` move it · `Esc` clear, stop, back |
 | Terminals (find bar) | type the query · `Enter` next hit · `Shift+Enter` previous · `↑↓` step · `Tab` search the whole session · `Ctrl+F` / `Esc` close |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
@@ -346,23 +350,21 @@ header:
 
 ```text
 ✦ CLAUDE LAUNCHER
-─── usage 5h · W Work ███░░░░░ 35% · P Personal █░░░░░░░ ~4%! ────────────
+─── usage · W Work 5h █░░░░░ 3% 7d ██░░░░ 28% · P Personal 5h █░░░░░ ~4% 7d █████░ 91% ───
 ```
 
 Every configured profile appears, in the order they are configured, so the positions stay
-where you learned them. The gauge is coloured by the reading — green while there is room,
-amber past 60%, red past 85%.
+where you learned them, and **both windows are shown for each**: `5h` is the rolling
+session allowance, `7d` the weekly one. An account can be comfortable on one and nearly
+out on the other — Claude reports them separately and so does this.
 
-**It is always the five-hour session window, for every account.** That is what makes the
-numbers worth putting side by side: an earlier version showed whichever window Claude had
-marked as currently counting, which meant one account's 5h figure could sit next to
-another's weekly one — two different measurements dressed as a comparison.
+Each gauge is coloured by its own reading: green while there is room, amber past 60%, red
+past 85%. A `~` marks a figure older than the window it describes, so treat it as the
+last known answer rather than the current one.
 
-A `~` means the figure is older than the window it describes, so treat it as the last
-known answer rather than the current one. A `!` means that account is nearly out of its
-*weekly* allowance — the band is about the next five hours, and an account that is fine
-for those but almost done for the week should not look untroubled. `Alt+U` has both
-numbers in full.
+As the window narrows the band drops the gauges, then the account names, and finally
+falls back to whichever single number across every account and window is closest to its
+limit — that being the one worth the last of the room.
 
 **Where the percentage comes from.** Claude works out its own utilisation when it talks
 to the API and caches it under `cachedUsageUtilization` in each config dir — which makes
@@ -1061,11 +1063,21 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 
 ### Unreleased
 
-- **The band always shows the five-hour session window now**, for every account, so the
-  percentages can be read against each other. It used to show whichever window Claude had
-  marked as live, which put one account's 5h figure beside another's weekly one. A `!`
-  flags an account that is nearly out of its weekly allowance, and `Alt+U` still has both
-  windows in full.
+- **Fixed: a tile you asked to close could stay while others vanished.** Hiding was keyed
+  by session id alone, and a chat has no id until Claude's first reply — so closing one
+  added an empty key that matched every other id-less tile. It is keyed the way the pane
+  order already is now.
+- **The focused tile's footer says how to close it.** A tile takes every plain key, so
+  pressing `w` sends a `w` to Claude; the footer never mentioned `Ctrl+W`, which made a
+  working command look like a missing one.
+- **The chords a focused tile reserves are rebindable** — release, find, close, select,
+  zoom and new terminal, under `tile` in the key editor. `Alt+F`, `Alt+W` and `Alt+T` were
+  duplicates of the `Ctrl` chords and are gone; bind them back if you want them.
+
+- **The band shows both windows for every account** — the five-hour session allowance and
+  the weekly one, each with its own gauge and colour. It used to show whichever single
+  window Claude had marked as live, which put one account's 5h figure beside another's
+  weekly one and made the two look comparable when they were not.
 
 ### 1.37.0
 

@@ -32,38 +32,26 @@ public readonly struct UsageChip
     public readonly string Label;
     public readonly Rgb Color;
 
-    /// <summary>
-    /// The five-hour session window, 0-100, or -1 when this account has no
-    /// cached answer.
-    ///
-    /// The same window for every account, always. An earlier version showed
-    /// whichever window Claude had marked as live, which meant one account's 5h
-    /// figure sat beside another's weekly one - two numbers that cannot be
-    /// compared, in a band whose whole job is comparing them.
-    /// </summary>
-    public readonly int Percent;
+    /// <summary>The five-hour session window, 0-100, or -1 when not known.</summary>
+    public readonly int Session;
 
-    /// <summary>The cache is older than the window it describes.</summary>
+    /// <summary>The weekly window, 0-100, or -1 when not known.</summary>
+    public readonly int Weekly;
+
+    /// <summary>The cache is older than the session window it describes.</summary>
     public readonly bool Stale;
 
-    /// <summary>
-    /// The weekly allowance is nearly gone. The band is about the session window,
-    /// but an account that is fine for the next five hours and almost out for the
-    /// week should not look untroubled - so it gets one character of warning.
-    /// </summary>
-    public readonly bool WeeklyLow;
-
-    public UsageChip(string icon, string label, Rgb color, int percent, bool stale, bool weeklyLow)
+    public UsageChip(string icon, string label, Rgb color, int session, int weekly, bool stale)
     {
         Icon = icon;
         Label = label;
         Color = color;
-        Percent = percent;
+        Session = session;
+        Weekly = weekly;
         Stale = stale;
-        WeeklyLow = weeklyLow;
     }
 
-    public bool Known => Percent >= 0;
+    public bool Known => Session >= 0 || Weekly >= 0;
 }
 
 /// <summary>Reusable pieces of the launcher chrome.</summary>
@@ -197,10 +185,6 @@ public static class Widgets
         buffer.Write(x++, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
         x = buffer.Write(x, y, "usage", new Sty(Theme.Muted, Theme.Bg));
 
-        // Named once, because it is the same window for every account now.
-        if (shape != Shape.Tight)
-            x = buffer.Write(x, y, " 5h", new Sty(Theme.Dim, Theme.Bg));
-
         foreach (var chip in chips)
         {
             x = buffer.Write(x, y, " · ", new Sty(Theme.Dim, Theme.Bg));
@@ -209,29 +193,42 @@ public static class Widgets
             if (shape != Shape.Tight)
                 x = buffer.Write(x, y, " " + chip.Label, new Sty(Theme.TextSoft, Theme.Bg));
 
-            x = buffer.Write(x, y, " ", new Sty(Theme.Dim, Theme.Bg));
-
             if (!chip.Known)
             {
-                x = buffer.Write(x, y, "—", new Sty(Theme.Dim, Theme.Bg));
+                x = buffer.Write(x, y, " —", new Sty(Theme.Dim, Theme.Bg));
                 continue;
             }
 
-            if (shape == Shape.Full) x = Meter(buffer, x, y, chip);
-
-            // A stale reading keeps its colour and loses its weight. Muting it
-            // instead would take the warning off the one number most worth
-            // warning about; the tilde is what says "and this is an old answer".
-            x = buffer.Write(x, y, Reading(chip),
-                new Sty(Heat(chip.Percent), Theme.Bg, bold: !chip.Stale));
-
-            // One character for "the week is nearly gone", so a low session
-            // figure cannot read as all-clear when it is not.
-            if (chip.WeeklyLow)
-                x = buffer.Write(x, y, "!", new Sty(Theme.Red, Theme.Bg, bold: true));
+            // Both windows, always: the five-hour one says whether to keep going
+            // now, the weekly one whether to keep going this week, and an account
+            // can be comfortable on one while nearly out on the other.
+            x = Window(buffer, x, y, shape, "5h", chip.Session, chip.Stale);
+            x = Window(buffer, x, y, shape, "7d", chip.Weekly, stale: false);
         }
 
         buffer.Write(x, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
+    }
+
+    /// <summary>One window's slice: its name, its gauge and its number.</summary>
+    private static int Window(ScreenBuffer buffer, int x, int y, Shape shape,
+        string name, int percent, bool stale)
+    {
+        if (percent < 0)
+        {
+            if (shape != Shape.Tight) x = buffer.Write(x, y, " " + name, new Sty(Theme.Dim, Theme.Bg));
+            return buffer.Write(x, y, " —", new Sty(Theme.Dim, Theme.Bg));
+        }
+
+        if (shape != Shape.Tight) x = buffer.Write(x, y, " " + name, new Sty(Theme.Dim, Theme.Bg));
+
+        x = buffer.Write(x, y, " ", new Sty(Theme.Dim, Theme.Bg));
+        if (shape == Shape.Full) x = Meter(buffer, x, y, percent);
+
+        // A stale reading keeps its colour and loses its weight: muting it would
+        // take the warning off a number that may still be the one that matters.
+        // The tilde is what says "and this is an old answer".
+        return buffer.Write(x, y, Reading(percent, stale),
+            new Sty(Heat(percent), Theme.Bg, bold: !stale));
     }
 
     private enum Shape
@@ -248,7 +245,12 @@ public static class Widgets
         Full
     }
 
-    private const int MeterCells = 8;
+    /// <summary>
+    /// Six. Two of these are drawn per account now, so eight was too wide - but
+    /// four could not tell 3% from 28%, which are a rounding apart at that size
+    /// and both land on one filled cell. Six separates them.
+    /// </summary>
+    private const int MeterCells = 6;
 
     /// <summary>
     /// The gauge itself: filled cells coloured by how bad the number is, empty
@@ -257,12 +259,12 @@ public static class Widgets
     /// earlier version unreadable, because a coloured blob says nothing about
     /// magnitude.
     /// </summary>
-    private static int Meter(ScreenBuffer buffer, int x, int y, UsageChip chip)
+    private static int Meter(ScreenBuffer buffer, int x, int y, int percent)
     {
-        var filled = (int)Math.Round(Math.Clamp(chip.Percent, 0, 100) / 100.0 * MeterCells);
-        if (chip.Percent > 0 && filled == 0) filled = 1;
+        var filled = (int)Math.Round(Math.Clamp(percent, 0, 100) / 100.0 * MeterCells);
+        if (percent > 0 && filled == 0) filled = 1;
 
-        var heat = Heat(chip.Percent);
+        var heat = Heat(percent);
 
         for (var i = 0; i < MeterCells; i++)
         {
@@ -291,27 +293,36 @@ public static class Widgets
 
     private static bool Fits(IReadOnlyList<UsageChip> chips, int room, Shape shape)
     {
-        // "usage", plus " 5h" once when the labels are shown at all.
-        var width = "usage".Length + (shape == Shape.Tight ? 0 : 3);
+        var width = "usage".Length;
 
         foreach (var chip in chips)
         {
-            // " · " + icon + " "
-            width += 3 + chip.Icon.Length + 1;
-            width += chip.Known ? Reading(chip).Length : 1;
-            if (chip.WeeklyLow) width += 1;
+            width += 3 + chip.Icon.Length;                                  // " · " + icon
+            if (shape != Shape.Tight) width += 1 + chip.Label.Length;
 
-            if (shape == Shape.Tight) continue;
+            if (!chip.Known)
+            {
+                width += 2;
+                continue;
+            }
 
-            width += 1 + chip.Label.Length;
-            if (shape == Shape.Full && chip.Known) width += MeterCells + 1;
+            width += Slice(shape, chip.Session, chip.Stale) + Slice(shape, chip.Weekly, false);
         }
 
         return width + 2 <= room;
     }
 
-    private static string Reading(UsageChip chip) =>
-        (chip.Stale ? "~" : string.Empty) + chip.Percent + "%";
+    private static int Slice(Shape shape, int percent, bool stale)
+    {
+        var name = shape == Shape.Tight ? 0 : 3;                            // " 5h"
+        if (percent < 0) return name + 2;
+
+        var meter = shape == Shape.Full ? MeterCells + 1 : 0;
+        return name + 1 + meter + Reading(percent, stale).Length;
+    }
+
+    private static string Reading(int percent, bool stale) =>
+        (stale ? "~" : string.Empty) + percent + "%";
 
     /// <summary>
     /// The fallback when nothing else fits: the account closest to its limit,
@@ -322,23 +333,27 @@ public static class Widgets
     {
         var worst = -1;
         var stale = false;
-        var weekly = false;
 
+        // Whichever number across every account and both windows is closest to
+        // its limit: with room for one figure, that is the one worth having.
         foreach (var chip in chips)
         {
-            // The weekly warning belongs to the band, not to one account: down
-            // here there is only room for one number, and losing the flag would
-            // make the tightest window the least honest one.
-            if (chip.WeeklyLow) weekly = true;
-            if (!chip.Known || chip.Percent <= worst) continue;
+            if (chip.Session > worst)
+            {
+                worst = chip.Session;
+                stale = chip.Stale;
+            }
 
-            worst = chip.Percent;
-            stale = chip.Stale;
+            if (chip.Weekly > worst)
+            {
+                worst = chip.Weekly;
+                stale = false;
+            }
         }
 
         if (worst < 0) return;
 
-        var reading = (stale ? "~" : string.Empty) + worst + "%" + (weekly ? "!" : string.Empty);
+        var reading = Reading(worst, stale);
         if ("usage ".Length + reading.Length + 2 > room) return;
 
         var at = margin + 3;

@@ -359,13 +359,13 @@ public sealed class App
         {
             var limits = account.Limits;
 
-            // Always the session window, for every account, so the numbers on
-             // the band are the same measurement and can be read against each other.
+            // Both windows, for every account: one says whether to keep going
+            // now, the other whether to keep going this week.
             chips.Add(new UsageChip(account.Icon, account.Label,
                 ProfileLook.Color(account.Key),
                 limits.Known ? limits.SessionPercent : -1,
-                limits.Stale,
-                limits.Known && limits.WeeklyPercent >= 85));
+                limits.Known ? limits.WeeklyPercent : -1,
+                limits.Stale));
         }
 
         Widgets.Usage = chips;
