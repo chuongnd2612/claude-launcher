@@ -246,11 +246,12 @@ nothing to type into.
 
 | Screen  | Keys |
 | ------- | ---- |
+| Everywhere, including a focused terminal tile | `F1` keys · `Alt+U` usage detail · `Alt+R` refresh the usage band, as does clicking the word `usage` · `Alt+K` change these keys |
 | Home | `↑↓` navigate · `Tab` next · `Home/End` first / last · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` / `p` new session · `r` reopen last session's terminals · `t` tile · `k` stop · `d` dashboard · `Alt+U` usage · `s` settings · `u` check for updates · `Esc` / `q` quit the launcher |
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` pick the project, then choose new / continue / resume · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
 | Adding a folder (`a`) | type a path · `↑↓` pick from the folders below · `Tab` complete into one · `Enter` use this path, then name it · `Esc` cancel |
 | Dashboard (`d`) | `p` period · `r` read again · `↑↓` pick a project · `↵` its sessions · `Esc` back |
-| Usage (`Alt+U`, from anywhere) | `p` period · `r` read again · `↑↓` pick an account · `Esc` back · `q` quit |
+| Usage (`Alt+U`, from anywhere) | `p` period · `r` read again, band included · `↑↓` pick an account · `Esc` back · `q` quit |
 | Terminals (the wall — no tile holding the keyboard) | `1..9` focus · `↑↓←→` / `Tab` move · `Enter` attach · `Ctrl+Shift+←→↑↓` move the focused pane along the wall · `Alt+Shift+←→↑↓` resize the panes · `Alt+Shift+0` even them up · `z` zoom · `Space` layout · `t` new terminal · `n` new session · `w` close a terminal, or hide a session that is not ours · `Esc` back · `q` quit — plus `v`/`s` to split into Windows Terminal panes, only with terminal tiles **off** |
 | Terminals (terminal tile released) | `Enter` or `Ctrl+]` start typing into it again · every wall key above also works · `Ctrl+F` find · `Shift+PgUp/PgDn` scroll its history |
 | History (`Tab` from the Terminals find bar) | `↑↓` `PgUp/PgDn` `Home/End` move · `/`, `f` or `Ctrl+F` search again · `Esc` / `q` back |
@@ -380,6 +381,13 @@ As the window narrows it drops the gauges, then the labels and window markers, t
 back to whichever account is closest to its limit — the percentage is the last thing to
 go, because it is the only part that answers the question. On the compact header the
 author byline gives way to it.
+
+**It reads itself again every minute**, and `Alt+R` — or a click on the word `usage` — reads
+it now. The band shows `usage…` while it does. That re-reads what Claude cached; it cannot
+ask the API itself, so a figure only moves once Claude has talked to the API again, and the
+`~` is how you tell a stale one. `Alt+R` is handled before any screen sees it, so it works
+from a focused terminal tile too, and `r` on the `Alt+U` detail screen now refreshes the
+band along with the screen. Both keys are rebindable under `everywhere` in the key editor.
 
 **`Alt+U` opens the detail** — both windows per account side by side with how long until
 each resets, when each account's figure was last refreshed, and then sessions, prompts,
@@ -1062,6 +1070,16 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 ## Changelog
 
 ### Unreleased
+
+- **The usage band can be refreshed by hand**: `Alt+R`, or a click on the word `usage` in
+  the rule. It reads `usage…` while it is reading. The key is handled before any screen
+  sees it, so it works from a focused terminal tile as well, and `r` on the `Alt+U` detail
+  screen now refreshes the band with it — the two showed the same percentages off two
+  separate clocks and could disagree.
+- **Fixed: the band could sit on old figures indefinitely.** It goes looking again once a
+  minute, but only when something else woke the render loop — so on a screen that sits
+  still, profiles or settings, the numbers held whatever they said when you arrived. The
+  loop now comes round for the band's own deadline.
 
 - **Fixed: a tile you closed came back, and could not be got rid of.** The closed set lived
   on the wall screen, and every route back to the wall builds a new one — starting a

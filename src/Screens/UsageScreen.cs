@@ -308,6 +308,10 @@ public sealed class UsageScreen : ScreenBase
 
         if (KeyBindings.Is(KeyAction.Refresh, key))
         {
+            // The band above is read separately and on its own clock, so a
+            // screen showing the same percentages had to be able to disagree
+            // with the header it sits under. Both, or neither.
+            Metrics.RefreshBand();
             Rebuild();
             return ScreenAction.None;
         }
