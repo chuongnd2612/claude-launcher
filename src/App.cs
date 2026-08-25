@@ -344,11 +344,44 @@ public sealed class App
             Current.Render(_buffer);
             _buffer.Flush();
 
-            var input = WaitForInput(width, height, Current);
-            if (input is null) continue; // resized, or the screen asked for a repaint
+            var input = WaitForInput(width, height, Current, UsageDueUtc);
+            if (input is null) continue; // resized, or the band or screen asked for a repaint
+
+            // The band is chrome on every screen, so its own commands are read
+            // here rather than in nineteen HandleKey methods - and reading them
+            // before the screen is what makes them work inside a focused
+            // terminal tile, which otherwise takes every key.
+            if (Refreshes(input.Value)) continue;
 
             Apply(Current.HandleInput(input.Value));
         }
+    }
+
+    /// <summary>
+    /// When the loop should come round for the band's sake. Never, with no
+    /// profiles configured: nothing reads the figures then, so the deadline would
+    /// stay in the past and spin the loop.
+    /// </summary>
+    private DateTime UsageDueUtc =>
+        State.Profiles.Count == 0 ? DateTime.MaxValue : Metrics.BandDueUtc;
+
+    /// <summary>
+    /// The band's refresh, by key or by clicking the word it starts with.
+    /// Returns true when the input was spent on it.
+    /// </summary>
+    private static bool Refreshes(InputEvent input)
+    {
+        var asked = input.Kind switch
+        {
+            InputKind.Key => KeyBindings.Is(KeyAction.RefreshUsage, input.Key),
+            InputKind.MouseDown => Widgets.OnUsageButton(input.X, input.Y),
+            _ => false
+        };
+
+        if (!asked) return false;
+
+        Metrics.RefreshBand();
+        return true;
     }
 
     /// <summary>
@@ -380,6 +413,7 @@ public sealed class App
         }
 
         Widgets.Usage = chips;
+        Widgets.UsageRefreshing = Metrics.BandRefreshing;
     }
 
     /// <summary>
@@ -391,7 +425,7 @@ public sealed class App
     /// key is handled as soon as Windows has it and an echo is painted as soon
     /// as the child produces it.
     /// </summary>
-    private static InputEvent? WaitForInput(int width, int height, ScreenBase screen)
+    private static InputEvent? WaitForInput(int width, int height, ScreenBase screen, DateTime usageDue)
     {
         var interval = screen.RefreshInterval;
         var next = interval is null ? DateTime.MaxValue : DateTime.UtcNow + interval.Value;
@@ -408,6 +442,11 @@ public sealed class App
             // A tile that produced output asks for the repaint directly, so this
             // is no longer the only thing keeping the screen current.
             if (screen.NeedsRedraw()) return null;
+
+            // The band reads its own files at most once a minute, but only when
+            // the loop comes round - so on a screen that never asks for a repaint
+            // this is the thing that brings it round.
+            if (DateTime.UtcNow >= usageDue) return null;
 
             if (DateTime.UtcNow >= next && interval is not null) next = DateTime.UtcNow + interval.Value;
         }

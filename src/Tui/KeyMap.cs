@@ -51,6 +51,13 @@ public static class KeyMap
     /// </summary>
     public static KeyHint UsageKey => Bound(KeyAction.Usage, "Usage");
 
+    /// <summary>
+    /// Reads the band's figures again now. Alongside the detail key everywhere
+    /// that key is offered: the band is on every screen, so the way to make it
+    /// current has to be too. Clicking the word "usage" does the same thing.
+    /// </summary>
+    public static KeyHint RefreshUsageKey => Bound(KeyAction.RefreshUsage, "Refresh usage");
+
     private static KeyGroup[] With(params KeyGroup[] groups) => groups;
 
     // ---- Usage ---------------------------------------------------------------
@@ -66,7 +73,8 @@ public static class KeyMap
     public static KeyGroup[] Usage() => With(
         new KeyGroup("Reading it",
             Bound(KeyAction.Period, "Today, this week, all time"),
-            Bound(KeyAction.Refresh, "Read it again"),
+            Bound(KeyAction.Refresh, "Read it again, band included"),
+            RefreshUsageKey,
             new KeyHint("↑↓", "Between accounts")),
         new KeyGroup("What the numbers mean",
             new KeyHint("", "Sessions and prompts follow the period."),
@@ -100,6 +108,7 @@ public static class KeyMap
         new KeyGroup("Elsewhere",
             Bound(KeyAction.Dashboard, "Dashboard"),
             UsageKey,
+            RefreshUsageKey,
             Bound(KeyAction.Settings, "Settings"),
             Bound(KeyAction.Updates, "Check for updates"),
             Bound(KeyAction.Quit, "Quit the launcher"),
@@ -143,6 +152,7 @@ public static class KeyMap
                 : new KeyHint("v / s", "Split (off while tiles are on)")),
         new KeyGroup("Leaving",
             UsageKey,
+            RefreshUsageKey,
             new KeyHint("esc", "Back to Home"),
             new KeyHint("q", "Quit"),
             Help));
@@ -185,6 +195,7 @@ public static class KeyMap
         new KeyGroup("Note",
             new KeyHint("esc", "Goes to Claude, not back"),
             UsageKey,
+            RefreshUsageKey,
             Help));
 
     public static KeyHint[] ReleasedFooter() => new[]
@@ -311,6 +322,7 @@ public static class KeyMap
         new KeyGroup("Elsewhere",
             new KeyHint("d", "Dashboard"),
             UsageKey,
+            RefreshUsageKey,
             new KeyHint("s", "Settings"),
             new KeyHint("u", "Check for updates"),
             new KeyHint("esc", "Back"),
@@ -377,7 +389,8 @@ public static class KeyMap
             new KeyHint("r", "Recount from disk"),
             new KeyHint("↑↓", "Between projects"),
             new KeyHint("↵", "That project's sessions"),
-            UsageKey),
+            UsageKey,
+            RefreshUsageKey),
         new KeyGroup("Leaving",
             new KeyHint("esc bksp", "Back"),
             new KeyHint("q", "Quit"),

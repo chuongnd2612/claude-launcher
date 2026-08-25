@@ -20,6 +20,7 @@ public enum KeyAction
 
     Keys,
     Usage,
+    RefreshUsage,
     Quit,
     Settings,
     Updates,
@@ -242,7 +243,7 @@ public static class KeyBindings
     /// <summary>Live on every screen, so they clash with all of the above.</summary>
     private static readonly KeyAction[] Global =
     {
-        KeyAction.Keys, KeyAction.Usage, KeyAction.Quit, KeyAction.EditKeys
+        KeyAction.Keys, KeyAction.Usage, KeyAction.RefreshUsage, KeyAction.Quit, KeyAction.EditKeys
     };
 
     /// <summary>
@@ -315,6 +316,10 @@ public static class KeyBindings
     {
         Row(KeyAction.Keys, KeyScope.Everywhere, "Show the key list", "f1"),
         Row(KeyAction.Usage, KeyScope.Everywhere, "Usage per account", "alt+u"),
+        // Read by the loop before the screen sees it, so it works on any screen
+        // and inside a focused terminal tile. Alt for that reason: a plain letter
+        // would be taken from Claude, and from every field you can type into.
+        Row(KeyAction.RefreshUsage, KeyScope.Everywhere, "Refresh the usage band", "alt+r"),
         Row(KeyAction.Quit, KeyScope.Everywhere, "Quit the launcher", "q"),
         // alt+k, not 'e': 'e' is edit-a-profile, and a command that applies
         // everywhere cannot take a letter another screen already spends. The

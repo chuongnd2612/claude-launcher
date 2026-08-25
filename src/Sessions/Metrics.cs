@@ -192,6 +192,42 @@ public static class Metrics
     private static readonly TimeSpan BandFresh = TimeSpan.FromSeconds(60);
 
     /// <summary>
+    /// Drops the band's answer so the next call goes looking again.
+    ///
+    /// The figures already on screen stay there while it does: a band that
+    /// blanked itself for the length of a read would flicker every time it was
+    /// asked, and the numbers it has are right until the new ones land.
+    /// </summary>
+    public static void RefreshBand()
+    {
+        lock (Recent)
+        {
+            if (_bandBuilding) return;
+            _bandAt = DateTime.MinValue;
+        }
+    }
+
+    /// <summary>True while a read is in flight, so the band can say so.</summary>
+    public static bool BandRefreshing
+    {
+        get { lock (Recent) return _bandBuilding; }
+    }
+
+    /// <summary>
+    /// When the band's figures next fall due, for the render loop to wake on.
+    /// Without it the band only refreshed when something else woke the loop, so
+    /// on a screen that sits still - profiles, settings - the numbers held
+    /// whatever they said when you arrived.
+    ///
+    /// MaxValue while a read is in flight: that read wakes the loop itself when
+    /// it lands, and a deadline in the past would spin until it did.
+    /// </summary>
+    public static DateTime BandDueUtc
+    {
+        get { lock (Recent) return _bandBuilding ? DateTime.MaxValue : _bandAt + BandFresh; }
+    }
+
+    /// <summary>
     /// Today's session count per account, for the band in the header.
     ///
     /// Deliberately not <see cref="Build"/>: this reads history.jsonl and nothing

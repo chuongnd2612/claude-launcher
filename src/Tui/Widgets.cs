@@ -77,6 +77,20 @@ public static class Widgets
     /// </summary>
     public static IReadOnlyList<UsageChip>? Usage { get; set; }
 
+    /// <summary>True while the figures are being read again, so the band says so.</summary>
+    public static bool UsageRefreshing { get; set; }
+
+    /// <summary>
+    /// Where the band's own label ended up, so a click on it can ask for a
+    /// refresh. Set as the band draws and cleared when it does not, because the
+    /// row it lands on is the header's business and differs per screen.
+    /// </summary>
+    public static (int Y, int From, int To)? UsageButton { get; private set; }
+
+    /// <summary>True when a click at these cells landed on the band's label.</summary>
+    public static bool OnUsageButton(int x, int y) =>
+        UsageButton is { } hit && y == hit.Y && x >= hit.From && x <= hit.To;
+
     public static int Margin(ScreenBuffer buffer) => buffer.Width >= 110 ? 4 : 2;
 
     /// <summary>
@@ -166,6 +180,8 @@ public static class Widgets
 
         buffer.HLine(margin, y, width, '─', new Sty(Theme.BorderMuted, Theme.Bg));
 
+        UsageButton = null;
+
         var chips = Usage;
         if (chips is null || chips.Count == 0 || width < 22) return;
 
@@ -183,7 +199,7 @@ public static class Widgets
 
         var x = margin + 3;
         buffer.Write(x++, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
-        x = buffer.Write(x, y, "usage", new Sty(Theme.Muted, Theme.Bg));
+        x = Label(buffer, x, y);
 
         foreach (var chip in chips)
         {
@@ -207,6 +223,25 @@ public static class Widgets
         }
 
         buffer.Write(x, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
+    }
+
+    /// <summary>
+    /// The word the band starts with, which doubles as its refresh button: the
+    /// key does the same thing, but a figure you are looking at is the moment
+    /// you want it again, and reaching for a chord to get it is a poor answer.
+    ///
+    /// It reads "usage…" while the read is in flight, so a click that found
+    /// nothing new is still visibly a click that did something.
+    /// </summary>
+    private const int LabelWidth = 6;
+
+    private static int Label(ScreenBuffer buffer, int x, int y)
+    {
+        var text = UsageRefreshing ? "usage…" : "usage";
+        var end = buffer.Write(x, y, text, new Sty(UsageRefreshing ? Theme.TextSoft : Theme.Muted, Theme.Bg));
+
+        UsageButton = (y, x, end - 1);
+        return end;
     }
 
     /// <summary>One window's slice: its name, its gauge and its number.</summary>
@@ -293,7 +328,9 @@ public static class Widgets
 
     private static bool Fits(IReadOnlyList<UsageChip> chips, int room, Shape shape)
     {
-        var width = "usage".Length;
+        // The label's widest form, marker included, so the band does not have to
+        // give up a meter for the one cell that appears while it is refreshing.
+        var width = LabelWidth;
 
         foreach (var chip in chips)
         {
@@ -354,12 +391,12 @@ public static class Widgets
         if (worst < 0) return;
 
         var reading = Reading(worst, stale);
-        if ("usage ".Length + reading.Length + 2 > room) return;
+        if (LabelWidth + 1 + reading.Length + 2 > room) return;
 
         var at = margin + 3;
         buffer.Write(at, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
 
-        var x = buffer.Write(at + 1, y, "usage ", new Sty(Theme.Muted, Theme.Bg));
+        var x = buffer.Write(Label(buffer, at + 1, y), y, " ", new Sty(Theme.Muted, Theme.Bg));
         x = buffer.Write(x, y, reading, new Sty(Heat(worst), Theme.Bg, bold: !stale));
         buffer.Write(x, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
     }
