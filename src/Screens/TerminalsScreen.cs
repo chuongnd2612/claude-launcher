@@ -210,6 +210,8 @@ public sealed class TerminalsScreen : ScreenBase
     /// </summary>
     public TerminalsScreen(App app, SessionService service, TerminalTile focus) : this(app, service)
     {
+        Show(TileKey(focus.SessionId, focus.ProjectPath));
+
         var panes = Panes;
         var index = panes.FindIndex(p => ReferenceEquals(LiveTerminal(p), focus));
         if (index >= 0) _focus = index;
@@ -221,11 +223,23 @@ public sealed class TerminalsScreen : ScreenBase
     {
         if (string.IsNullOrEmpty(sessionId)) return;
 
+        Show(sessionId);
+
         var index = Panes.FindIndex(p => p.SessionId == sessionId);
         if (index < 0) return;
 
         _focus = index;
         _released = false;
+    }
+
+    /// <summary>
+    /// Puts a tile back, for when the wall is opened on one by name. Closing is
+    /// otherwise for the whole run, and asking Home to open a session you had
+    /// closed would land on a wall without it.
+    /// </summary>
+    private void Show(string key)
+    {
+        if (!string.IsNullOrEmpty(key)) Hidden.Remove(key);
     }
 
     /// <summary>Fixture constructor for --selftest.</summary>
@@ -344,16 +358,24 @@ public sealed class TerminalsScreen : ScreenBase
     {
         if (Hidden.Count == 0) return;
 
-        foreach (var chat in App.Chats)
-        {
-            if (chat.State == ChatState.Ended || string.IsNullOrEmpty(chat.SessionId)) continue;
-            if (Hidden.Remove(chat.ProjectPath)) Hidden.Add(chat.SessionId!);
-        }
+        var live = App.Chats
+            .Where(c => c.State != ChatState.Ended)
+            .Select(c => (c.SessionId, c.ProjectPath))
+            .Concat(App.Terminals
+                .Where(t => !t.HasExited)
+                .Select(t => ((string?)t.SessionId, t.ProjectPath)))
+            .ToList();
 
-        foreach (var terminal in App.Terminals)
+        foreach (var group in live.GroupBy(t => t.ProjectPath, StringComparer.OrdinalIgnoreCase))
         {
-            if (terminal.HasExited || string.IsNullOrEmpty(terminal.SessionId)) continue;
-            if (Hidden.Remove(terminal.ProjectPath)) Hidden.Add(terminal.SessionId);
+            // Only when the project holds a single tile is it known which one the
+            // path was standing in for. With two, adopting could move the hiding
+            // onto the wrong tile - and there is no un-hiding from the wall.
+            if (group.Count() != 1) continue;
+
+            var id = group.First().Item1;
+            if (string.IsNullOrEmpty(id)) continue;
+            if (Hidden.Remove(group.Key)) Hidden.Add(id);
         }
     }
 

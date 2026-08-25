@@ -1069,7 +1069,8 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
   terminal reappeared on the next visit. Closings are kept for the run now. A tile closed
   before Claude assigned it an id also stays closed once the id arrives: the hiding moves
   onto the id with it, and frees the project key so the next tile opened there is not
-  hidden by a closing that was never about it.
+  hidden by a closing that was never about it. Opening a session from Home puts its tile
+  back, so a closing is undoable without restarting.
 
 ### 1.38.1
 
