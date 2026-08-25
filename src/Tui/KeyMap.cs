@@ -147,12 +147,17 @@ public static class KeyMap
             new KeyHint("q", "Quit"),
             Help));
 
+    /// <summary>
+    /// Closing earns a place over stepping between panes. A tile takes every
+    /// plain key, so someone who wants rid of one presses w, watches it go to
+    /// Claude, and concludes it cannot be done - the footer never said otherwise.
+    /// </summary>
     public static KeyHint[] TerminalFooter(bool zoomed) => new[]
     {
         new KeyHint("type", "Claude's own UI"),
-        new KeyHint("alt+z", zoomed ? "Wall" : "Zoom"),
-        new KeyHint("alt+1-9", "Pane"),
-        new KeyHint("^]", "Release")
+        Bound(KeyAction.ZoomPane, zoomed ? "Wall" : "Zoom"),
+        Bound(KeyAction.CloseTerminal, "Close"),
+        Bound(KeyAction.ReleaseKeyboard, "Release")
     };
 
     /// <summary>
@@ -162,16 +167,16 @@ public static class KeyMap
     public static KeyGroup[] Terminal() => With(
         new KeyGroup("This pane",
             new KeyHint("type", "Goes straight to Claude"),
-            new KeyHint("^]", "Take the keyboard back"),
-            new KeyHint("^f / alt+f", "Find in this pane"),
-            new KeyHint("^w / alt+w", "Close this pane"),
-            new KeyHint("alt+s", "Select text with the mouse"),
+            Bound(KeyAction.ReleaseKeyboard, "Take the keyboard back"),
+            Bound(KeyAction.FindInPane, "Find in this pane"),
+            Bound(KeyAction.CloseTerminal, "Close this pane"),
+            Bound(KeyAction.SelectText, "Select text with the mouse"),
             new KeyHint("⇧pgup/pgdn", "Scroll this pane's history")),
         new KeyGroup("Panes",
             new KeyHint("alt+1-9", "Focus that pane"),
             new KeyHint("alt+←→↑↓", "Step between panes"),
-            new KeyHint("alt+z", "Zoom this pane"),
-            new KeyHint("^t / alt+t", "New terminal")),
+            Bound(KeyAction.ZoomPane, "Zoom this pane"),
+            Bound(KeyAction.TerminalHere, "New terminal")),
         new KeyGroup("Arranging",
             new KeyHint("^⇧←→↑↓", "Move this pane"),
             new KeyHint("alt+⇧←→↑↓", "Resize"),
@@ -194,8 +199,8 @@ public static class KeyMap
     public static KeyGroup[] Released() => With(
         new KeyGroup("This pane",
             new KeyHint("↵", "Start typing into it again"),
-            new KeyHint("^]", "Same, the other way round"),
-            new KeyHint("^f / alt+f", "Find in this pane"),
+            Bound(KeyAction.ReleaseKeyboard, "Same, the other way round"),
+            Bound(KeyAction.FindInPane, "Find in this pane"),
             new KeyHint("⇧pgup/pgdn", "Scroll its history")),
         new KeyGroup("The wall",
             new KeyHint("1-9", "Focus that pane"),

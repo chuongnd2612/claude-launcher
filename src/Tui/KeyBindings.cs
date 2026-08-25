@@ -64,7 +64,18 @@ public enum KeyAction
     StopAsking,
     Search,
 
-    EditKeys
+    EditKeys,
+
+    // Chords a focused terminal tile keeps back from Claude. Everything not on
+    // this list is forwarded to the child, so binding one of these is really
+    // saying "withhold this key from Claude" - which is why they are named
+    // separately from the wall commands that happen to do the same thing.
+    ReleaseKeyboard,
+    FindInPane,
+    CloseTerminal,
+    SelectText,
+    ZoomPane,
+    TerminalHere
 }
 
 /// <summary>Which screen a binding belongs to, for clash checking and the editor.</summary>
@@ -81,7 +92,10 @@ public enum KeyScope
     Resume,
     Settings,
     Update,
-    History
+    History,
+
+    /// <summary>Live while a terminal tile has the keyboard.</summary>
+    Tile
 }
 
 /// <summary>One rebindable command: what it is, where it applies, how to say it.</summary>
@@ -217,7 +231,12 @@ public static class KeyBindings
         }),
         (KeyScope.Settings, new[] { KeyAction.Updates, KeyAction.Settings }),
         (KeyScope.Update, new[] { KeyAction.ReleaseNotes, KeyAction.StopAsking }),
-        (KeyScope.History, new[] { KeyAction.Search })
+        (KeyScope.History, new[] { KeyAction.Search }),
+        (KeyScope.Tile, new[]
+        {
+            KeyAction.ReleaseKeyboard, KeyAction.FindInPane, KeyAction.CloseTerminal,
+            KeyAction.SelectText, KeyAction.ZoomPane, KeyAction.TerminalHere
+        })
     };
 
     /// <summary>Live on every screen, so they clash with all of the above.</summary>
@@ -343,6 +362,13 @@ public static class KeyBindings
         Row(KeyAction.ReleaseNotes, KeyScope.Update, "Read the release notes", "n"),
         Row(KeyAction.StopAsking, KeyScope.Update, "Stop asking about updates", "s"),
 
-        Row(KeyAction.Search, KeyScope.History, "Search again", "/")
+        Row(KeyAction.Search, KeyScope.History, "Search again", "/"),
+
+        Row(KeyAction.ReleaseKeyboard, KeyScope.Tile, "Give the keyboard back", "ctrl+]"),
+        Row(KeyAction.FindInPane, KeyScope.Tile, "Find in this pane", "ctrl+f"),
+        Row(KeyAction.CloseTerminal, KeyScope.Tile, "Close this pane", "ctrl+w"),
+        Row(KeyAction.SelectText, KeyScope.Tile, "Select text with the mouse", "alt+s"),
+        Row(KeyAction.ZoomPane, KeyScope.Tile, "Zoom this pane", "alt+z"),
+        Row(KeyAction.TerminalHere, KeyScope.Tile, "New terminal", "ctrl+t")
     };
 }

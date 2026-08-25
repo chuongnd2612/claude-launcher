@@ -256,15 +256,16 @@ public sealed class TerminalsScreen : ScreenBase
     {
         get
         {
-            var rows = _snapshot.Sessions.Where(s => !_hidden.Contains(s.SessionId)).ToList();
+            var rows = _snapshot.Sessions.Where(s => !_hidden.Contains(DraftKey(s))).ToList();
 
             // A chat has no session id until Claude's first reply, so it is not
             // on disk yet - but it is running and belongs on the wall.
             foreach (var chat in App.Chats)
             {
                 if (chat.State == ChatState.Ended) continue;
-                if (chat.SessionId is not null &&
-                    (rows.Any(r => r.SessionId == chat.SessionId) || _hidden.Contains(chat.SessionId)))
+                if (_hidden.Contains(chat.SessionId ?? chat.ProjectPath)) continue;
+
+                if (chat.SessionId is not null && rows.Any(r => r.SessionId == chat.SessionId))
                 {
                     continue;
                 }
@@ -1192,34 +1193,36 @@ public sealed class TerminalsScreen : ScreenBase
             // is the query, not a message to Claude.
             if (_finding) return Search(key, terminal, ctrlKey || altKey);
 
-            if ((ctrlKey || altKey) && key.Key == ConsoleKey.F)
+            if (KeyBindings.Is(KeyAction.FindInPane, key))
             {
                 OpenSearch();
                 return ScreenAction.None;
             }
 
-            if (ctrlKey && key.Key == ConsoleKey.Oem6)
+            if (KeyBindings.Is(KeyAction.ReleaseKeyboard, key))
             {
                 _released = !_released;
-                _notice = _released ? "keyboard released · ctrl+] to type" : null;
+
+                var back = KeyBindings.Describe(KeyAction.ReleaseKeyboard);
+                _notice = _released ? $"keyboard released · {back} to type" : null;
                 return ScreenAction.None;
             }
 
             // Without this the picker cannot be reached at all from a wall of
-            // terminal tiles: plain t is a character to the child, and so was
-            // ctrl+t, so every route to "open another terminal" was swallowed.
-            if ((ctrlKey || (key.Modifiers & ConsoleModifiers.Alt) != 0) && key.Key == ConsoleKey.T)
+            // terminal tiles: plain t is a character to the child, so every
+            // route to "open another terminal" would be swallowed.
+            if (KeyBindings.Is(KeyAction.TerminalHere, key))
                 return ScreenAction.Push(new NewTerminalScreen(App));
 
             // Closing has to be reachable while typing too, and Ctrl+C is not it:
             // that belongs to Claude, which uses it to interrupt a turn.
-            if ((ctrlKey || (key.Modifiers & ConsoleModifiers.Alt) != 0) && key.Key == ConsoleKey.W)
+            if (KeyBindings.Is(KeyAction.CloseTerminal, key))
             {
                 CloseTerminal(panes[_focus], terminal);
                 return ScreenAction.None;
             }
 
-            if ((key.Modifiers & ConsoleModifiers.Alt) != 0 && key.Key == ConsoleKey.S)
+            if (KeyBindings.Is(KeyAction.SelectText, key))
             {
                 ToggleSelecting();
                 return ScreenAction.None;
@@ -1228,10 +1231,12 @@ public sealed class TerminalsScreen : ScreenBase
             // Zoom without giving the keyboard back first: reading one pane
             // closely is something you want mid-sentence, not after stepping
             // out of the terminal and back in.
-            if ((key.Modifiers & ConsoleModifiers.Alt) != 0 && key.Key == ConsoleKey.Z)
+            if (KeyBindings.Is(KeyAction.ZoomPane, key))
             {
                 _zoom = !_zoom;
-                _notice = _zoom ? "zoomed · alt+z to show the wall again" : null;
+
+                var back = KeyBindings.Describe(KeyAction.ZoomPane);
+                _notice = _zoom ? $"zoomed · {back} to show the wall again" : null;
                 return ScreenAction.None;
             }
 
@@ -1396,7 +1401,7 @@ public sealed class TerminalsScreen : ScreenBase
                 {
                     case ConsoleKey.Z: _zoom = !_zoom; return ScreenAction.None;
                     case ConsoleKey.L: Cycle(); return ScreenAction.None;
-                    case ConsoleKey.W: _hidden.Add(panes[_focus].SessionId); return ScreenAction.None;
+                    case ConsoleKey.W: _hidden.Add(DraftKey(panes[_focus])); return ScreenAction.None;
 
                     // Plain t is a letter to a focused chat tile, so the terminal
                     // tile needs a chord here or it cannot be reached at all from
@@ -1490,7 +1495,10 @@ public sealed class TerminalsScreen : ScreenBase
             return;
         }
 
-        _hidden.Add(row.SessionId);
+        // Keyed the way the order is, not by session id alone: a chat has no id
+        // until Claude's first reply, and adding "" here hid every tile that did
+        // not have one yet while leaving the one you asked for on the wall.
+        _hidden.Add(DraftKey(row));
         _notice = "tile removed - the session keeps running";
     }
 
@@ -1827,7 +1835,7 @@ public sealed class TerminalsScreen : ScreenBase
         Workspace.Forget(terminal.SessionId);
         App.RememberTerminals();
 
-        if (!string.IsNullOrEmpty(row.SessionId)) _hidden.Add(row.SessionId);
+        _hidden.Add(DraftKey(row));
 
         _released = false;
         _focus = Math.Max(0, _focus - 1);
