@@ -26,7 +26,6 @@ public sealed class TerminalsScreen : ScreenBase
     private const int GutterY = 1;
 
     private readonly SessionService? _service;
-    private readonly HashSet<string> _hidden = new(StringComparer.Ordinal);
     private SessionSnapshot _snapshot;
     private LayoutMode _mode;
     private int _focus;
@@ -83,8 +82,22 @@ public sealed class TerminalsScreen : ScreenBase
 
     private int _menuIndex;
 
-    private string DraftKey(SessionRow row) =>
-        string.IsNullOrEmpty(row.SessionId) ? row.ProjectPath : row.SessionId;
+    /// <summary>
+    /// Tiles closed by hand. Lives on the app, not here: leaving the wall and
+    /// coming back builds a new screen, and a set kept on the screen meant a
+    /// closed tile was back on the next visit.
+    /// </summary>
+    private HashSet<string> Hidden => App.HiddenTiles;
+
+    /// <summary>
+    /// What a tile is known by - its session id, or the project it runs in
+    /// while a chat is still waiting for one. Hiding, drafts and the pane order
+    /// all key on this, and they have to agree or a hidden tile comes back.
+    /// </summary>
+    private static string TileKey(string? sessionId, string projectPath) =>
+        string.IsNullOrEmpty(sessionId) ? projectPath : sessionId;
+
+    private string DraftKey(SessionRow row) => TileKey(row.SessionId, row.ProjectPath);
 
     private string Draft(SessionRow row) =>
         _drafts.TryGetValue(DraftKey(row), out var text) ? text : string.Empty;
@@ -256,14 +269,16 @@ public sealed class TerminalsScreen : ScreenBase
     {
         get
         {
-            var rows = _snapshot.Sessions.Where(s => !_hidden.Contains(DraftKey(s))).ToList();
+            AdoptHiddenKeys();
+
+            var rows = _snapshot.Sessions.Where(s => !Hidden.Contains(DraftKey(s))).ToList();
 
             // A chat has no session id until Claude's first reply, so it is not
             // on disk yet - but it is running and belongs on the wall.
             foreach (var chat in App.Chats)
             {
                 if (chat.State == ChatState.Ended) continue;
-                if (_hidden.Contains(chat.SessionId ?? chat.ProjectPath)) continue;
+                if (Hidden.Contains(TileKey(chat.SessionId, chat.ProjectPath))) continue;
 
                 if (chat.SessionId is not null && rows.Any(r => r.SessionId == chat.SessionId))
                 {
@@ -298,12 +313,7 @@ public sealed class TerminalsScreen : ScreenBase
                 // but not always - RememberTerminals filters for exactly that -
                 // and checking the id alone here would put the bug back for the
                 // one case the rest of this was fixed for.
-                if (_hidden.Contains(string.IsNullOrEmpty(terminal.SessionId)
-                        ? terminal.ProjectPath
-                        : terminal.SessionId))
-                {
-                    continue;
-                }
+                if (Hidden.Contains(TileKey(terminal.SessionId, terminal.ProjectPath))) continue;
 
                 if (rows.Any(r => r.SessionId == terminal.SessionId)) continue;
 
@@ -318,6 +328,32 @@ public sealed class TerminalsScreen : ScreenBase
             }
 
             return Stable(rows);
+        }
+    }
+
+    /// <summary>
+    /// Moves a hiding onto the session id once Claude hands one out.
+    ///
+    /// A tile closed before its first reply is hidden under its project path,
+    /// which is all it has - but the moment the id arrives the tile is keyed by
+    /// that instead, and the tile would be back on the wall with no way to shut
+    /// it. Moving the entry also frees the path, so the next tile opened in that
+    /// project is not hidden by a closing that was never about it.
+    /// </summary>
+    private void AdoptHiddenKeys()
+    {
+        if (Hidden.Count == 0) return;
+
+        foreach (var chat in App.Chats)
+        {
+            if (chat.State == ChatState.Ended || string.IsNullOrEmpty(chat.SessionId)) continue;
+            if (Hidden.Remove(chat.ProjectPath)) Hidden.Add(chat.SessionId!);
+        }
+
+        foreach (var terminal in App.Terminals)
+        {
+            if (terminal.HasExited || string.IsNullOrEmpty(terminal.SessionId)) continue;
+            if (Hidden.Remove(terminal.ProjectPath)) Hidden.Add(terminal.SessionId);
         }
     }
 
@@ -1410,7 +1446,7 @@ public sealed class TerminalsScreen : ScreenBase
                 {
                     case ConsoleKey.Z: _zoom = !_zoom; return ScreenAction.None;
                     case ConsoleKey.L: Cycle(); return ScreenAction.None;
-                    case ConsoleKey.W: _hidden.Add(DraftKey(panes[_focus])); return ScreenAction.None;
+                    case ConsoleKey.W: Hidden.Add(DraftKey(panes[_focus])); return ScreenAction.None;
 
                     // Plain t is a letter to a focused chat tile, so the terminal
                     // tile needs a chord here or it cannot be reached at all from
@@ -1507,7 +1543,7 @@ public sealed class TerminalsScreen : ScreenBase
         // Keyed the way the order is, not by session id alone: a chat has no id
         // until Claude's first reply, and adding "" here hid every tile that did
         // not have one yet while leaving the one you asked for on the wall.
-        _hidden.Add(DraftKey(row));
+        Hidden.Add(DraftKey(row));
         _notice = "tile removed - the session keeps running";
     }
 
@@ -1844,7 +1880,7 @@ public sealed class TerminalsScreen : ScreenBase
         Workspace.Forget(terminal.SessionId);
         App.RememberTerminals();
 
-        _hidden.Add(DraftKey(row));
+        Hidden.Add(DraftKey(row));
 
         _released = false;
         _focus = Math.Max(0, _focus - 1);

@@ -106,6 +106,17 @@ public sealed class App
     public List<Terminal.TerminalTile> Terminals { get; } = new();
 
     /// <summary>
+    /// Tiles taken off the wall, keyed the way the wall keys them: session id,
+    /// or project path while a chat is still waiting for one.
+    ///
+    /// Kept here rather than on the screen because every route back to the wall
+    /// builds a new one - opening a terminal alone lands on a fresh wall - and a
+    /// set that lived on the screen took the closing with it, so a session in
+    /// someone else's terminal came straight back and could not be got rid of.
+    /// </summary>
+    public HashSet<string> HiddenTiles { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
     /// Adds a tile and records the open set, so closing the launcher does not
     /// also lose the list of what was open.
     /// </summary>
