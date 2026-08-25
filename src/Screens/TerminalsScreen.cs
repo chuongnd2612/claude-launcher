@@ -294,7 +294,16 @@ public sealed class TerminalsScreen : ScreenBase
             foreach (var terminal in App.Terminals)
             {
                 if (terminal.HasExited) continue;
-                if (_hidden.Contains(terminal.SessionId)) continue;
+                // The same key hiding uses. A tile normally has an id by now,
+                // but not always - RememberTerminals filters for exactly that -
+                // and checking the id alone here would put the bug back for the
+                // one case the rest of this was fixed for.
+                if (_hidden.Contains(string.IsNullOrEmpty(terminal.SessionId)
+                        ? terminal.ProjectPath
+                        : terminal.SessionId))
+                {
+                    continue;
+                }
 
                 if (rows.Any(r => r.SessionId == terminal.SessionId)) continue;
 
