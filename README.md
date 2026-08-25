@@ -1061,6 +1061,14 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 
 ## Changelog
 
+### Unreleased
+
+- **Fixed: the key editor could not record a chord with a modifier.** Holding Alt is a key
+  press of its own and arrives before the combination, so `Alt+Z` reaches the editor as
+  the modifier and *then* as `Alt+Z`. The capture ended on the first of those, and since a
+  modifier alone has no name it reported a key that could not be bound. Modifier presses
+  are ignored while capturing now, and an unnameable key no longer closes the capture.
+
 ### 1.38.0
 
 - **Fixed: a tile you asked to close could stay while others vanished.** Hiding was keyed

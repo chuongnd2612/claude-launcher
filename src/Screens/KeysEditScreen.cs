@@ -185,10 +185,15 @@ public sealed class KeysEditScreen : ScreenBase
     /// </summary>
     private ScreenAction Capture(ConsoleKeyInfo key)
     {
-        _capturing = false;
+        // Holding a modifier is a key press of its own, and it arrives first:
+        // Alt+Z is VK_MENU and then Alt+Z. Ending the capture on the first of
+        // those made every chord with a modifier impossible to record - the
+        // modifier alone has no name, so it read as a key that cannot be bound.
+        if (Modifier(key.Key)) return ScreenAction.None;
 
         if (key.Key == ConsoleKey.Escape)
         {
+            _capturing = false;
             _notice = "left as it was";
             return ScreenAction.None;
         }
@@ -196,13 +201,24 @@ public sealed class KeysEditScreen : ScreenBase
         var chord = Chord.From(key);
         if (chord.None || chord.Compact() == "-")
         {
-            _notice = "that key cannot be written down · try another";
+            // Still listening: an unnameable key is a reason to try another one,
+            // not to send someone back to the list and in again.
+            _notice = "that key cannot be written down · try another, or esc";
             return ScreenAction.None;
         }
 
+        _capturing = false;
         Bind(chord);
         return ScreenAction.None;
     }
+
+    /// <summary>
+    /// A key that only ever accompanies another. ConsoleKey has no members for
+    /// shift, control or alt - the reader casts the virtual key code straight
+    /// across - so these are matched by their numbers.
+    /// </summary>
+    private static bool Modifier(ConsoleKey key) => (int)key is 16 or 17 or 18 ||
+        key is ConsoleKey.LeftWindows or ConsoleKey.RightWindows or ConsoleKey.Applications;
 
     private void Bind(Chord chord)
     {
