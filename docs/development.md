@@ -44,7 +44,7 @@ src/
                       stream-json sessions for the chat screen
 ```
 
-## UI
+## The renderer
 
 The renderer is hand-written (`src/Tui/`) rather than a widget toolkit, because 24-bit gradients,
 rounded cards and filled step badges are not expressible with the 16-color model of Terminal.Gui 1.x.
