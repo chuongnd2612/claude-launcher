@@ -391,8 +391,8 @@ Whatever the width, the percentage is the last thing to go, because it is the on
 that answers the question. On the compact header the author byline gives way to it.
 
 **It reads itself again every minute**, and the **`↻ usage` button reads it now** — click it,
-or press `Alt+R`. The band shows `↻ usage…` while it does. That re-reads what Claude cached; it cannot
-ask the API itself, so a figure only moves once Claude has talked to the API again, and the
+or press `Alt+R`. The band shows `↻ usage…` while it does. That re-reads what Claude
+cached; it cannot ask the API itself, so a figure only moves once Claude has talked to the API again, and the
 `~` is how you tell a stale one. `Alt+R` is handled before any screen sees it, so it works
 from a focused terminal tile too, and `r` on the `Alt+U` detail screen now refreshes the
 band along with the screen. Both keys are rebindable under `everywhere` in the key editor.
