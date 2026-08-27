@@ -95,6 +95,11 @@ jobs:
           Copy-Item 'scripts/claude-launcher.ps1' $staging
           Copy-Item 'install-online.ps1' $staging
           Copy-Item 'README.md' $staging
+          Copy-Item 'CHANGELOG.md' $staging
+          # The README links into docs/ for anything past the front page, so the
+          # zip carries it too - otherwise half the documentation is a dead link
+          # for anyone who installed offline.
+          Copy-Item 'docs' $staging -Recurse
           New-Item -ItemType Directory -Path (Join-Path $staging 'config') -Force | Out-Null
           Copy-Item 'config/profiles.example.json' (Join-Path $staging 'config')
 
