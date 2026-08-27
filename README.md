@@ -1077,7 +1077,7 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 
 ## Changelog
 
-### Unreleased
+### 1.40.0
 
 - **The usage band separates the accounts.** Each profile is now its own group behind a
   `│`, with its name in its own colour — a dot used to separate the windows and the
