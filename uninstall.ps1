@@ -219,6 +219,33 @@ foreach ($wrapper in $wrapperScripts) {
     }
 }
 
+# ----------------------------------------------------------- clean up the PATH
+# Read raw and write back in place: GetEnvironmentVariable expands %USERPROFILE%
+# and friends, and saving that copy would freeze every other entry.
+$pathKey = $null
+try {
+    $pathKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $true)
+    $rawPath = [string]$pathKey.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+    # Empty segments are kept: only our own entry is ours to remove.
+    $pathParts = @($rawPath -split ';')
+    $keptParts = @($pathParts | Where-Object { $_.Trim().TrimEnd('\') -ne $launcherDir.TrimEnd('\') })
+
+    if ($keptParts.Count -ne $pathParts.Count) {
+        if (Test-ShouldProcess 'Path (User scope)' 'Remove the launcher directory') {
+            $kind = [Microsoft.Win32.RegistryValueKind]::ExpandString
+            try { $kind = $pathKey.GetValueKind('Path') } catch { }
+            $pathKey.SetValue('Path', ($keptParts -join ';'), $kind)
+            $removed.Add("$launcherDir (User PATH entry)")
+        }
+    }
+}
+catch {
+    $warnings.Add("Could not clean the User PATH: $($_.Exception.Message)")
+}
+finally {
+    if ($pathKey) { $pathKey.Close() }
+}
+
 # ------------------------------------------------- clean the PowerShell profiles
 foreach ($profileScript in $profileScripts) {
     if (-not (Test-Path $profileScript)) { continue }
@@ -283,5 +310,6 @@ if ($warnings.Count -gt 0) {
 
 Write-Host ''
 Write-Host 'The claude-launcher / claude-work / claude-personal functions stay defined' -ForegroundColor DarkGray
-Write-Host 'in this session until you open a new terminal.' -ForegroundColor DarkGray
+Write-Host 'in this session until you open a new terminal, and PATH in already-open' -ForegroundColor DarkGray
+Write-Host 'windows keeps the entry until they are restarted.' -ForegroundColor DarkGray
 Write-Host ''

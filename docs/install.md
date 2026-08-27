@@ -34,7 +34,8 @@ Pin a version, or install from a fork:
 ```
 
 The installer downloads the exe and the wrapper, verifies the published SHA256, unblocks both files,
-removes leftovers from older versions, and registers the wrapper in your `$PROFILE`.
+removes leftovers from older versions, and registers the wrapper in every shell (see
+[What the installer registers](#what-the-installer-registers)).
 
 **Or download the zip** from the [Releases page](https://github.com/chuongnd2612/claude-launcher/releases),
 extract it, and run `install.cmd`. Same result, no network calls during install.
@@ -44,11 +45,35 @@ Bypass only for the installer, unblocks package files, builds the TUI with the .
 registers the wrapper. If a prebuilt `ClaudeLauncher.exe` sits next to `install.cmd`, that binary is
 used and the SDK is not required.
 
-After installation:
+After installation, open a new terminal and run `claude-launcher`. In the window you installed from,
+reload the profile first:
 
 ```powershell
 . $PROFILE
 claude-launcher
+```
+
+## What the installer registers
+
+`claude-launcher` is a PowerShell *function*, not an executable, so it exists only where its wrapper
+has been dot-sourced. Every installer therefore registers three things:
+
+| What | Where | Why |
+| ---- | ----- | --- |
+| The wrapper | `$HOME\Documents\WindowsPowerShell\functions\claude-launcher.ps1` | Defines `claude-launcher`, `claude-work` and `claude-personal` |
+| A dot-source line | **both** `Documents\WindowsPowerShell\` and `Documents\PowerShell\Microsoft.PowerShell_profile.ps1` | Windows PowerShell 5.1 and PowerShell 7 read different profiles; `install.cmd` runs under 5.1, so registering only the running host's `$PROFILE` would leave a pwsh 7 machine with nothing |
+| `claude-launcher.cmd` | `$HOME\.claude-launcher`, added to your user `PATH` | cmd.exe and anything that is not PowerShell cannot see a function. The shim re-enters pwsh (or Windows PowerShell) and calls it |
+
+The Documents folder is taken from the running host's `$PROFILE`, so a OneDrive-redirected Documents
+is followed rather than guessed. Adding to `PATH` edits only the user key, appends only our own
+entry, and never rewrites `%USERPROFILE%`-style entries into fixed paths. `uninstall.ps1` takes all
+three back out.
+
+If your execution policy is `Restricted` — the Windows default on a fresh machine — no profile is
+loaded at all and `claude-launcher` still looks missing. The installer says so; the fix is:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 ```
 
 Upgrading from 1.4.x: re-run the installer. It removes the stale `Terminal.Gui.dll` and `NStack.dll`
@@ -104,8 +129,8 @@ If you used the one-line installer and have no local copy:
 irm https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/uninstall.ps1 | iex
 ```
 
-By default it removes the binary, the wrapper and the dot-source line from every PowerShell profile,
-after copying `profiles.json` and `ui.json` to `$HOME\claude-launcher-backup-<timestamp>` and backing
+By default it removes the binary, the cmd shim and its `PATH` entry, the wrapper, and the dot-source
+line from every PowerShell profile, after copying `profiles.json` and `ui.json` to `$HOME\claude-launcher-backup-<timestamp>` and backing
 up each profile it edits to `<profile>.claude-launcher.bak`.
 
 | Switch | Effect |
