@@ -38,10 +38,22 @@ public readonly struct UsageChip
     /// <summary>The weekly window, 0-100, or -1 when not known.</summary>
     public readonly int Weekly;
 
+    /// <summary>
+    /// When each window rolls over, or null when Claude recorded no reset for it.
+    ///
+    /// A percentage without this answers half the question: 91% of the week gone
+    /// is a reason to stop if the week turns over on Friday and hardly one if it
+    /// turns over tonight.
+    /// </summary>
+    public readonly DateTime? SessionResetsUtc;
+
+    public readonly DateTime? WeeklyResetsUtc;
+
     /// <summary>The cache is older than the session window it describes.</summary>
     public readonly bool Stale;
 
-    public UsageChip(string icon, string label, Rgb color, int session, int weekly, bool stale)
+    public UsageChip(string icon, string label, Rgb color, int session, int weekly, bool stale,
+        DateTime? sessionResetsUtc = null, DateTime? weeklyResetsUtc = null)
     {
         Icon = icon;
         Label = label;
@@ -49,6 +61,8 @@ public readonly struct UsageChip
         Session = session;
         Weekly = weekly;
         Stale = stale;
+        SessionResetsUtc = sessionResetsUtc;
+        WeeklyResetsUtc = weeklyResetsUtc;
     }
 
     public bool Known => Session >= 0 || Weekly >= 0;
@@ -188,9 +202,14 @@ public static class Widgets
         // Room for the band, less the rule stub either side of it.
         var room = width - 8;
 
+        // Worked out once per frame rather than once per measurement: a countdown
+        // shortens as the clock moves, and a shape measured against one string
+        // and drawn with another would overrun the rule.
+        var resets = Countdowns(chips);
+
         // Most to least informative, first that fits wins. The percentage is the
         // last thing to go, because it is the only part that answers the question.
-        var shape = Widest(chips, room);
+        var shape = Widest(chips, resets, room);
         if (shape == Shape.None)
         {
             Worst(buffer, margin, y, room, chips);
@@ -201,13 +220,20 @@ public static class Widgets
         buffer.Write(x++, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
         x = Label(buffer, x, y);
 
-        foreach (var chip in chips)
+        for (var i = 0; i < chips.Count; i++)
         {
-            x = buffer.Write(x, y, " · ", new Sty(Theme.Dim, Theme.Bg));
+            var chip = chips[i];
+
+            // A bar between accounts and plain spaces inside one. The old dot
+            // separated both alike, so the band read as a single run of numbers
+            // and finding one account in it meant reading all of them.
+            x = buffer.Write(x, y, Divider, new Sty(Theme.Border, Theme.Bg));
             x = buffer.Write(x, y, chip.Icon, new Sty(chip.Color, Theme.Bg, bold: true));
 
-            if (shape != Shape.Tight)
-                x = buffer.Write(x, y, " " + chip.Label, new Sty(Theme.TextSoft, Theme.Bg));
+            // The name in the account's own colour, so the group it heads belongs
+            // to it: the icon used to be the only coloured cell in the group.
+            if (Names(shape))
+                x = buffer.Write(x, y, " " + chip.Label, new Sty(chip.Color, Theme.Bg));
 
             if (!chip.Known)
             {
@@ -218,54 +244,77 @@ public static class Widgets
             // Both windows, always: the five-hour one says whether to keep going
             // now, the weekly one whether to keep going this week, and an account
             // can be comfortable on one while nearly out on the other.
-            x = Window(buffer, x, y, shape, "5h", chip.Session, chip.Stale);
-            x = Window(buffer, x, y, shape, "7d", chip.Weekly, stale: false);
+            x = Window(buffer, x, y, shape, "5h", chip.Session, resets[i].Session, chip.Stale);
+            x = Window(buffer, x, y, shape, "7d", chip.Weekly, resets[i].Weekly, stale: false);
         }
 
         buffer.Write(x, y, " ", new Sty(Theme.BorderMuted, Theme.Bg));
     }
 
+    /// <summary>What goes between one account's group and the next.</summary>
+    private const string Divider = " │ ";
+
     /// <summary>
     /// The word the band starts with, which doubles as its refresh button: the
-    /// key does the same thing, but a figure you are looking at is the moment
-    /// you want it again, and reaching for a chord to get it is a poor answer.
+    /// key does the same thing, but a figure you are looking at is the moment you
+    /// want it again, and reaching for a chord to get it is a poor answer.
     ///
-    /// It reads "usage…" while the read is in flight, so a click that found
-    /// nothing new is still visibly a click that did something.
+    /// The arrow is what makes it look like one - the click target was already
+    /// here and nothing on screen said so. It reads "usage…" while the read is in
+    /// flight, so a click that found nothing new is still visibly a click that
+    /// did something.
     /// </summary>
-    private const int LabelWidth = 6;
+    private const int LabelWidth = 8;
 
     private static int Label(ScreenBuffer buffer, int x, int y)
     {
-        var text = UsageRefreshing ? "usage…" : "usage";
-        var end = buffer.Write(x, y, text, new Sty(UsageRefreshing ? Theme.TextSoft : Theme.Muted, Theme.Bg));
+        var busy = UsageRefreshing;
+        var start = x;
 
-        UsageButton = (y, x, end - 1);
+        x = buffer.Write(x, y, "↻ ", new Sty(busy ? Theme.Blue : Theme.BlueDeep, Theme.Bg, bold: busy));
+        var end = buffer.Write(x, y, busy ? "usage…" : "usage",
+            new Sty(busy ? Theme.TextSoft : Theme.Muted, Theme.Bg));
+
+        UsageButton = (y, start, end - 1);
         return end;
     }
 
-    /// <summary>One window's slice: its name, its gauge and its number.</summary>
+    /// <summary>One window's slice: its name, its gauge, its number, its clock.</summary>
     private static int Window(ScreenBuffer buffer, int x, int y, Shape shape,
-        string name, int percent, bool stale)
+        string name, int percent, string countdown, bool stale)
     {
         if (percent < 0)
         {
-            if (shape != Shape.Tight) x = buffer.Write(x, y, " " + name, new Sty(Theme.Dim, Theme.Bg));
+            if (Names(shape)) x = buffer.Write(x, y, " " + name, new Sty(Theme.Dim, Theme.Bg));
             return buffer.Write(x, y, " —", new Sty(Theme.Dim, Theme.Bg));
         }
 
-        if (shape != Shape.Tight) x = buffer.Write(x, y, " " + name, new Sty(Theme.Dim, Theme.Bg));
+        if (Names(shape)) x = buffer.Write(x, y, " " + name, new Sty(Theme.Dim, Theme.Bg));
 
         x = buffer.Write(x, y, " ", new Sty(Theme.Dim, Theme.Bg));
-        if (shape == Shape.Full) x = Meter(buffer, x, y, percent);
+        if (HasMeter(shape)) x = Meter(buffer, x, y, percent);
 
         // A stale reading keeps its colour and loses its weight: muting it would
         // take the warning off a number that may still be the one that matters.
         // The tilde is what says "and this is an old answer".
-        return buffer.Write(x, y, Reading(percent, stale),
+        x = buffer.Write(x, y, Reading(percent, stale),
             new Sty(Heat(percent), Theme.Bg, bold: !stale));
+
+        // Dim and last. A window nearly gone is the alarming part; when it comes
+        // back is what you read next, and it must not compete with the number.
+        if (HasReset(shape) && countdown.Length > 0)
+            x = buffer.Write(x, y, " " + countdown, new Sty(Theme.Dim, Theme.Bg));
+
+        return x;
     }
 
+    /// <summary>
+    /// How much of a slice the band can afford, widest first.
+    ///
+    /// The clock outranks the gauge deliberately: the gauge only draws the
+    /// percentage a second time, while the countdown is the one part of a slice
+    /// that says something the number cannot.
+    /// </summary>
     private enum Shape
     {
         None,
@@ -273,12 +322,24 @@ public static class Widgets
         /// <summary>Icon and percentage only.</summary>
         Tight,
 
-        /// <summary>Labels and the window marker, no meter.</summary>
+        /// <summary>Labels and the window marker, nothing else.</summary>
         Plain,
 
-        /// <summary>Everything, meter included.</summary>
+        /// <summary>Labels and the gauge, no time to reset.</summary>
+        Gauge,
+
+        /// <summary>Labels and time to reset, no gauge.</summary>
+        Clock,
+
+        /// <summary>Everything.</summary>
         Full
     }
+
+    private static bool Names(Shape shape) => shape != Shape.Tight;
+
+    private static bool HasMeter(Shape shape) => shape is Shape.Gauge or Shape.Full;
+
+    private static bool HasReset(Shape shape) => shape is Shape.Clock or Shape.Full;
 
     /// <summary>
     /// Six. Two of these are drawn per account now, so eight was too wide - but
@@ -318,24 +379,73 @@ public static class Widgets
         : percent >= 60 ? Theme.Amber
         : Theme.Green;
 
-    /// <summary>The most detailed shape that fits, or None when even the tight one does not.</summary>
-    private static Shape Widest(IReadOnlyList<UsageChip> chips, int room)
+    /// <summary>
+    /// Every window's time to reset, in the exact form the band prints it, so
+    /// the measuring and the drawing cannot disagree.
+    /// </summary>
+    private static (string Session, string Weekly)[] Countdowns(IReadOnlyList<UsageChip> chips)
     {
-        if (Fits(chips, room, Shape.Full)) return Shape.Full;
-        if (Fits(chips, room, Shape.Plain)) return Shape.Plain;
-        return Fits(chips, room, Shape.Tight) ? Shape.Tight : Shape.None;
+        var now = DateTime.UtcNow;
+        var rows = new (string, string)[chips.Count];
+
+        for (var i = 0; i < chips.Count; i++)
+            rows[i] = (Countdown(chips[i].SessionResetsUtc, now),
+                Countdown(chips[i].WeeklyResetsUtc, now));
+
+        return rows;
     }
 
-    private static bool Fits(IReadOnlyList<UsageChip> chips, int room, Shape shape)
+    /// <summary>
+    /// "→2h11m": what is left of the window, arrow first so it reads as a
+    /// destination rather than as a second quantity beside the percentage.
+    /// Minutes and up - a figure that ticks every second belongs on the usage
+    /// screen, not in chrome that is drawn everywhere.
+    /// </summary>
+    private static string Countdown(DateTime? resetsUtc, DateTime now)
+    {
+        if (resetsUtc is not { } at) return string.Empty;
+
+        var left = at - now;
+        if (left <= TimeSpan.Zero) return "→due";
+        if (left.TotalHours < 1) return $"→{Math.Max(1, (int)left.TotalMinutes)}m";
+
+        // The smaller unit is dropped when it is zero: "4d00h" spends two cells
+        // on nothing, and the band has none to spare.
+        if (left.TotalDays < 1)
+            return left.Minutes == 0
+                ? $"→{(int)left.TotalHours}h"
+                : $"→{(int)left.TotalHours}h{left.Minutes:00}m";
+
+        return left.Hours == 0
+            ? $"→{(int)left.TotalDays}d"
+            : $"→{(int)left.TotalDays}d{left.Hours:00}h";
+    }
+
+    /// <summary>The most detailed shape that fits, or None when even the tight one does not.</summary>
+    private static Shape Widest(IReadOnlyList<UsageChip> chips,
+        (string Session, string Weekly)[] resets, int room)
+    {
+        foreach (var shape in new[] { Shape.Full, Shape.Clock, Shape.Gauge, Shape.Plain, Shape.Tight })
+        {
+            if (Fits(chips, resets, room, shape)) return shape;
+        }
+
+        return Shape.None;
+    }
+
+    private static bool Fits(IReadOnlyList<UsageChip> chips,
+        (string Session, string Weekly)[] resets, int room, Shape shape)
     {
         // The label's widest form, marker included, so the band does not have to
         // give up a meter for the one cell that appears while it is refreshing.
         var width = LabelWidth;
 
-        foreach (var chip in chips)
+        for (var i = 0; i < chips.Count; i++)
         {
-            width += 3 + chip.Icon.Length;                                  // " · " + icon
-            if (shape != Shape.Tight) width += 1 + chip.Label.Length;
+            var chip = chips[i];
+
+            width += Divider.Length + chip.Icon.Length;
+            if (Names(shape)) width += 1 + chip.Label.Length;
 
             if (!chip.Known)
             {
@@ -343,19 +453,21 @@ public static class Widgets
                 continue;
             }
 
-            width += Slice(shape, chip.Session, chip.Stale) + Slice(shape, chip.Weekly, false);
+            width += Slice(shape, chip.Session, resets[i].Session, chip.Stale)
+                     + Slice(shape, chip.Weekly, resets[i].Weekly, false);
         }
 
         return width + 2 <= room;
     }
 
-    private static int Slice(Shape shape, int percent, bool stale)
+    private static int Slice(Shape shape, int percent, string countdown, bool stale)
     {
-        var name = shape == Shape.Tight ? 0 : 3;                            // " 5h"
+        var name = Names(shape) ? 3 : 0;                                    // " 5h"
         if (percent < 0) return name + 2;
 
-        var meter = shape == Shape.Full ? MeterCells + 1 : 0;
-        return name + 1 + meter + Reading(percent, stale).Length;
+        var meter = HasMeter(shape) ? MeterCells + 1 : 0;
+        var reset = HasReset(shape) && countdown.Length > 0 ? 1 + countdown.Length : 0;
+        return name + 1 + meter + Reading(percent, stale).Length + reset;
     }
 
     private static string Reading(int percent, bool stale) =>

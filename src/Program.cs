@@ -213,16 +213,29 @@ public static class Program
         // Spread across the colour thresholds, one of them stale, and one quiet
         // for the session while nearly out for the week - so a render check
         // covers every way a reading can be drawn.
-        var readings = new[] { (3, 28, false), (4, 91, true), (0, 0, false) };
+        //
+        // Reset times too, one of them missing, because the countdown is the
+        // widest part of a slice and so decides the shape the band settles on.
+        // Offsets from the clock plus a second, so the truncation lands the same
+        // way whenever the check runs.
+        var clock = DateTime.UtcNow.AddSeconds(1);
+        var readings = new[]
+        {
+            (3, 28, false, (DateTime?)clock.AddHours(2).AddMinutes(11), (DateTime?)clock.AddDays(4)),
+            (4, 91, true, clock.AddMinutes(37), clock.AddHours(19)),
+            (0, 0, false, null, null)
+        };
+
         var chips = new List<UsageChip>();
 
         for (var i = 0; i < app.State.Profiles.Count; i++)
         {
             var profile = app.State.Profiles[i];
-            var (session, weekly, stale) = readings[i % readings.Length];
+            var (session, weekly, stale, sessionResets, weeklyResets) = readings[i % readings.Length];
 
             chips.Add(new UsageChip(profile.DisplayIcon, profile.DisplayLabel,
-                ProfileLook.Color(profile.Name), session, weekly, stale));
+                ProfileLook.Color(profile.Name), session, weekly, stale,
+                sessionResets, weeklyResets));
         }
 
         return chips;
