@@ -409,7 +409,9 @@ public sealed class App
                 ProfileLook.Color(account.Key),
                 limits.Known ? limits.SessionPercent : -1,
                 limits.Known ? limits.WeeklyPercent : -1,
-                limits.Stale));
+                limits.Stale,
+                limits.SessionResetsUtc,
+                limits.WeeklyResetsUtc));
         }
 
         Widgets.Usage = chips;

@@ -246,7 +246,7 @@ nothing to type into.
 
 | Screen  | Keys |
 | ------- | ---- |
-| Everywhere, including a focused terminal tile | `F1` keys · `Alt+U` usage detail · `Alt+R` refresh the usage band, as does clicking the word `usage` · `Alt+K` change these keys |
+| Everywhere, including a focused terminal tile | `F1` keys · `Alt+U` usage detail · `Alt+R` refresh the usage band, as does clicking its `↻ usage` button · `Alt+K` change these keys |
 | Home | `↑↓` navigate · `Tab` next · `Home/End` first / last · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` / `p` new session · `r` reopen last session's terminals · `t` tile · `k` stop · `d` dashboard · `Alt+U` usage · `s` settings · `u` check for updates · `Esc` / `q` quit the launcher |
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` pick the project, then choose new / continue / resume · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
 | Adding a folder (`a`) | type a path · `↑↓` pick from the folders below · `Tab` complete into one · `Enter` use this path, then name it · `Esc` cancel |
@@ -351,21 +351,31 @@ header:
 
 ```text
 ✦ CLAUDE LAUNCHER
-─── usage · W Work 5h █░░░░░ 3% 7d ██░░░░ 28% · P Personal 5h █░░░░░ ~4% 7d █████░ 91% ───
+─── ↻ usage │ W Work 5h █░░░░░ 3% →2h11m 7d ██░░░░ 28% →4d │ P Personal 5h █░░░░░ ~4% →37m 7d █████░ 91% →19h ───
 ```
 
 Every configured profile appears, in the order they are configured, so the positions stay
-where you learned them, and **both windows are shown for each**: `5h` is the rolling
-session allowance, `7d` the weekly one. An account can be comfortable on one and nearly
-out on the other — Claude reports them separately and so does this.
+where you learned them, **each in its own group behind a `│`** and named in its own colour,
+so one account can be found in the band without reading all of them.
+
+**Both windows are shown for each**: `5h` is the rolling session allowance, `7d` the weekly
+one. An account can be comfortable on one and nearly out on the other — Claude reports them
+separately and so does this.
 
 Each gauge is coloured by its own reading: green while there is room, amber past 60%, red
 past 85%. A `~` marks a figure older than the window it describes, so treat it as the
 last known answer rather than the current one.
 
-As the window narrows the band drops the gauges, then the account names, and finally
-falls back to whichever single number across every account and window is closest to its
-limit — that being the one worth the last of the room.
+**`→2h11m` is how long that window has left** before it rolls over and the percentage drops
+back — `→37m`, `→19h`, `→4d`, or `→due` for a window whose reset time has passed. 91% of the
+week gone is a reason to stop if the week turns over on Friday and hardly one if it turns
+over tonight, which is why the number alone was only half an answer.
+
+As the window narrows the band drops the gauges, then the countdowns, then the account
+names and window markers, and finally falls back to whichever single number across every
+account and window is closest to its limit — that being the one worth the last of the room.
+The countdown outranks the gauge on purpose: the gauge only draws the percentage a second
+time, while the countdown is the part that says something the number cannot.
 
 **Where the percentage comes from.** Claude works out its own utilisation when it talks
 to the API and caches it under `cachedUsageUtilization` in each config dir — which makes
@@ -377,13 +387,11 @@ limit.
 
 It is drawn *into* the rule rather than on a row of its own, so it costs no space: at
 80x24 a wizard screen has only twelve content rows, and the band is not worth one of them.
-As the window narrows it drops the gauges, then the labels and window markers, then falls
-back to whichever account is closest to its limit — the percentage is the last thing to
-go, because it is the only part that answers the question. On the compact header the
-author byline gives way to it.
+Whatever the width, the percentage is the last thing to go, because it is the only part
+that answers the question. On the compact header the author byline gives way to it.
 
-**It reads itself again every minute**, and `Alt+R` — or a click on the word `usage` — reads
-it now. The band shows `usage…` while it does. That re-reads what Claude cached; it cannot
+**It reads itself again every minute**, and the **`↻ usage` button reads it now** — click it,
+or press `Alt+R`. The band shows `↻ usage…` while it does. That re-reads what Claude cached; it cannot
 ask the API itself, so a figure only moves once Claude has talked to the API again, and the
 `~` is how you tell a stale one. `Alt+R` is handled before any screen sees it, so it works
 from a focused terminal tile too, and `r` on the `Alt+U` detail screen now refreshes the
@@ -1068,6 +1076,20 @@ has no dependencies, so the build stays offline-friendly). Delete that file if y
 `PackageReference`.
 
 ## Changelog
+
+### Unreleased
+
+- **The usage band separates the accounts.** Each profile is now its own group behind a
+  `│`, with its name in its own colour — a dot used to separate the windows and the
+  accounts alike, so the band read as one run of numbers and finding one account in it
+  meant reading all of them.
+- **The band shows how long each window has left**: `5h 61% →2h11m`, so a percentage says
+  not just how much is gone but how long until it comes back. Claude records a reset time
+  for both windows and nothing was showing it. Minutes and up, dimmed and last so it never
+  competes with the number, and it is the first thing after the gauges to go as the window
+  narrows — but it outranks the gauge itself, which only draws the percentage twice.
+- **The refresh is visibly a button**: the band now starts with `↻ usage`. Clicking the
+  label already refreshed it and `Alt+R` still does, but nothing on screen said so.
 
 ### 1.39.0
 
