@@ -3,6 +3,24 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **Fixed: `claude-launcher` was missing after a first install on a fresh machine.** The command is
+  a PowerShell function, and the installers only ever wrote the dot-source line into `$PROFILE` —
+  the profile of the host running the installer. `install.cmd` runs Windows PowerShell, so a machine
+  whose shell is PowerShell 7 got the line in a file nothing reads. All three installers now
+  register both hosts' profiles, taking the Documents folder from the running host's `$PROFILE` so a
+  OneDrive-redirected Documents is followed rather than guessed.
+- **cmd.exe can start it too.** A `claude-launcher.cmd` shim goes into `$HOME\.claude-launcher`,
+  which is added to the user `PATH`: it re-enters pwsh where there is one, Windows PowerShell
+  otherwise, and calls the function there. It goes through `-File` and a small entry script rather
+  than `-Command`, so an argument with spaces keeps its quotes. The `PATH` edit appends only our own
+  entry and writes the raw registry value back, leaving `%USERPROFILE%`-style entries expandable.
+- **The installer says when the execution policy is the problem.** A fresh Windows defaults to
+  `Restricted`, which stops the profile from loading at all — the installer runs under `Bypass` and
+  so could never see it. It now reports the effective policy and the one-line fix.
+- `uninstall.ps1` removes the shim and its `PATH` entry along with everything else.
+
 ## 1.40.0
 
 - **The usage band separates the accounts.** Each profile is now its own group behind a

@@ -71,12 +71,13 @@ time until it resets — in the header of every screen.
 irm https://raw.githubusercontent.com/chuongnd2612/claude-launcher/main/install-online.ps1 | iex
 ```
 
-Then reload your profile and go:
+Then open a new terminal — PowerShell 7, Windows PowerShell or cmd.exe — and go:
 
 ```powershell
-. $PROFILE
 claude-launcher
 ```
+
+In the window you installed from, reload the profile first with `. $PROFILE`.
 
 That fetches the standalone exe and the PowerShell wrapper, verifies the published SHA256,
 unblocks both files, and registers the wrapper in your `$PROFILE`. Prefer the zip, a pinned

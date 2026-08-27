@@ -4,6 +4,24 @@ The failures worth a note, and what to do about them.
 
 [&larr; Back to the README](../README.md)
 
+**`claude-launcher` is not recognized after installing** — it is a PowerShell function, so it only
+exists where its wrapper has been dot-sourced. Since 1.40.1 the installers register both the
+Windows PowerShell 5.1 and the PowerShell 7 profile and drop a `claude-launcher.cmd` on `PATH`; an
+older install registered only the profile of the host that ran `install.cmd` — Windows PowerShell —
+which is why a fresh machine that lives in pwsh 7 saw nothing. Re-run the installer, then open a new
+terminal. What to check if it still does not resolve:
+
+```powershell
+$PROFILE                                            # which profile is this host reading?
+Get-Content $PROFILE                                # is the dot-source line in it?
+Get-ExecutionPolicy -List                           # Restricted means no profile is loaded at all
+Get-Command claude-launcher -All                    # the function, and the .cmd shim
+```
+
+A `Restricted` or `AllSigned` policy blocks the profile itself. Allow local scripts with
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`. An already-open cmd.exe or Explorer-spawned
+terminal keeps the old `PATH` until it is restarted.
+
 **Escape sequences printed as text** — the terminal has no VT support. Use Windows Terminal, or
 disable "Paint background" in settings for a lighter look.
 
