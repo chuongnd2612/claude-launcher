@@ -66,7 +66,7 @@ $env:CLAUDE_LAUNCHER_PROFILES = "$env:TEMP\profiles-test.json"   # never point a
 - Screens derive from `ScreenBase` and return a `ScreenAction` (`None`/`Push`/`Replace`/`Back`/
   `Exit`/`Finish`) from `HandleKey`. Never mutate the screen stack directly.
 - New screens must be added to the `--selftest` list in `Program.cs`, and their keys documented in
-  the README "Keys" table.
+  the `docs/keys.md` binding table.
 - Paths written to `profiles.json` go through `StateStore.CollapseHome` (stored as `$HOME/...`) and
   come back through `ExpandHome`.
 - Icons must be a single single-width character; wide emoji break the grid.
@@ -117,6 +117,21 @@ only a local fallback and does not need bumping per release.
 
 ## Documentation
 
-`README.md` is user-facing and detailed — keys, `profiles.json` schema, install/uninstall switches,
-env vars, changelog. Any user-visible change (new key, new screen, new config field, new installer
-switch) updates the README in the same PR.
+`README.md` is the front page and stays scannable: pitch, install, getting started, screenshots, a
+short keys cheat-sheet, and links out. The detail lives in `docs/` and `CHANGELOG.md`:
+
+| File | Owns |
+| ---- | ---- |
+| `docs/install.md` | requirements, every install route, updates, uninstall |
+| `docs/guide.md` | every screen: Home, dashboard, usage band, chat, resume, the wall, tabs and panes |
+| `docs/keys.md` | the full binding table and the key editor |
+| `docs/configuration.md` | `profiles.json` schema, settings screen, runtime state files |
+| `docs/development.md` | architecture, layout sizes, cutting a release |
+| `docs/troubleshooting.md` | the failures worth a note |
+| `CHANGELOG.md` | one `##` section per release, newest first |
+| `docs/CAPTURING.md` | how the README screenshots are taken |
+
+Any user-visible change (new key, new screen, new config field, new installer switch) updates the
+right file in the same PR — and the README only when it changes the pitch, the quick start or the
+cheat-sheet. Release notes go into `CHANGELOG.md` under `## Unreleased`, stamped with the version
+when the release is cut.
