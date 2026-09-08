@@ -69,6 +69,20 @@ public static class Program
                 var service = new SessionService(state);
                 var snapshot = service.Build();
 
+                // A pinned session comes back on its own. Pinning one is saying
+                // it matters, and having to ask for it again every morning is
+                // the opposite of that - so the wall opens with them running.
+                //
+                // Only on this path: a launch that names a profile and a project
+                // is scripted, and must not start opening sessions nobody asked
+                // this run for.
+                if (app.PinnedTiles.Count > 0 &&
+                    app.RestoreTerminals(out _, entry => app.PinnedTiles.Contains(entry.SessionId)) > 0)
+                {
+                    app.Run(new TerminalsScreen(app, service));
+                    return 0;
+                }
+
                 // Home is also the way back to yesterday's terminals, so it wins
                 // whenever there is something to reopen - not only when a session
                 // happens to be running.

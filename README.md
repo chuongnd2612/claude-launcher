@@ -175,7 +175,7 @@ it, or press `Alt+R`. `Alt+U` opens the full breakdown per account.
 | ----- | ---- |
 | Anywhere | `F1` every key on this screen · `Alt+U` usage detail · `Alt+R` refresh the usage band · `Alt+K` rebind keys · `q` quit |
 | Home | `t` the wall · `d` dashboard · `n` new session · `a` attach · `r` reopen last terminals · `k` stop a session · `s` settings |
-| The wall | `1`–`9` focus · `Tab`/arrows move · `Enter` attach · `z` zoom · `t` new terminal · `w` close · `Space` layout |
+| The wall | `1`–`9` focus · `Tab`/arrows move · `Enter` attach · `z` zoom · `t` new terminal · `w` close · `Space` layout · `Alt+P` pin |
 | A focused tile | every key goes to Claude · `Ctrl+]` release the keyboard · `Ctrl+T` new terminal · `Ctrl+F` find · `Alt+Z` zoom |
 | Lists | `↑`/`↓` move · `/` filter · `Enter` choose · `Esc` back |
 

@@ -66,7 +66,11 @@ public static class Workspace
     /// A terminal leaves the set when it is closed, not when a later run happens
     /// not to have it open.
     /// </summary>
-    public static void Remember(IEnumerable<WorkspaceEntry> open)
+    /// <param name="pinned">
+    /// Sessions marked important, which are kept ahead of everything else so the
+    /// cap below cannot drop one.
+    /// </param>
+    public static void Remember(ISet<string> pinned, IEnumerable<WorkspaceEntry> open)
     {
         var merged = new List<WorkspaceEntry>();
 
@@ -85,7 +89,9 @@ public static class Workspace
             merged.Add(entry);
         }
 
-        Save(merged.Take(MaxRemembered));
+        Save(merged
+            .OrderByDescending(entry => pinned.Contains(entry.SessionId))
+            .Take(MaxRemembered));
     }
 
     /// <summary>Drops one entry, so a closed terminal is not offered again.</summary>

@@ -604,6 +604,21 @@ again unpins. That is the point rather than a side effect — the session you mu
 the one a stray gesture should not be able to end. Pins are remembered in `ui.json` as
 `terminalPinned`.
 
+**Pinned tiles lead the wall.** Pinning moves a tile to the front and keeps it there, ahead of the
+remembered order and of wherever it happened to be opened — so what matters is tile `1` and the pane
+you land on. Within the pinned group the old order holds. `Ctrl+Shift+←→↑↓` still moves tiles, and a
+tile moved past the pinned ones simply lands after them; the notice says so when that happens.
+
+**Pinned sessions come back on their own.** Quit the launcher, start it again, and every pinned
+session is resumed on the wall without pressing `r` — in its slot, and in its tile's shape if it was
+part of a split. They are also kept ahead of the cap on the remembered set, so a pinned session is the
+last thing to fall off the end of it.
+
+The process itself does not survive quitting, and cannot: a tile runs under a pseudo console the
+launcher owns, so when the launcher goes the child loses its console whatever else is arranged. What
+comes back is the *conversation* — `claude --resume` on the same session id, which is what `r` has
+always done, done for you.
+
 **Triple-click a tile to close it.** Three presses in the same place within about three quarters of a
 second close that pane, exactly as `Ctrl+W` does — the session is stopped and the conversation stays
 on disk. It is the gesture the wall had left: one press focuses a pane, two belong to whatever is
