@@ -5,6 +5,14 @@ Every release, newest first. The tags are on the
 
 ## Unreleased
 
+- **Pin the panes that matter: `Alt+P`.** A pinned tile is drawn to be found at a glance — a double
+  border where every other tile has a single one, violet where the wall is blue and grey, and a `★`
+  before its number in the header, the strip and the sidebar. Three signals rather than one, because
+  colour alone is no use over a monochrome connection. In a divided tile the star sits beside the name
+  of the half that is pinned, since pinning is per pane.
+- **A pinned pane will not close.** `Ctrl+W`, `w` and a triple-click all refuse it and say so, which
+  is the point rather than a side effect now that three clicks can end a session. Pins live in
+  `ui.json` as `terminalPinned`.
 - **Triple-click a tile to close it.** Three presses in the same place inside about three quarters of
   a second close that pane, the same as `Ctrl+W` — one press still focuses, two still belong to
   whatever is in the pane, and a press that moves still carries the tile. On a half still waiting for

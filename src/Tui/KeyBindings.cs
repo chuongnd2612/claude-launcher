@@ -81,7 +81,8 @@ public enum KeyAction
     SplitHereDown,
     PaneToPrevious,
     PaneToNext,
-    PaneOut
+    PaneOut,
+    PinTile
 }
 
 /// <summary>Which screen a binding belongs to, for clash checking and the editor.</summary>
@@ -243,7 +244,8 @@ public static class KeyBindings
             KeyAction.ReleaseKeyboard, KeyAction.FindInPane, KeyAction.CloseTerminal,
             KeyAction.SelectText, KeyAction.ZoomPane, KeyAction.TerminalHere,
             KeyAction.SplitHere, KeyAction.SplitHereDown,
-            KeyAction.PaneToPrevious, KeyAction.PaneToNext, KeyAction.PaneOut
+            KeyAction.PaneToPrevious, KeyAction.PaneToNext, KeyAction.PaneOut,
+            KeyAction.PinTile
         })
     };
 
@@ -392,6 +394,7 @@ public static class KeyBindings
         // alt and a letter is how a shell and Claude's own prompt move by word.
         Row(KeyAction.PaneToPrevious, KeyScope.Tile, "Move this pane into the tile before it", "alt+,"),
         Row(KeyAction.PaneToNext, KeyScope.Tile, "Move this pane into the tile after it", "alt+."),
-        Row(KeyAction.PaneOut, KeyScope.Tile, "Move this pane out into a tile of its own", "alt+/")
+        Row(KeyAction.PaneOut, KeyScope.Tile, "Move this pane out into a tile of its own", "alt+/"),
+        Row(KeyAction.PinTile, KeyScope.Tile, "Pin this pane, or unpin it", "alt+p")
     };
 }
