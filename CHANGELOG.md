@@ -3,6 +3,18 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **A pane can leave the tile it is in: `Alt+,`, `Alt+.` and `Alt+/`.** Splitting could only ever add
+  a pane to the tile it was in, so an arrangement was undoable only by closing the session and
+  starting it again. `Alt+.` moves the focused pane into the tile after it, `Alt+,` into the one
+  before, and `Alt+/` out into a tile of its own — which is also how two sessions that were not
+  opened together end up side by side. A pane lands on the side it arrived from, the tile it leaves
+  collapses behind it, and a tile down to one pane is an ordinary tile again.
+- Fixed: the `--selftest` fixtures drive real keys to reach states a render check cannot set up, and
+  real keys write settings — so a layout check could rewrite the `ui.json` of whoever ran it. The
+  fixtures no longer save anything.
+
 ## 1.42.0
 
 - **A tile can be divided, not just added to: `Alt+\` and `Alt+-`.** Splitting used to mean another

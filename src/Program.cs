@@ -148,6 +148,18 @@ public static class Program
     }
 
     /// <summary>
+    /// A pane taken back out of the tile it was split into, driven by the key
+    /// that does it - the tile it leaves has to collapse behind it, and that is
+    /// only visible once something has actually moved.
+    /// </summary>
+    private static TerminalsScreen Regrouped(App app)
+    {
+        var screen = new TerminalsScreen(app, DemoSnapshot(), demo: "nested");
+        screen.HandleKey(new ConsoleKeyInfo('/', ConsoleKey.Oem2, false, true, false));
+        return screen;
+    }
+
+    /// <summary>
     /// The wall with a pane split and the picker holding the new half.
     ///
     /// Driven by the key itself rather than arranged by hand: the split, the
@@ -189,6 +201,7 @@ public static class Program
             ("terminals", new TerminalsScreen(app, DemoSnapshot())),
             ("terminals-tiled", new TerminalsScreen(app, DemoSnapshot(), demo: "nested")),
             ("terminals-focus", new TerminalsScreen(app, DemoSnapshot(), demo: "nested-focus")),
+            ("terminals-regroup", Regrouped(app)),
             ("terminals-split", Splitting(app)),
             ("terminals-split-mode", Splitting(app, chosen: true)),
             ("terminal-preview", new TerminalPreviewScreen(app)),

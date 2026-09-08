@@ -547,6 +547,17 @@ Choosing what starts there is the same three steps in the space the split made:
 step closes the half again and gives the room back to the pane it came from, and the wall is never
 covered while any of this happens.
 
+**Moving a pane between tiles: `Alt+,`, `Alt+.` and `Alt+/`.** `Alt+.` takes the focused pane out of
+its tile and into the one after it, `Alt+,` into the one before, and `Alt+/` puts it in a tile of its
+own just after the one it left. A pane arriving from the left lands at the right-hand end of its new
+tile and one arriving from the right lands at the left-hand end, so it appears on the side it came
+from.
+
+This is the way back out of an arrangement, and the way to put two sessions together that were not
+opened together — before, a tile could only ever gain the pane you split it into, so undoing one
+meant closing a session and starting it again. A tile emptied down to one pane becomes an ordinary
+tile, and a tile taken apart entirely leaves nothing behind in `terminalGroups`.
+
 **Resizing and closing inside a tile.** `Alt+Shift+←→↑↓` moves the divider you are next to: the split
 you are in comes first, and only when the focused pane is not in one does the same key move the
 wall's own dividers. Drag an interior divider with the mouse for the same thing. `Alt+Shift+0` evens

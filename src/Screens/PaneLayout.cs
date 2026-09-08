@@ -233,6 +233,39 @@ public sealed class PaneNode
     /// <summary>True while every child would still be readable with one more.</summary>
     public bool RoomFor(int total, int least) => (total - Children.Count) >= least * (Children.Count + 1);
 
+    /// <summary>
+    /// Takes a pane in at one end, as a child of this branch - what a pane
+    /// arriving from the tile next door lands as.
+    /// </summary>
+    public void Join(string key, bool atStart, bool vertical)
+    {
+        if (IsLeaf)
+        {
+            var mine = Leaf(Key!);
+            Key = null;
+            Vertical = vertical;
+            Children.Add(atStart ? Leaf(key) : mine);
+            Children.Add(atStart ? mine : Leaf(key));
+            _weights.Clear();
+            _weights.AddRange(new[] { 0.5, 0.5 });
+            return;
+        }
+
+        if (atStart)
+        {
+            // Insert() takes the room from the child before it, and at the front
+            // there is none - so the first child gives up half of its own.
+            var taken = _weights[0] / 2;
+            _weights[0] = taken;
+            Children.Insert(0, Leaf(key));
+            _weights.Insert(0, taken);
+            Normalise();
+            return;
+        }
+
+        Insert(Children.Count, Leaf(key));
+    }
+
     private void Insert(int index, PaneNode child)
     {
         // The room comes from the neighbour being split, not from everyone: the
@@ -480,6 +513,43 @@ public sealed class PaneLayout
 
     public (PaneNode Branch, int Index)? Enclosing(string key, bool vertical) =>
         RootOf(key)?.Enclosing(key, vertical);
+
+    /// <summary>
+    /// Moves a pane out of its tile and into the one <paramref name="step"/>
+    /// along, at the end nearest where it came from.
+    ///
+    /// The tile it leaves collapses behind it, so a pair that has been taken
+    /// apart is an ordinary tile again rather than a branch of one child.
+    /// </summary>
+    public bool MoveTo(string key, int step)
+    {
+        var from = TileOf(key);
+        if (from < 0) return false;
+
+        var to = from + step;
+        if (to < 0 || to >= Roots.Count || to == from) return false;
+
+        var target = Roots[to];
+        Remove(key);
+
+        // Removing a lone pane takes its tile with it, which shifts everything
+        // after it - so the target is found again by identity, not by index.
+        target.Join(key, atStart: step > 0, vertical: true);
+        return true;
+    }
+
+    /// <summary>Takes a pane out of its tile into one of its own, just after it.</summary>
+    public bool MoveOut(string key)
+    {
+        var from = TileOf(key);
+        if (from < 0 || Roots[from].IsLeaf) return false;
+
+        // The tile it leaves keeps its slot - it still holds panes - so the new
+        // one goes in immediately after it.
+        Remove(key);
+        Roots.Insert(Math.Min(from + 1, Roots.Count), PaneNode.Leaf(key));
+        return true;
+    }
 
     public string Format()
     {

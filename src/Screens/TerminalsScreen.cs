@@ -443,8 +443,18 @@ public sealed class TerminalsScreen : ScreenBase
         .Where(index => index >= 0)
         .ToList();
 
+    /// <summary>
+    /// True for the --selftest fixtures, which have no session service behind
+    /// them. They drive real keys to reach the states a render check cannot set
+    /// up on its own, and real keys write settings - so the savers stop here
+    /// rather than rewriting the ui.json of whoever ran the check.
+    /// </summary>
+    private bool Transient => _service is null;
+
     private void SaveLayout()
     {
+        if (Transient) return;
+
         App.Settings.TerminalGroups = _layout.Format();
         StateStore.SaveSettings(App.Settings);
     }
@@ -578,6 +588,8 @@ public sealed class TerminalsScreen : ScreenBase
     /// </summary>
     private void SaveOrder(IReadOnlyList<string> keys)
     {
+        if (Transient) return;
+
         var all = keys.ToList();
         all.AddRange(_order.Where(k => !all.Contains(k, StringComparer.Ordinal)));
 
@@ -1151,6 +1163,8 @@ public sealed class TerminalsScreen : ScreenBase
 
     private void SaveSplits()
     {
+        if (Transient) return;
+
         App.Settings.TerminalSplits = PaneSplits.FormatRows(_columnsByRow);
         StateStore.SaveSettings(App.Settings);
     }
@@ -1757,6 +1771,9 @@ public sealed class TerminalsScreen : ScreenBase
         // keyboard to be given back first is the trip this key exists to save.
         if (KeyBindings.Is(KeyAction.SplitHere, key)) return OpenPicker(panes, vertical: true);
         if (KeyBindings.Is(KeyAction.SplitHereDown, key)) return OpenPicker(panes, vertical: false);
+        if (KeyBindings.Is(KeyAction.PaneToPrevious, key)) return Regroup(panes, -1);
+        if (KeyBindings.Is(KeyAction.PaneToNext, key)) return Regroup(panes, 1);
+        if (KeyBindings.Is(KeyAction.PaneOut, key)) return Regroup(panes, 0);
 
         // A focused terminal tile takes every key, because Claude's own UI needs
         // Esc, Tab and the arrows. Ctrl+] hands the keyboard back to the wall -
@@ -2706,6 +2723,8 @@ public sealed class TerminalsScreen : ScreenBase
             _ => LayoutMode.Tiled
         };
 
+        if (Transient) return;
+
         App.Settings.TerminalLayout = _mode.ToString().ToLowerInvariant();
         StateStore.SaveSettings(App.Settings);
     }
@@ -2785,6 +2804,67 @@ public sealed class TerminalsScreen : ScreenBase
 
         var opened = Panes.FindIndex(IsPicker);
         if (opened >= 0) _focus = opened;
+
+        return ScreenAction.None;
+    }
+
+    /// <summary>
+    /// Moves the focused pane between tiles: into the one before or after it,
+    /// or - with a step of nothing - out into a tile of its own.
+    ///
+    /// Splitting could only ever add a pane to the tile it was in, so an
+    /// arrangement was only undoable by closing a session and starting it again.
+    /// This is the way back out, and the way to put two sessions together that
+    /// were not opened together.
+    /// </summary>
+    private ScreenAction Regroup(List<SessionRow> panes, int step)
+    {
+        if (_picker is not null || _focus < 0 || _focus >= panes.Count) return ScreenAction.None;
+
+        var key = DraftKey(panes[_focus]);
+
+        // Read before anything moves: _focus is about to point into a list this
+        // one is no longer the same as.
+        var name = panes[_focus].ProjectName;
+        var tile = _layout.TileOf(key);
+        var alone = tile >= 0 && _layout.Roots[tile].IsLeaf;
+
+        if (step == 0)
+        {
+            if (alone)
+            {
+                _notice = "that pane is already a tile of its own";
+                return ScreenAction.None;
+            }
+
+            _layout.MoveOut(key);
+        }
+        else if (!_layout.MoveTo(key, step))
+        {
+            _notice = step < 0
+                ? "no tile before this one · alt+/ makes it a tile of its own"
+                : "no tile after this one · alt+/ makes it a tile of its own";
+
+            return ScreenAction.None;
+        }
+
+        // The flat order has to follow, or the tiles would be sorted by where
+        // their panes used to be and the wall would shuffle on the next frame.
+        var keys = _layout.Order();
+        _order.RemoveAll(k => keys.Contains(k, StringComparer.Ordinal));
+        _order.InsertRange(0, keys);
+        SaveOrder(keys);
+        SaveLayout();
+
+        var landed = Panes.FindIndex(row => string.Equals(DraftKey(row), key, StringComparison.Ordinal));
+        var released = _released;
+        if (landed >= 0) Focus(landed);
+        _released = released;
+
+        var now = _layout.TileOf(key);
+        _notice = step == 0
+            ? $"{name} is a tile of its own now"
+            : $"moved {name} into tile {now + 1}";
 
         return ScreenAction.None;
     }
