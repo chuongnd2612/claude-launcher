@@ -1235,6 +1235,35 @@ public sealed class TerminalsScreen : ScreenBase
         return -1;
     }
 
+    /// <summary>
+    /// Presses in the same place in quick succession: where, when, and how many.
+    ///
+    /// Three closes the tile under the pointer. It is the gesture the wall had
+    /// left - one press focuses a pane, two belong to whatever is inside it, and
+    /// a press that moves is carrying a tile - and it is the one thing you could
+    /// do to a pane with the keyboard but not with the mouse.
+    /// </summary>
+    private (int X, int Y, DateTime At, int Count) _clicks;
+
+    /// <summary>How long a run of clicks stays a run.</summary>
+    private const int RunMilliseconds = 700;
+
+    private bool Tripled(int x, int y)
+    {
+        var now = DateTime.UtcNow;
+
+        var together = Math.Abs(x - _clicks.X) <= 1 && Math.Abs(y - _clicks.Y) <= 1 &&
+                       (now - _clicks.At).TotalMilliseconds <= RunMilliseconds;
+
+        _clicks = (x, y, now, together ? _clicks.Count + 1 : 1);
+
+        if (_clicks.Count < 3) return false;
+
+        // Start over, so a fourth press does not close a second pane.
+        _clicks = (x, y, now, 0);
+        return true;
+    }
+
     /// <summary>The pane being carried, once the drag is real.</summary>
     private bool Held(int index) => _carry is { Moved: true } carry && carry.From == index;
 
@@ -2687,6 +2716,19 @@ public sealed class TerminalsScreen : ScreenBase
 
         if (input.Kind == InputKind.MouseDown)
         {
+            if (Tripled(input.X, input.Y))
+            {
+                _carry = null;
+                Focus(hit.Index);
+
+                // The pane waiting to be filled has no session to stop; closing
+                // it is cancelling the split it is holding.
+                if (IsPicker(panes[hit.Index])) return ClosePicker();
+
+                Remove(panes[hit.Index]);
+                return ScreenAction.None;
+            }
+
             Focus(hit.Index);
 
             // Pending, not moving: with Moved false this is still just a click,

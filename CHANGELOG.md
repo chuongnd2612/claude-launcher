@@ -3,6 +3,16 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **Triple-click a tile to close it.** Three presses in the same place inside about three quarters of
+  a second close that pane, the same as `Ctrl+W` — one press still focuses, two still belong to
+  whatever is in the pane, and a press that moves still carries the tile. On a half still waiting for
+  a session it cancels the split instead.
+- Fixed on the way: the second click of a double click arrives from the console flagged rather than
+  plain, and nothing matched that flag — so that press was dropped entirely. It is now a press like
+  any other.
+
 ## 1.43.1
 
 - **Closing a pane is instant again.** `Ctrl+W` tore the pseudo console down on the keystroke itself,

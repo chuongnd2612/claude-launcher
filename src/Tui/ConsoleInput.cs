@@ -69,6 +69,7 @@ public static class ConsoleInput
     private const ushort MouseEventType = 0x0002;
 
     private const uint MouseWheeled = 0x0004;
+    private const uint MouseDoubleClick = 0x0002;
     private const uint MouseMoved = 0x0001;
     private const uint LeftmostPressed = 0x0001;
 
@@ -247,7 +248,11 @@ public static class ConsoleInput
 
                     break;
 
-                case MouseEventType when record.Mouse.EventFlags == 0 &&
+                // A second click inside the double-click time arrives flagged
+                // rather than plain, and nothing matched that flag - so the press
+                // was dropped on the floor. It is a press like any other here;
+                // what counts them decides what a pair or a run of three means.
+                case MouseEventType when record.Mouse.EventFlags is 0 or MouseDoubleClick &&
                                          (record.Mouse.ButtonState & LeftmostPressed) != 0:
                     Queue.Enqueue(new InputEvent(InputKind.MouseDown,
                         record.Mouse.Position.X, record.Mouse.Position.Y, 0));
