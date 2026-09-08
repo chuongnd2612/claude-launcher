@@ -511,21 +511,56 @@ Searching an 18 MB transcript takes about 120 ms, and the list stops at the firs
 header says so when it does). Only this session's own transcript is searched — not every session on
 the machine.
 
-**Splitting where you are: `Alt+\`.** Opens a pane beside the focused one and puts the new-terminal
-flow *inside it* — no full-screen picker, no trip back to the wall. It works while a terminal has the
-keyboard, so the pane you are reading stays on screen while you choose what starts next to it:
+**Splitting a tile: `Alt+\` and `Alt+-`.** Divides the pane you are in and puts the new-terminal flow
+in the half it just made — no full-screen picker, no trip back to the wall. `Alt+\` puts the new half
+beside this one, `Alt+-` puts it underneath. From the wall itself — no tile holding the keyboard —
+`v` and `s` do the same two things.
 
-| Step | What the pane shows | Keys |
+```text
+╭─ 3 · claude-launcher │ qagent ─────────── typing ─╮
+│ claude...                │ claude...              │
+│                          ├────────────────────────┤
+│                          │ claude...              │
+╰──────────────────────────┴────────────────────────╯
+```
+
+The halves stay **one tile**: one box, one number, and one header naming every session in it with the
+one holding the keyboard lit. That is the point of splitting rather than opening another tile — two
+sessions you are reading against each other are one thing on the wall, not two boxes that happen to
+touch. The half you are typing into is the lit one; the rest of the tile is dimmed the same way an
+unfocused tile is.
+
+Each half can be split again, the other way, as deep as the space allows — a tile is a tree, not a
+row. Splitting a half that already sits in a row extends that row rather than nesting inside it, so
+three terminals side by side are three panes of one tile with two dividers, not a split inside a
+split.
+
+Choosing what starts there is the same three steps in the space the split made:
+
+| Step | What the half shows | Keys |
 | --- | --- | --- |
 | Project | the quick-path list, with a filter at the top | type to filter · `↑↓` pick · `Enter` next · `Esc` cancel the split |
 | How it starts | New session, Continue, Resume, and the profile it runs under | `↑↓` or `n`/`c`/`r` · `←→` change profile · `Enter` start it here · `Esc` back |
 | Which one | the project's recorded conversations, newest first — only after Resume | `↑↓` pick · `Enter` resume it here · `Esc` back |
 
-The terminal starts in the slot the split made rather than at the end of the wall, and the keyboard
-goes straight into it. `Continue` resolves to the newest recorded conversation, exactly as step 3
-does. From the wall itself — no tile holding the keyboard — `v` and `s` do the same thing, since with
-terminal tiles on there is no Windows Terminal pane for them to split into. `Esc` closes the pane
-again if you change your mind, and the wall is never covered while any of this happens.
+`Continue` resolves to the newest recorded conversation, exactly as step 3 does. `Esc` at the first
+step closes the half again and gives the room back to the pane it came from, and the wall is never
+covered while any of this happens.
+
+**Resizing and closing inside a tile.** `Alt+Shift+←→↑↓` moves the divider you are next to: the split
+you are in comes first, and only when the focused pane is not in one does the same key move the
+wall's own dividers. Drag an interior divider with the mouse for the same thing. `Alt+Shift+0` evens
+up the wall *and* every split inside it. Closing a half (`Ctrl+W`) gives its room back to the other
+one, and a tile down to a single pane goes back to being an ordinary tile.
+
+`1`..`9` and the pane numbers count **tiles**, not panes — the number in a header is the tile it is
+on. Arrows and `Alt+arrows` step through panes one at a time, halves included, so moving through the
+wall never skips a session you can see. The strip above the wall marks a split tile `+2` for the
+panes it holds beyond the first.
+
+**Where it is remembered.** The shape is written to `ui.json` as `terminalGroups` and comes back next
+run for the sessions that come back with it — `V` for side by side, `H` for stacked, weights adding
+to one. A wall nobody has split writes nothing there at all.
 
 **Zooming without letting go: `Alt+Z`.** Fills the wall with the focused terminal and keeps the
 keyboard in it, so a pane can be read closely mid-sentence rather than after releasing the keyboard,

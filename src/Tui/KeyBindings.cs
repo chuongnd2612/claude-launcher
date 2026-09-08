@@ -77,7 +77,8 @@ public enum KeyAction
     SelectText,
     ZoomPane,
     TerminalHere,
-    SplitHere
+    SplitHere,
+    SplitHereDown
 }
 
 /// <summary>Which screen a binding belongs to, for clash checking and the editor.</summary>
@@ -238,7 +239,7 @@ public static class KeyBindings
         {
             KeyAction.ReleaseKeyboard, KeyAction.FindInPane, KeyAction.CloseTerminal,
             KeyAction.SelectText, KeyAction.ZoomPane, KeyAction.TerminalHere,
-            KeyAction.SplitHere
+            KeyAction.SplitHere, KeyAction.SplitHereDown
         })
     };
 
@@ -381,6 +382,7 @@ public static class KeyBindings
         // terminal tile, a chat tile and the bare wall alike. alt+\ because the
         // readline chords a shell and Claude's own prompt use - alt+b, alt+f,
         // alt+d - have to keep reaching them.
-        Row(KeyAction.SplitHere, KeyScope.Tile, "Split and start one here", "alt+\\")
+        Row(KeyAction.SplitHere, KeyScope.Tile, "Split this pane in two, side by side", "alt+\\"),
+        Row(KeyAction.SplitHereDown, KeyScope.Tile, "Split this pane in two, one above the other", "alt+-")
     };
 }

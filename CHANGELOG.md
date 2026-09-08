@@ -3,6 +3,24 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **A tile can be divided, not just added to: `Alt+\` and `Alt+-`.** Splitting used to mean another
+  box somewhere on the wall, because the wall was a flow of boxes. A tile is a tree now: the pane you
+  are in divides in two — side by side with `Alt+\`, one above the other with `Alt+-` — inside **one
+  box, under one header** that names every session in the tile and lights the one holding the
+  keyboard. Either half can be split again, the other way, as deep as there is room for; splitting a
+  half of a row extends that row instead of nesting inside it.
+- **The dividers inside a tile are real dividers.** Drag one with the mouse, or move it with
+  `Alt+Shift+←→↑↓` — which now resizes the split you are in before the wall around it. `Alt+Shift+0`
+  evens up the wall and every split on it. Closing a half hands its room back to the other, and a
+  tile down to one pane is an ordinary tile again.
+- **The numbers count tiles.** `1`..`9`, the number in a header and the chips above the wall all mean
+  the same thing again; the strip marks a split tile `+2` for what it holds beyond the first pane.
+  Arrows still step pane by pane, halves included.
+- The shape is remembered in `ui.json` as `terminalGroups`, written only once something has actually
+  been split.
+
 ## 1.41.0
 
 - **Split a pane and start a session in it, without leaving the wall: `Alt+\`.** The new-terminal

@@ -148,14 +148,21 @@ public static class Program
     }
 
     /// <summary>
-    /// The inline picker one step in, with a project chosen. Driven by the same
-    /// key the user presses, because the second step is a different layout in
-    /// the same pane and is otherwise never rendered by a check.
+    /// The wall with a pane split and the picker holding the new half.
+    ///
+    /// Driven by the key itself rather than arranged by hand: the split, the
+    /// placeholder and the picker are one path, and a fixture that set them up
+    /// directly would check the drawing without ever checking the key.
     /// </summary>
-    private static TerminalsScreen Chosen(App app)
+    private static TerminalsScreen Splitting(App app, bool chosen = false)
     {
-        var screen = new TerminalsScreen(app, DemoSnapshot(), picking: true);
-        screen.HandleKey(new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false));
+        var screen = new TerminalsScreen(app, DemoSnapshot());
+        screen.HandleKey(new ConsoleKeyInfo('\\', ConsoleKey.Oem5, false, true, false));
+
+        // One step in, with a project picked: the second step is a different
+        // layout in the same half and is otherwise never rendered by a check.
+        if (chosen) screen.HandleKey(new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false));
+
         return screen;
     }
 
@@ -180,8 +187,10 @@ public static class Program
         {
             ("home", new HomeScreen(app, DemoSnapshot())),
             ("terminals", new TerminalsScreen(app, DemoSnapshot())),
-            ("terminals-split", new TerminalsScreen(app, DemoSnapshot(), picking: true)),
-            ("terminals-split-mode", Chosen(app)),
+            ("terminals-tiled", new TerminalsScreen(app, DemoSnapshot(), demo: "nested")),
+            ("terminals-focus", new TerminalsScreen(app, DemoSnapshot(), demo: "nested-focus")),
+            ("terminals-split", Splitting(app)),
+            ("terminals-split-mode", Splitting(app, chosen: true)),
             ("terminal-preview", new TerminalPreviewScreen(app)),
             ("new-terminal", new NewTerminalScreen(app)),
             ("kill-session", new KillSessionScreen(app, DemoSnapshot().Sessions[0], () => { })),
