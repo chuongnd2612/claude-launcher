@@ -1268,6 +1268,8 @@ public sealed class TerminalsScreen : ScreenBase
         Inside(buffer, x + 1, y + 1, width - 2, height - 2, tile, panes, fill);
         Joins(buffer, x, y, width, height, first, border, fill);
         Shared(buffer, x, y, width, tile, number, panes, border, fill);
+
+        if (mine.Count > 0) _rects.Add((x, y, width, height, mine[0]));
     }
 
     private void Tile(ScreenBuffer buffer, int x, int y, int width, int height,
@@ -2495,8 +2497,10 @@ public sealed class TerminalsScreen : ScreenBase
 
         if (step == 0) return false;
 
-        if (!MovePane(panes, _focus, _focus + step))
-            _notice = step < 0 ? "that pane is already first" : "that pane is already last";
+        var tile = TileAt(_focus);
+
+        if (!MovePane(panes, tile, tile + step))
+            _notice = step < 0 ? "that tile is already first" : "that tile is already last";
 
         return true;
     }
