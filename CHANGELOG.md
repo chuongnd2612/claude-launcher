@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.43.0
 
 - **A pane can leave the tile it is in: `Alt+,`, `Alt+.` and `Alt+/`.** Splitting could only ever add
   a pane to the tile it was in, so an arrangement was undoable only by closing the session and
