@@ -145,6 +145,17 @@ public sealed class UiSettings
     public string TerminalOrder { get; set; } = string.Empty;
 
     /// <summary>
+    /// Which panes share a tile, and in what shape - written as
+    /// `V(0.6*id,0.4*H(0.5*id,0.5*id))|id`, one tile per `|`.
+    ///
+    /// Separate from <see cref="TerminalOrder"/> because they answer different
+    /// questions: the order remembers the slot a pane goes back to when it
+    /// returns, and this remembers the shape it was arranged into. A wall nobody
+    /// has split writes nothing here at all.
+    /// </summary>
+    public string TerminalGroups { get; set; } = string.Empty;
+
+    /// <summary>
     /// Start new sessions with claude --remote-control, so they accept input
     /// from claude.ai and the phone app. Off by default: it opens a relay
     /// through Anthropic's servers, which is the user's call to make.

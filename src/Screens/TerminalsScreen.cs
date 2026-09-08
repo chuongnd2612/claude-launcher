@@ -74,6 +74,14 @@ public sealed class TerminalsScreen : ScreenBase
     /// <summary>Divider positions from the last frame, for hit testing a drag.</summary>
     private readonly List<(bool Vertical, int Index, int Row, int At, int From, int To)> _dividers = new();
 
+    /// <summary>
+    /// The same for the dividers inside a tile, which belong to a branch of that
+    /// tile's tree rather than to a row of the wall.
+    /// </summary>
+    private readonly List<(PaneNode Branch, int Index, bool Vertical, int At, int From, int To)> _inner = new();
+
+    private (PaneNode Branch, int Index)? _draggingInner;
+
     /// <summary>The grid the last frame drew, so a key knows what it is resizing.</summary>
     private (int Columns, int Rows, int X, int Y, int Width, int Height) _grid;
 
@@ -92,7 +100,15 @@ public sealed class TerminalsScreen : ScreenBase
     /// </summary>
     private PanePicker? _picker;
 
-    private int _pickerAt;
+    /// <summary>
+    /// Which panes share a tile, and how each tile is divided inside.
+    ///
+    /// The wall used to be a flow of boxes, so "split" could only mean another
+    /// box somewhere in it. A tile is a tree now: two sessions being read
+    /// against each other live in one tile behind one header, and either half
+    /// can be split again the other way.
+    /// </summary>
+    private PaneLayout _layout = new();
 
     /// <summary>
     /// Tiles closed by hand. Lives on the app, not here: leaving the wall and
@@ -171,6 +187,7 @@ public sealed class TerminalsScreen : ScreenBase
         _snapshot = service.Build();
         _mode = Parse(app.Settings.TerminalLayout);
         _columnsByRow = PaneSplits.ParseRows(app.Settings.TerminalSplits);
+        _layout = PaneLayout.Parse(app.Settings.TerminalGroups);
 
         // Seeded before the Panes call below, because Stable() appends whatever
         // it has not seen - so seeding after it would put every restored
@@ -255,21 +272,33 @@ public sealed class TerminalsScreen : ScreenBase
     }
 
     /// <summary>
-    /// Fixture constructor for --selftest. With <paramref name="picking"/> the
-    /// wall opens with the inline picker up, which is the only way a render
-    /// check can see it: it exists between a key press and a pane, and neither
+    /// Fixture constructor for --selftest.
+    ///
+    /// <paramref name="demo"/> arranges the wall the way a key would, which is
+    /// the only way a render check can see either state: a split tile and the
+    /// picker inside one both live between a key press and a pane, and neither
     /// can be driven from a piped session.
     /// </summary>
-    public TerminalsScreen(App app, SessionSnapshot snapshot, bool picking = false) : base(app)
+    public TerminalsScreen(App app, SessionSnapshot snapshot, string? demo = null) : base(app)
     {
         _service = null;
         _snapshot = snapshot;
 
-        if (!picking) return;
+        if (demo is null) return;
 
-        _picker = new PanePicker(app);
-        _pickerAt = Math.Min(1, _snapshot.Sessions.Count);
-        _focus = _pickerAt;
+        var keys = _snapshot.Sessions.Select(DraftKey).ToList();
+        _layout.Sync(keys);
+
+        // One tile split in two, and the half on the right split again the other
+        // way: three sessions, one header, two dividers that have to meet the
+        // box and each other.
+        if (keys.Count < 4) return;
+
+        _layout.Split(keys[0], keys[2], vertical: true);
+        _layout.Split(keys[2], keys[3], vertical: false);
+        _focus = Panes.FindIndex(row => string.Equals(DraftKey(row), keys[2], StringComparison.Ordinal));
+
+        if (demo == "nested-focus") _mode = LayoutMode.Focus;
     }
 
     // A terminal tile has to keep up with a program drawing itself, not with a
@@ -364,33 +393,60 @@ public sealed class TerminalsScreen : ScreenBase
                 });
             }
 
-            return WithPicker(Stable(rows));
+            return Arranged(Stable(rows));
         }
     }
 
     /// <summary>
-    /// Slots the picker placeholder in beside the pane the split came from.
+    /// Puts the panes in the order the tiles are drawn in.
     ///
-    /// It goes in after <see cref="Stable"/> rather than through it: that order
-    /// is written to settings, and a pane which exists for the next twenty
-    /// seconds has no business being remembered across runs.
+    /// <see cref="Stable"/> answers "which slot does each pane remember"; this
+    /// answers "which tile is it in", and the two have to agree or a pane would
+    /// be numbered one thing and drawn somewhere else. The tree follows the flat
+    /// order - a tile sits where its earliest pane sits - so moving a pane still
+    /// moves what it belongs to.
     /// </summary>
-    private List<SessionRow> WithPicker(List<SessionRow> rows)
+    private List<SessionRow> Arranged(List<SessionRow> rows)
     {
-        if (_picker is null) return rows;
-
-        _pickerAt = Math.Clamp(_pickerAt, 0, rows.Count);
-
-        rows.Insert(_pickerAt, new SessionRow
+        // The pane waiting to be filled is a leaf like any other, which is what
+        // puts it inside the tile it was split from rather than beside it.
+        if (_picker is not null)
         {
-            SessionId = string.Empty,
-            ProjectName = "new terminal",
-            ProjectPath = PanePicker.Key,
-            Task = "picker",
-            State = SessionState.Idle
-        });
+            rows.Add(new SessionRow
+            {
+                SessionId = string.Empty,
+                ProjectName = "new terminal",
+                ProjectPath = PanePicker.Key,
+                Task = "picker",
+                State = SessionState.Idle
+            });
+        }
 
-        return rows;
+        var byKey = new Dictionary<string, SessionRow>(StringComparer.Ordinal);
+        foreach (var row in rows) byKey.TryAdd(DraftKey(row), row);
+
+        _layout.Sync(byKey.Keys.OrderBy(key => rows.FindIndex(r => DraftKey(r) == key)).ToList());
+
+        return _layout.Order().Where(byKey.ContainsKey).Select(key => byKey[key]).ToList();
+    }
+
+    /// <summary>The tile a pane is drawn in, by its place in the pane list.</summary>
+    private int TileAt(int pane)
+    {
+        var panes = Panes;
+        return pane < 0 || pane >= panes.Count ? -1 : _layout.TileOf(DraftKey(panes[pane]));
+    }
+
+    /// <summary>The panes of one tile, as places in the pane list.</summary>
+    private List<int> PanesOf(PaneNode tile, List<SessionRow> panes) => tile.Leaves()
+        .Select(key => panes.FindIndex(row => string.Equals(DraftKey(row), key, StringComparison.Ordinal)))
+        .Where(index => index >= 0)
+        .ToList();
+
+    private void SaveLayout()
+    {
+        App.Settings.TerminalGroups = _layout.Format();
+        StateStore.SaveSettings(App.Settings);
     }
 
     private static bool IsPicker(SessionRow row) =>
@@ -474,30 +530,41 @@ public sealed class TerminalsScreen : ScreenBase
         // it would write one into settings.
         if (_picker is not null) return false;
 
-        if (from < 0 || from >= panes.Count) return false;
-        if (to < 0 || to >= panes.Count || to == from) return false;
+        var tiles = _layout.Roots;
+        if (from < 0 || from >= tiles.Count) return false;
+        if (to < 0 || to >= tiles.Count || to == from) return false;
 
-        var keys = panes.Select(DraftKey).ToList();
-        var moved = keys[from];
-        keys.RemoveAt(from);
-        keys.Insert(to, moved);
+        // Tiles move, not panes: the halves of a split tile travel together, and
+        // a tile that holds one pane is the case this always was.
+        var blocks = tiles.Select(tile => tile.Leaves().ToList()).ToList();
+        var carried = blocks[from];
+        blocks.RemoveAt(from);
+        blocks.Insert(to, carried);
+
+        var keys = blocks.SelectMany(block => block).ToList();
 
         _order.RemoveAll(k => keys.Contains(k, StringComparer.Ordinal));
         _order.InsertRange(0, keys);
 
-        var name = panes[from].ProjectName;
+        var first = panes.FindIndex(row =>
+            string.Equals(DraftKey(row), carried[0], StringComparison.Ordinal));
+
+        var name = first >= 0 ? panes[first].ProjectName : "that tile";
         SaveOrder(keys);
 
-        // Follow the pane, but do not start typing into it. Focus() hands the
+        // Follow the tile, but do not start typing into it. Focus() hands the
         // keyboard over, which is right when you are switching panes and wrong
         // here: someone arranging the wall released it on purpose, and would
         // have found their next wall key inside Claude instead.
         var released = _released;
-        Focus(to);
+        var landed = Panes.FindIndex(row =>
+            string.Equals(DraftKey(row), carried[0], StringComparison.Ordinal));
+
+        Focus(Math.Max(0, landed));
         _released = released;
 
         // Focus() clears the notice, so it has to be set after, not before.
-        _notice = $"moved {name} to pane {to + 1}";
+        _notice = $"moved {name} to tile {to + 1}";
         return true;
     }
 
@@ -530,7 +597,10 @@ public sealed class TerminalsScreen : ScreenBase
         if (_focus >= panes.Count) _focus = Math.Max(0, panes.Count - 1);
 
         // Breadcrumb, with the right-hand status shortened rather than wrapped.
-        var left = panes.Count == 1 ? "Terminals · 1 pane" : $"Terminals · {panes.Count} panes";
+        var tiles = _layout.Roots.Count;
+        var left = panes.Count == 1 ? "Terminals · 1 pane"
+            : tiles == panes.Count ? $"Terminals · {panes.Count} panes"
+            : $"Terminals · {panes.Count} panes in {tiles} tiles";
         Widgets.SectionTitle(buffer, y, "Home", left);
 
         var right = $"layout {_mode.ToString().ToLowerInvariant()} · space to cycle";
@@ -766,24 +836,35 @@ public sealed class TerminalsScreen : ScreenBase
     {
         var margin = Widgets.Margin(buffer);
         var x = margin;
+        var tiles = _layout.Roots;
 
-        for (var i = 0; i < panes.Count && x < buffer.Width - margin - 8; i++)
+        for (var i = 0; i < tiles.Count && x < buffer.Width - margin - 8; i++)
         {
-            var active = i == _focus;
-            var color = Color(panes[i], active);
+            var mine = PanesOf(tiles[i], panes);
+            if (mine.Count == 0) continue;
+
+            var active = mine.Contains(_focus);
+            var lead = panes[mine[0]];
+            var color = Color(panes[active ? _focus : mine[0]], active);
 
             x = buffer.Write(x, y, active ? "●" : "○", new Sty(color, Theme.Bg, bold: active));
             x = buffer.Write(x, y, $" {i + 1} ", new Sty(color, Theme.Bg, bold: active));
-            x = buffer.WriteClipped(x, y, panes[i].ProjectName, 14,
+            x = buffer.WriteClipped(x, y, lead.ProjectName, 14,
                 new Sty(active ? Theme.Text : Theme.Dim, Theme.Bg));
+
+            // A tile of several says how many rather than listing them: the
+            // strip is for finding a tile that is off screen, and its own header
+            // names what is in it.
+            if (mine.Count > 1)
+                x = buffer.Write(x, y, $" +{mine.Count - 1}", new Sty(Theme.BorderMuted, Theme.Bg));
 
             // Two panes of the same project under different profiles are
             // otherwise the same row twice.
-            var mark = panes[i].ProfileIcon;
+            var mark = lead.ProfileIcon;
             if (mark.Length > 0)
             {
                 x = buffer.Write(x, y, "  " + mark,
-                    new Sty(ProfileLook.Color(panes[i].ProfileName), Theme.Bg, bold: active));
+                    new Sty(ProfileLook.Color(lead.ProfileName), Theme.Bg, bold: active));
             }
 
             x = buffer.Write(x, y, "   ", new Sty(Theme.Dim, Theme.Bg));
@@ -800,19 +881,33 @@ public sealed class TerminalsScreen : ScreenBase
 
     private void Grid(ScreenBuffer buffer, int x, int y, int width, int height, List<SessionRow> panes)
     {
-        if (_zoom || _mode == LayoutMode.Focus && panes.Count == 1)
+        var tiles = _layout.Roots;
+        _inner.Clear();
+        _spans.Clear();
+
+        // Zoom is about one pane, not one tile: reading a half closely is the
+        // whole reason to zoom, so it fills the wall on its own.
+        if (_zoom)
         {
-            Tile(buffer, x, y, width, height, panes[_focus], _focus, true);
+            Tile(buffer, x, y, width, height, PaneNode.Leaf(DraftKey(panes[_focus])), TileAt(_focus), panes);
             return;
         }
 
-        var (columns, rows) = Shape(panes.Count, width, height);
+        var here = Math.Max(0, TileAt(_focus));
+
+        if (_mode == LayoutMode.Focus && tiles.Count == 1)
+        {
+            Tile(buffer, x, y, width, height, tiles[0], 0, panes);
+            return;
+        }
+
+        var (columns, rows) = Shape(tiles.Count, width, height);
 
         if (_mode == LayoutMode.Focus)
         {
-            // Focused pane plus a narrow list, which is how more than four fit.
+            // Focused tile plus a narrow list, which is how more than four fit.
             var sidebar = Math.Clamp(width / 4, 18, 30);
-            Tile(buffer, x, y, width - sidebar - GutterX, height, panes[_focus], _focus, true);
+            Tile(buffer, x, y, width - sidebar - GutterX, height, tiles[here], here, panes);
             Sidebar(buffer, x + width - sidebar, y, sidebar, height, panes);
             return;
         }
@@ -834,7 +929,7 @@ public sealed class TerminalsScreen : ScreenBase
             offset += heights[r] + GutterY;
         }
 
-        for (var i = 0; i < panes.Count; i++)
+        for (var i = 0; i < tiles.Count; i++)
         {
             var column = i % columns;
             var row = i / columns;
@@ -850,11 +945,11 @@ public sealed class TerminalsScreen : ScreenBase
             var tileWidth = widths[column];
 
             // A lone tile on the last row takes the full width.
-            var lastRow = row == (panes.Count - 1) / columns;
-            if (lastRow && panes.Count % columns == 1 && column == 0 && columns > 1)
+            var lastRow = row == (tiles.Count - 1) / columns;
+            if (lastRow && tiles.Count % columns == 1 && column == 0 && columns > 1)
                 tileWidth = width;
 
-            Tile(buffer, tileX, tops[row], tileWidth, heights[row], panes[i], i, i == _focus);
+            Tile(buffer, tileX, tops[row], tileWidth, heights[row], tiles[i], i, panes);
         }
 
         // Remember where the gutters landed: a drag has to know what it grabbed,
@@ -862,16 +957,16 @@ public sealed class TerminalsScreen : ScreenBase
         // divider belongs to one row now, and only spans that row.
         for (var r = 0; r < rows; r++)
         {
-            if (r * columns >= panes.Count) break;
+            if (r * columns >= tiles.Count) break;
 
             var widths = Columns(r).Cells(columns, width - GutterX * (columns - 1), MinPaneWidth);
-            var lastRow = r == (panes.Count - 1) / columns;
-            if (lastRow && panes.Count % columns == 1 && columns > 1) continue;
+            var lastRow = r == (tiles.Count - 1) / columns;
+            if (lastRow && tiles.Count % columns == 1 && columns > 1) continue;
 
             var at = x;
             for (var c = 0; c < columns - 1; c++)
             {
-                if (r * columns + c + 1 >= panes.Count) break;
+                if (r * columns + c + 1 >= tiles.Count) break;
 
                 at += widths[c];
                 _dividers.Add((true, c, r, at, tops[r], tops[r] + heights[r]));
@@ -937,6 +1032,43 @@ public sealed class TerminalsScreen : ScreenBase
         return null;
     }
 
+    /// <summary>The divider inside a tile within a cell of a point, if there is one.</summary>
+    private (PaneNode Branch, int Index)? InnerAt(int x, int y)
+    {
+        foreach (var divider in _inner)
+        {
+            if (divider.Vertical)
+            {
+                if (Math.Abs(x - divider.At) <= 1 && y >= divider.From && y <= divider.To)
+                    return (divider.Branch, divider.Index);
+
+                continue;
+            }
+
+            if (y == divider.At && x >= divider.From && x <= divider.To)
+                return (divider.Branch, divider.Index);
+        }
+
+        return null;
+    }
+
+    /// <summary>Puts a dragged interior divider where the pointer is.</summary>
+    private void DragInnerTo(int x, int y)
+    {
+        if (_draggingInner is not { } drag) return;
+        if (!_spans.TryGetValue(drag.Branch, out var run) || run.Size <= 0) return;
+
+        var along = (double)((drag.Branch.Vertical ? x : y) - run.At) / run.Size;
+        if (drag.Branch.Place(drag.Index, along)) SaveLayout();
+    }
+
+    /// <summary>
+    /// Where each branch was laid out last frame: a dragged divider has to know
+    /// what its fraction is a fraction of, and that is the branch's own run,
+    /// not the tile or the wall.
+    /// </summary>
+    private readonly Dictionary<PaneNode, (int At, int Size)> _spans = new();
+
     /// <summary>Puts a dragged divider where the pointer is.</summary>
     private void DragTo(int x, int y)
     {
@@ -961,14 +1093,31 @@ public sealed class TerminalsScreen : ScreenBase
     /// </summary>
     private void Resize(bool vertical, int steps)
     {
+        var by = 0.03 * steps;
+
+        // A pane inside a split tile resizes that split, not the wall around it:
+        // the divider you just made is the one under your hands.
+        var panes = Panes;
+        if (_focus >= 0 && _focus < panes.Count &&
+            _layout.Enclosing(DraftKey(panes[_focus]), vertical) is { } inside)
+        {
+            var last = inside.Branch.Children.Count - 1;
+            var edge = inside.Index < last ? inside.Index : last - 1;
+
+            if (inside.Branch.Nudge(edge, inside.Index < last ? by : -by)) SaveLayout();
+            else _notice = "that pane is as small as it goes · alt+shift+0 evens the tile up";
+
+            return;
+        }
+
         if (_grid.Columns == 0) return;
 
-        var by = 0.03 * steps;
+        var cell = Math.Max(0, TileAt(_focus));
 
         if (vertical)
         {
-            var column = _focus % Math.Max(1, _grid.Columns);
-            var band = _focus / Math.Max(1, _grid.Columns);
+            var column = cell % Math.Max(1, _grid.Columns);
+            var band = cell / Math.Max(1, _grid.Columns);
             var index = column < _grid.Columns - 1 ? column : column - 1;
             var moved = Columns(band).Nudge(_grid.Columns, index, column < _grid.Columns - 1 ? by : -by);
 
@@ -980,7 +1129,7 @@ public sealed class TerminalsScreen : ScreenBase
             return;
         }
 
-        var row = _focus / Math.Max(1, _grid.Columns);
+        var row = cell / Math.Max(1, _grid.Columns);
         var below = row < _grid.Rows - 1 ? row : row - 1;
         if (!_rows.Nudge(_grid.Rows, below, row < _grid.Rows - 1 ? by : -by))
             _notice = "that pane is as short as it goes · alt+shift+0 makes them even again";
@@ -992,6 +1141,10 @@ public sealed class TerminalsScreen : ScreenBase
         foreach (var splits in _columnsByRow.Values) splits.Reset(_grid.Columns);
         _rows.Reset(_grid.Rows);
 
+        // And every split inside a tile, for the same reason.
+        foreach (var root in _layout.Roots) root.Even();
+
+        SaveLayout();
         SaveSplits();
         _notice = "panes share the wall evenly again";
     }
@@ -1029,16 +1182,23 @@ public sealed class TerminalsScreen : ScreenBase
     {
         Widgets.Panel(buffer, x, y, width, height, false);
 
-        for (var i = 0; i < panes.Count && i < height - 2; i++)
+        var tiles = _layout.Roots;
+
+        for (var i = 0; i < tiles.Count && i < height - 2; i++)
         {
-            var row = panes[i];
-            var active = i == _focus;
+            var mine = PanesOf(tiles[i], panes);
+            if (mine.Count == 0) continue;
+
+            var active = mine.Contains(_focus);
+            var row = panes[mine[0]];
             var rowY = y + 1 + i;
 
             buffer.Write(x + 2, rowY, active ? "●" : "○",
                 new Sty(Color(row, active), Theme.Panel, bold: active));
             buffer.Write(x + 4, rowY, (i + 1).ToString(), new Sty(Theme.Dim, Theme.Panel));
-            buffer.WriteClipped(x + 6, rowY, row.ProjectName, width - 8,
+
+            var name = mine.Count > 1 ? $"{row.ProjectName} +{mine.Count - 1}" : row.ProjectName;
+            buffer.WriteClipped(x + 6, rowY, name, width - 8,
                 new Sty(active ? Theme.Text : Theme.Muted, Theme.Panel, bold: active));
         }
     }
@@ -1068,23 +1228,63 @@ public sealed class TerminalsScreen : ScreenBase
     private bool Landing(int index) =>
         _carry is { Moved: true } carry && carry.To == index && carry.To != carry.From;
 
+    /// <summary>
+    /// One tile: a box, one header across the top of it, and whatever the tile
+    /// holds inside.
+    ///
+    /// A tile of one pane draws exactly what it always drew - that path is
+    /// untouched, because most tiles are still one pane. A tile holding a tree
+    /// draws the box and the header itself and hands the interior to
+    /// <see cref="Inside"/>, whose panes have no chrome of their own: the header
+    /// above them is the chrome, which is what makes them halves of one thing
+    /// rather than two boxes that happen to touch.
+    /// </summary>
     private void Tile(ScreenBuffer buffer, int x, int y, int width, int height,
-        SessionRow row, int index, bool focused)
+        PaneNode tile, int number, List<SessionRow> panes)
     {
         if (width < 12 || height < 3) return;
 
+        var mine = PanesOf(tile, panes);
+        var focused = mine.Contains(_focus);
+
+        if (tile.IsLeaf)
+        {
+            var only = mine.Count > 0 ? mine[0] : -1;
+            if (only < 0) return;
+
+            Tile(buffer, x, y, width, height, panes[only], only, focused, number);
+            return;
+        }
+
+        var typing = focused && !_released;
+        var border = Held(number) ? Theme.Blue
+            : Landing(number) ? Theme.Amber
+            : typing ? Theme.Blue : focused ? Theme.BorderAccent : Theme.Border;
+
+        var fill = focused ? Theme.PanelSelected : Theme.Panel;
+        buffer.Box(x, y, width, height, new Sty(border, fill), BoxStyle.Rounded, fill);
+
+        var first = _inner.Count;
+        Inside(buffer, x + 1, y + 1, width - 2, height - 2, tile, panes, fill);
+        Joins(buffer, x, y, width, height, first, border, fill);
+        Shared(buffer, x, y, width, tile, number, panes, border, fill);
+    }
+
+    private void Tile(ScreenBuffer buffer, int x, int y, int width, int height,
+        SessionRow row, int index, bool focused, int number)
+    {
         _rects.Add((x, y, width, height, index));
 
         if (_picker is not null && IsPicker(row))
         {
-            _picker.Render(buffer, x, y, width, height, index, focused);
+            _picker.Render(buffer, x, y, width, height, number, focused);
             return;
         }
 
         var terminal = LiveTerminal(row);
         if (terminal is not null)
         {
-            TerminalPane(buffer, x, y, width, height, row, index, focused, terminal);
+            TerminalPane(buffer, x, y, width, height, row, index, focused, terminal, number);
             return;
         }
 
@@ -1110,8 +1310,8 @@ public sealed class TerminalsScreen : ScreenBase
             };
         }
 
-        var border = Held(index) ? Theme.Blue
-            : Landing(index) ? Theme.Amber
+        var border = Held(number) ? Theme.Blue
+            : Landing(number) ? Theme.Amber
             : row.State == SessionState.Waiting ? Theme.Amber
             : focused ? Theme.Blue : Theme.Border;
 
@@ -1119,20 +1319,20 @@ public sealed class TerminalsScreen : ScreenBase
         buffer.Box(x, y, width, height, new Sty(border, fill), BoxStyle.Rounded, fill);
 
         // Legends notched into the top border.
-        var title = $" {index + 1} · {row.ProjectName} ";
+        var title = $" {number + 1} · {row.ProjectName} ";
         buffer.WriteClipped(x + 2, y, title, width - 4, new Sty(border, fill, bold: true));
 
         // While a tile is being carried, the badge says so - it is the one slot
         // in the border that is already there to be borrowed.
-        var state = Held(index) ? " moving "
-            : Landing(index) ? " drop here "
+        var state = Held(number) ? " moving "
+            : Landing(number) ? " drop here "
             : $" {Format.State(row.State, row.StateAge)} ";
 
         if (title.Length + state.Length + 6 <= width)
         {
             buffer.WriteRight(x + width - 3, y, state,
-                new Sty(Held(index) ? Theme.Blue : Landing(index) ? Theme.Amber : Theme.Dim,
-                    fill, bold: Held(index) || Landing(index)));
+                new Sty(Held(number) ? Theme.Blue : Landing(number) ? Theme.Amber : Theme.Dim,
+                    fill, bold: Held(number) || Landing(number)));
         }
 
         var titled = Named(buffer, x, y, width, row, title.Length, state.Length, fill);
@@ -1197,33 +1397,33 @@ public sealed class TerminalsScreen : ScreenBase
     /// clipped to it.
     /// </summary>
     private void TerminalPane(ScreenBuffer buffer, int x, int y, int width, int height,
-        SessionRow row, int index, bool focused, TerminalTile terminal)
+        SessionRow row, int index, bool focused, TerminalTile terminal, int number)
     {
         var typing = focused && !_released;
 
-        var border = Held(index) ? Theme.Blue
-            : Landing(index) ? Theme.Amber
+        var border = Held(number) ? Theme.Blue
+            : Landing(number) ? Theme.Amber
             : terminal.HasExited ? Theme.Dim
             : typing ? Theme.Blue : focused ? Theme.BorderAccent : Theme.Border;
 
         var fill = focused ? Theme.PanelSelected : Theme.Panel;
         buffer.Box(x, y, width, height, new Sty(border, fill), BoxStyle.Rounded, fill);
 
-        var title = $" {index + 1} · {row.ProjectName} ";
+        var title = $" {number + 1} · {row.ProjectName} ";
         buffer.WriteClipped(x + 2, y, title, width - 4, new Sty(border, fill, bold: true));
 
         var searching = focused && _finding;
-        var carrying = Held(index) || Landing(index);
-        var badge = Held(index) ? " moving "
-            : Landing(index) ? " drop here "
+        var carrying = Held(number) || Landing(number);
+        var badge = Held(number) ? " moving "
+            : Landing(number) ? " drop here "
             : terminal.HasExited ? " ended "
             : searching ? " find " : typing ? " typing " : " terminal ";
 
         if (title.Length + badge.Length + 6 <= width)
         {
             buffer.WriteRight(x + width - 3, y, badge,
-                new Sty(Held(index) ? Theme.Blue
-                    : Landing(index) ? Theme.Amber
+                new Sty(Held(number) ? Theme.Blue
+                    : Landing(number) ? Theme.Amber
                     : searching ? Theme.Amber : typing ? Theme.Blue : Theme.Dim,
                     fill, bold: carrying));
         }
@@ -1251,6 +1451,232 @@ public sealed class TerminalsScreen : ScreenBase
 
         terminal.Read(screen =>
             TerminalRender.Draw(buffer, screen, x + 2, y + 1, inner, innerRows, fill, typing, search));
+    }
+
+    /// <summary>How wide and tall a pane inside a tile can be cut down to.</summary>
+    private const int MinHalfWidth = 16;
+
+    private const int MinHalfHeight = 3;
+
+    /// <summary>
+    /// The header a tile of several panes shares: every name across the top,
+    /// with the one holding the keyboard lit.
+    ///
+    /// It is the point of the whole arrangement. Two boxes side by side already
+    /// existed; what a split is for is reading two sessions as one thing, and
+    /// one header saying which two is what makes it that rather than a wall with
+    /// smaller tiles on it.
+    /// </summary>
+    private void Shared(ScreenBuffer buffer, int x, int y, int width, PaneNode tile, int number,
+        List<SessionRow> panes, Rgb border, Rgb fill)
+    {
+        var mine = PanesOf(tile, panes);
+        if (mine.Count == 0) return;
+
+        var badge = Held(number) ? " moving "
+            : Landing(number) ? " drop here "
+            : Badge(panes[mine.Contains(_focus) ? _focus : mine[0]], mine.Contains(_focus));
+
+        // Names first, badge only with the room left over: which sessions are in
+        // the tile outranks what one of them is doing.
+        var room = width - 6 - (badge.Length + 2 <= width / 2 ? badge.Length : 0);
+        var at = buffer.Write(x + 2, y, $" {number + 1} · ", new Sty(border, fill, bold: true));
+
+        for (var i = 0; i < mine.Count && at < x + 2 + room; i++)
+        {
+            if (i > 0) at = buffer.Write(at, y, " │ ", new Sty(Theme.BorderMuted, fill));
+
+            var here = mine[i] == _focus;
+            at = buffer.WriteClipped(at, y, panes[mine[i]].ProjectName, x + 2 + room - at,
+                new Sty(here ? Theme.Blue : Theme.Dim, fill, bold: here));
+        }
+
+        buffer.Write(at, y, " ", new Sty(border, fill));
+
+        if (at + badge.Length + 4 <= x + width)
+        {
+            buffer.WriteRight(x + width - 3, y, badge,
+                new Sty(Held(number) ? Theme.Blue : Landing(number) ? Theme.Amber : Theme.Dim,
+                    fill, bold: Held(number) || Landing(number)));
+        }
+    }
+
+    private string Badge(SessionRow row, bool focused)
+    {
+        if (IsPicker(row)) return " new ";
+
+        var terminal = LiveTerminal(row);
+
+        if (terminal is null) return $" {Format.State(row.State, row.StateAge)} ";
+        if (terminal.HasExited) return " ended ";
+        if (focused && _finding) return " find ";
+
+        return focused && !_released ? " typing " : " terminal ";
+    }
+
+    /// <summary>
+    /// Lays a tile's tree out in the space inside its box, drawing a divider
+    /// between each pair and recording it so it can be dragged.
+    /// </summary>
+    private void Inside(ScreenBuffer buffer, int x, int y, int width, int height, PaneNode node,
+        List<SessionRow> panes, Rgb fill)
+    {
+        if (width <= 0 || height <= 0) return;
+
+        if (node.IsLeaf)
+        {
+            Body(buffer, x, y, width, height, node.Key, panes, fill);
+            return;
+        }
+
+        var least = node.Vertical ? MinHalfWidth : MinHalfHeight;
+        var sizes = node.Cells(node.Vertical ? width : height, least);
+
+        if (sizes.Length == 0)
+        {
+            // Too little room to divide honestly. The panes are still there and
+            // the header still names them; only the split is not drawn.
+            buffer.WriteClipped(x + 1, y, "too small to split here", Math.Max(0, width - 2),
+                new Sty(Theme.Dim, fill, italic: true));
+
+            Inside(buffer, x, y, width, height, node.Children[0], panes, fill);
+            return;
+        }
+
+        var at = node.Vertical ? x : y;
+        _spans[node] = (at, node.Vertical ? width : height);
+
+        for (var i = 0; i < node.Children.Count; i++)
+        {
+            if (node.Vertical) Inside(buffer, at, y, sizes[i], height, node.Children[i], panes, fill);
+            else Inside(buffer, x, at, width, sizes[i], node.Children[i], panes, fill);
+
+            at += sizes[i];
+            if (i == node.Children.Count - 1) break;
+
+            var style = new Sty(Dragging(node, i) ? Theme.Blue : Theme.BorderMuted, fill,
+                bold: Dragging(node, i));
+
+            if (node.Vertical)
+            {
+                for (var row = y; row < y + height; row++) buffer.Set(at, row, '│', style);
+                _inner.Add((node, i, true, at, y, y + height - 1));
+            }
+            else
+            {
+                buffer.HLine(x, at, width, '─', style);
+                _inner.Add((node, i, false, at, x, x + width - 1));
+            }
+
+            at++;
+        }
+    }
+
+    private bool Dragging(PaneNode node, int index) =>
+        _draggingInner is { } drag && ReferenceEquals(drag.Branch, node) && drag.Index == index;
+
+    /// <summary>
+    /// Notches the interior dividers into the box around them, and into each
+    /// other where they cross - without it a split reads as a line drawn over a
+    /// tile rather than as the tile being divided.
+    /// </summary>
+    private void Joins(ScreenBuffer buffer, int x, int y, int width, int height, int from,
+        Rgb border, Rgb fill)
+    {
+        var style = new Sty(border, fill);
+
+        for (var i = from; i < _inner.Count; i++)
+        {
+            var divider = _inner[i];
+
+            if (divider.Vertical)
+            {
+                if (divider.From == y + 1) buffer.Set(divider.At, y, '┬', style);
+                if (divider.To == y + height - 2) buffer.Set(divider.At, y + height - 1, '┴', style);
+                continue;
+            }
+
+            if (divider.From == x + 1) buffer.Set(x, divider.At, '├', style);
+            if (divider.To == x + width - 2) buffer.Set(x + width - 1, divider.At, '┤', style);
+
+            // Where a divider inside one half meets the one that made the half.
+            foreach (var crossed in _inner.Skip(from).Where(other => other.Vertical))
+            {
+                if (divider.At < crossed.From || divider.At > crossed.To) continue;
+
+                if (crossed.At == divider.From - 1)
+                    buffer.Set(crossed.At, divider.At, '├', new Sty(Theme.BorderMuted, fill));
+
+                if (crossed.At == divider.To + 1)
+                    buffer.Set(crossed.At, divider.At, '┤', new Sty(Theme.BorderMuted, fill));
+            }
+        }
+    }
+
+    /// <summary>
+    /// One pane of a divided tile: its content and nothing else. The tile owns
+    /// the border and the header, so all this draws is the session.
+    /// </summary>
+    private void Body(ScreenBuffer buffer, int x, int y, int width, int height, string? key,
+        List<SessionRow> panes, Rgb fill)
+    {
+        var index = key is null
+            ? -1
+            : panes.FindIndex(row => string.Equals(DraftKey(row), key, StringComparison.Ordinal));
+
+        if (index < 0 || width < 4 || height < 1) return;
+
+        var row = panes[index];
+        var focused = index == _focus;
+
+        // The lit pane is the one you are typing into. A tile of two is one box,
+        // so the border cannot say which half has the keyboard - the fill does.
+        var paint = focused ? Theme.PanelSelected : Theme.Panel;
+        buffer.Fill(x, y, width, height, paint);
+
+        _rects.Add((x, y, width, height, index));
+
+        if (_picker is not null && IsPicker(row))
+        {
+            _picker.Body(buffer, x, y, width - 2, height, paint);
+            return;
+        }
+
+        var terminal = LiveTerminal(row);
+        if (terminal is not null)
+        {
+            if (width < MinHalfWidth || height < MinHalfHeight)
+            {
+                buffer.WriteClipped(x + 1, y, "too small", Math.Max(0, width - 2), new Sty(Theme.Dim, paint));
+                return;
+            }
+
+            var typing = focused && !_released;
+            var searching = focused && _finding;
+
+            terminal.Resize(width - 2, height);
+            if (searching && _query.Length > 0) Recompute(terminal, keepPlace: true);
+
+            var search = searching && _hits.Count > 0 ? new SearchHighlight(_hits, _hit) : (SearchHighlight?)null;
+
+            terminal.Read(screen =>
+                TerminalRender.Draw(buffer, screen, x + 1, y, width - 2, height, paint, typing, search));
+
+            return;
+        }
+
+        var live = Live(row);
+        var inner = width - 2;
+        var rows = height;
+
+        if (live is not null && rows > 2)
+        {
+            TileInput(buffer, x + 1, y + height - 1, inner, live, row, focused, paint);
+            rows--;
+        }
+
+        var lines = Lines(row, inner, rows, paint);
+        for (var i = 0; i < lines.Count; i++) buffer.Write(x + 1, y + i, lines[i].Text, lines[i].Style);
     }
 
     /// <summary>
@@ -1327,7 +1753,8 @@ public sealed class TerminalsScreen : ScreenBase
         // Checked before the tile below is handed anything, because the pane
         // this splits is usually one you are typing in - waiting for the
         // keyboard to be given back first is the trip this key exists to save.
-        if (KeyBindings.Is(KeyAction.SplitHere, key)) return OpenPicker(panes);
+        if (KeyBindings.Is(KeyAction.SplitHere, key)) return OpenPicker(panes, vertical: true);
+        if (KeyBindings.Is(KeyAction.SplitHereDown, key)) return OpenPicker(panes, vertical: false);
 
         // A focused terminal tile takes every key, because Claude's own UI needs
         // Esc, Tab and the arrows. Ctrl+] hands the keyboard back to the wall -
@@ -1597,8 +2024,15 @@ public sealed class TerminalsScreen : ScreenBase
         var ch = key.KeyChar;
         if (ch >= '1' && ch <= '9')
         {
+            // The number on a box is its tile, so this lands on the pane of that
+            // tile you were last in - or its first, when you have not been in it.
             var target = ch - '1';
-            if (target < panes.Count) _focus = target;
+            if (target < _layout.Roots.Count)
+            {
+                var mine = PanesOf(_layout.Roots[target], panes);
+                if (mine.Count > 0 && !mine.Contains(_focus)) _focus = mine[0];
+            }
+
             return ScreenAction.None;
         }
 
@@ -1617,10 +2051,10 @@ public sealed class TerminalsScreen : ScreenBase
         // With tiles on there is no Windows Terminal pane to hand this to, so
         // the split happens here instead of doing nothing at all.
         if (KeyBindings.Is(KeyAction.SplitRight, key))
-            return Splitting ? Split(panes, vertical: true) : OpenPicker(panes);
+            return Splitting ? Split(panes, vertical: true) : OpenPicker(panes, vertical: true);
 
         if (KeyBindings.Is(KeyAction.SplitDown, key))
-            return Splitting ? Split(panes, vertical: false) : OpenPicker(panes);
+            return Splitting ? Split(panes, vertical: false) : OpenPicker(panes, vertical: false);
 
         if (KeyBindings.Is(KeyAction.NewSession, key))
             return ScreenAction.Push(new ProfileScreen(App));
@@ -2146,10 +2580,26 @@ public sealed class TerminalsScreen : ScreenBase
             return ScreenAction.None;
         }
 
+        if (_draggingInner is not null)
+        {
+            if (input.Kind == InputKind.MouseDrag) DragInnerTo(input.X, input.Y);
+            if (input.Kind is InputKind.MouseUp or InputKind.MouseDown) _draggingInner = null;
+            return ScreenAction.None;
+        }
+
         if (input.Kind == InputKind.MouseDown && DividerAt(input.X, input.Y) is { } grabbed)
         {
             _dragging = grabbed;
             _notice = "drag to resize · let go to keep it";
+            return ScreenAction.None;
+        }
+
+        // Inside a tile after the wall's own gutters, because a tile's edge and
+        // the gutter beside it are a cell apart.
+        if (input.Kind == InputKind.MouseDown && InnerAt(input.X, input.Y) is { } held)
+        {
+            _draggingInner = held;
+            _notice = "drag to resize this split · let go to keep it";
             return ScreenAction.None;
         }
 
@@ -2164,12 +2614,12 @@ public sealed class TerminalsScreen : ScreenBase
                 return ScreenAction.None;
             }
 
-            var over = Under(input.X, input.Y);
+            var over = TileAt(Under(input.X, input.Y));
             _carry = (carry.From, over, true);
 
             _notice = over < 0 || over == carry.From
-                ? $"holding pane {carry.From + 1} · drop it on another to move it"
-                : $"moving pane {carry.From + 1} to slot {over + 1} · let go to drop";
+                ? $"holding tile {carry.From + 1} · drop it on another to move it"
+                : $"moving tile {carry.From + 1} to slot {over + 1} · let go to drop";
 
             return ScreenAction.None;
         }
@@ -2217,7 +2667,8 @@ public sealed class TerminalsScreen : ScreenBase
 
             // Pending, not moving: with Moved false this is still just a click,
             // and stays one unless the pointer moves with the button down.
-            _carry = (hit.Index, hit.Index, false);
+            var tile = TileAt(hit.Index);
+            _carry = (tile, tile, false);
             return ScreenAction.None;
         }
 
@@ -2275,15 +2726,17 @@ public sealed class TerminalsScreen : ScreenBase
     private bool Splitting => !App.Settings.TerminalTiles;
 
     /// <summary>
-    /// Opens a pane beside the focused one with the new-terminal flow in it.
+    /// Splits the focused pane in half and puts the new-terminal flow in the new
+    /// half, so the session starts where the split just made room for it.
     /// </summary>
-    private ScreenAction OpenPicker(List<SessionRow> panes)
+    private ScreenAction OpenPicker(List<SessionRow> panes, bool vertical)
     {
         // Already waiting somewhere on the wall: put the focus back on it
         // rather than opening a second one.
         if (_picker is not null)
         {
-            _focus = Math.Clamp(_pickerAt, 0, Math.Max(0, panes.Count - 1));
+            var waiting = panes.FindIndex(IsPicker);
+            if (waiting >= 0) _focus = waiting;
             return ScreenAction.None;
         }
 
@@ -2293,13 +2746,42 @@ public sealed class TerminalsScreen : ScreenBase
             return ScreenAction.None;
         }
 
-        _picker = new PanePicker(App);
-        _pickerAt = panes.Count == 0 ? 0 : Math.Min(_focus + 1, panes.Count);
-        _focus = _pickerAt;
+        if (panes.Count == 0)
+        {
+            _layout.Roots.Add(PaneNode.Leaf(PanePicker.Key));
+        }
+        else
+        {
+            var rect = _rects.FirstOrDefault(r => r.Index == _focus);
+            var room = vertical
+                ? rect.W == 0 || rect.W >= MinHalfWidth * 2 + 3
+                : rect.H == 0 || rect.H >= MinHalfHeight * 2 + 1;
 
-        // Zoom would hide the wall the split was made against, which is the one
-        // thing this key is for.
+            if (!room)
+            {
+                _notice = vertical
+                    ? "not enough width to split this pane · alt+z zooms it instead"
+                    : "not enough height to split this pane · alt+z zooms it instead";
+
+                return ScreenAction.None;
+            }
+
+            if (!_layout.Split(DraftKey(panes[_focus]), PanePicker.Key, vertical))
+            {
+                _notice = "could not split that pane";
+                return ScreenAction.None;
+            }
+        }
+
+        _picker = new PanePicker(App);
+
+        // Zoom would hide the tile the split was made in, which is the one thing
+        // this key is for.
         _zoom = false;
+
+        var opened = Panes.FindIndex(IsPicker);
+        if (opened >= 0) _focus = opened;
+
         return ScreenAction.None;
     }
 
@@ -2312,8 +2794,11 @@ public sealed class TerminalsScreen : ScreenBase
 
     private ScreenAction ClosePicker()
     {
+        var was = Math.Max(0, _focus - 1);
+
+        _layout.Remove(PanePicker.Key);
         _picker = null;
-        _focus = Math.Max(0, _pickerAt - 1);
+        _focus = Math.Min(was, Math.Max(0, Panes.Count - 1));
         return ScreenAction.None;
     }
 
@@ -2328,7 +2813,9 @@ public sealed class TerminalsScreen : ScreenBase
     {
         if (pick.Project is null || pick.Profile is null) return ScreenAction.None;
 
-        var before = _pickerAt > 0 && _pickerAt - 1 < panes.Count ? DraftKey(panes[_pickerAt - 1]) : null;
+        // The pane the split came from, so the new session can be given the slot
+        // next to it rather than the end of the wall.
+        var beside = panes.Where(row => !IsPicker(row)).Select(DraftKey).LastOrDefault();
 
         try
         {
@@ -2337,9 +2824,14 @@ public sealed class TerminalsScreen : ScreenBase
 
             App.AddTerminal(tile);
 
-            var at = before is null ? 0 : _order.IndexOf(before) + 1;
+            var at = beside is null ? 0 : _order.IndexOf(beside) + 1;
             _order.Insert(Math.Clamp(at, 0, _order.Count), tile.SessionId);
             SaveOrder(_order.ToList());
+
+            // The half the picker was holding becomes the session itself, which
+            // is what keeps the terminal in the space the split made.
+            _layout.Rename(PanePicker.Key, tile.SessionId);
+            SaveLayout();
 
             _picker = null;
             Show(TileKey(tile.SessionId, tile.ProjectPath));

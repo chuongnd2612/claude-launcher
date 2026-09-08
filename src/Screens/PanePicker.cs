@@ -138,31 +138,37 @@ public sealed class PanePicker
         if (title.Length + step.Length + 6 <= width)
             buffer.WriteRight(x + width - 3, y, step, new Sty(Theme.Dim, fill));
 
-        var inner = width - 4;
-        var rows = height - 2;
-        if (rows <= 0 || inner <= 4) return;
+        Body(buffer, x + 2, y + 1, width - 4, height - 2, fill);
+    }
 
-        var contentY = y + 1;
+    /// <summary>
+    /// The flow itself, with no box around it - what a half of a split tile
+    /// draws, where the tile owns the border and the header. The x it is given
+    /// is the first column of content, not of a border.
+    /// </summary>
+    public void Body(ScreenBuffer buffer, int x, int y, int inner, int rows, Rgb fill)
+    {
+        if (rows <= 0 || inner <= 4) return;
 
         // The notice earns its row only when there is one, so a short pane still
         // shows a list rather than a message about one.
         if (_notice is not null && rows > 2)
         {
-            buffer.WriteClipped(x + 2, contentY, _notice, inner, new Sty(Theme.Amber, fill, italic: true));
-            contentY++;
+            buffer.WriteClipped(x, y, _notice, inner, new Sty(Theme.Amber, fill, italic: true));
+            y++;
             rows--;
         }
 
         switch (_step)
         {
             case Step.Project:
-                RenderProjects(buffer, x, contentY, inner, rows, fill);
+                RenderProjects(buffer, x - 2, y, inner, rows, fill);
                 return;
             case Step.Mode:
-                RenderModes(buffer, x, contentY, inner, rows, fill);
+                RenderModes(buffer, x - 2, y, inner, rows, fill);
                 return;
             default:
-                RenderSessions(buffer, x, contentY, inner, rows, fill);
+                RenderSessions(buffer, x - 2, y, inner, rows, fill);
                 return;
         }
     }
