@@ -229,6 +229,35 @@ public sealed class TerminalTile : IDisposable
         return "claude.exe";
     }
 
+    /// <summary>
+    /// Stops the session without waiting for it, for closing one tile by hand.
+    ///
+    /// <see cref="Dispose"/> blocks, and not briefly: closing a pseudo console
+    /// waits for the child to notice, and the read thread is then given up to two
+    /// seconds to see EOF. Quitting already does that on threads behind a
+    /// progress panel for exactly this reason - on a keystroke it was the whole
+    /// cost of closing a pane, with the tile still on screen throughout.
+    ///
+    /// The handler comes off first, so nothing from a dying pty reaches the
+    /// screen buffer, and the caller drops the tile immediately. If the launcher
+    /// exits before the teardown finishes, the process job takes the tree.
+    /// </summary>
+    public void Close()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        _pty.Output -= OnOutput;
+
+        var pty = _pty;
+
+        Task.Run(() =>
+        {
+            try { pty.Dispose(); }
+            catch (Exception) { /* the job object is the backstop */ }
+        });
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
