@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.44.0
 
 - **Pin the panes that matter: `Alt+P`.** A pinned tile is drawn to be found at a glance — a double
   border where every other tile has a single one, violet where the wall is blue and grey, and a `★`
@@ -20,9 +20,6 @@ Every release, newest first. The tags are on the
 - Fixed on the way: the second click of a double click arrives from the console flagged rather than
   plain, and nothing matched that flag — so that press was dropped entirely. It is now a press like
   any other.
-
-## 1.43.1
-
 - **Closing a pane is instant again.** `Ctrl+W` tore the pseudo console down on the keystroke itself,
   and that is a slow thing to do: it waits for the child to notice the console closing and then gives
   the reader up to two seconds to see the pipe close. The tile stayed on screen for all of it and the
