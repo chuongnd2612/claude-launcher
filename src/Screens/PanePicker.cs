@@ -363,6 +363,10 @@ public sealed class PanePicker
                 return Start(Modes[_mode].Mode);
         }
 
+        // Bare letters only. A chord is the wall's - alt+n starting a session
+        // because it happens to carry an n would be a key doing two things.
+        if ((key.Modifiers & (ConsoleModifiers.Control | ConsoleModifiers.Alt)) != 0) return PanePick.None;
+
         return char.ToLowerInvariant(key.KeyChar) switch
         {
             'n' => Start("new"),

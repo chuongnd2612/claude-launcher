@@ -597,9 +597,9 @@ public sealed class TerminalsScreen : ScreenBase
     {
         var panes = Panes;
 
-        if (_picker is not null && Picking(panes))
+        if (Picking(panes))
         {
-            Widgets.Footer(buffer, _picker.Footer(), KeyMap.Help);
+            Widgets.Footer(buffer, _picker!.Footer(), KeyMap.Help);
             return;
         }
 
@@ -1319,8 +1319,10 @@ public sealed class TerminalsScreen : ScreenBase
         var panes = Panes;
 
         // The picker owns every key while it is up: it has a filter to type
-        // into, so the wall cannot keep reading letters as commands.
-        if (Picking(panes)) return Picked(_picker!.HandleKey(key), panes);
+        // into, so the wall cannot keep reading letters as commands. F1 is the
+        // exception, because the footer promises it on every screen.
+        if (Picking(panes))
+            return key.Key == ConsoleKey.F1 ? Keys() : Picked(_picker!.HandleKey(key), panes);
 
         // Checked before the tile below is handed anything, because the pane
         // this splits is usually one you are typing in - waiting for the
