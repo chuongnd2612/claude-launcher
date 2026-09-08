@@ -156,6 +156,12 @@ public sealed class UiSettings
     public string TerminalGroups { get; set; } = string.Empty;
 
     /// <summary>
+    /// Not on the settings screen: the panes marked important, one session id or
+    /// project path per `|`. Delete the line to unpin everything.
+    /// </summary>
+    public string TerminalPinned { get; set; } = string.Empty;
+
+    /// <summary>
     /// Start new sessions with claude --remote-control, so they accept input
     /// from claude.ai and the phone app. Off by default: it opens a relay
     /// through Anthropic's servers, which is the user's call to make.

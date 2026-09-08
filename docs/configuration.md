@@ -72,6 +72,7 @@ be removed.
 | Show costs | On: show what Claude has cost on the dashboard. Off hides every figure and keeps the token counts |
 | Terminal splits | Not on the settings screen: where the wall's dividers sit, written as you drag them. Delete the line to go back to equal panes |
 | Terminal order | Not on the settings screen: the order the wall's tiles sit in, written when you move one. Delete the line to go back to the order sessions were opened in |
+| Terminal pinned | Not on the settings screen: the panes marked important with `Alt+P`, one session id or project path per `\|`. A pinned pane refuses to close. Delete the line to unpin everything |
 | Terminal groups | Not on the settings screen: which panes share a tile and how each tile is divided, written as `V(0.6*id,0.4*H(0.5*id,0.5*id))\|id` — one tile per `\|`, `V` side by side, `H` one above the other, weights adding to one. A wall nobody has split writes nothing here; delete the line to put every pane back in a tile of its own |
 | Terminal tiles | On (default): a session opened inside the launcher runs under a pseudo console and shows Claude's own interface, so `/usage`, the model picker and plan mode render exactly. Off: the launcher's own styled chat view, easier to watch several sessions at once, but rich screens arrive as plain text |
 

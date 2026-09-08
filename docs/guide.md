@@ -583,6 +583,27 @@ quick edit is exactly what drags a selection — the two cannot both be on. `Alt
 dragging selects and copies as it does anywhere else, and the mouse stops focusing tiles until you
 press `Alt+S` again. The launcher restores whatever your console had when it exits.
 
+**Pinning what matters: `Alt+P`.** Marks the focused pane important. A pinned tile is drawn to be
+found without looking for it — a **double border** where every other tile has a single one, violet
+where the wall is blue and grey, and a `★` before its number in the header, in the strip above the
+wall and in the focus-layout sidebar:
+
+```text
+╔═ ★ 1 · qagent │ web-dash │ ★ notes-cli ═══ idle 4m ═╗
+║ ◆ Bash pnpm typecheck    │ ◆ Write test/parser.spec ║
+╚══════════════════════════╧══════════════════════════╝
+```
+
+Three signals rather than one, on purpose: colour is no use over a monochrome connection, and the
+border weight is the one of the three that survives it. In a divided tile the border says the tile
+holds something important and the `★` beside a name says **which half** — pinning is per pane, not per
+tile.
+
+**A pinned pane will not close.** `Ctrl+W`, `w` and a triple-click all refuse it and say so; `Alt+P`
+again unpins. That is the point rather than a side effect — the session you must not lose is exactly
+the one a stray gesture should not be able to end. Pins are remembered in `ui.json` as
+`terminalPinned`.
+
 **Triple-click a tile to close it.** Three presses in the same place within about three quarters of a
 second close that pane, exactly as `Ctrl+W` does — the session is stopped and the conversation stays
 on disk. It is the gesture the wall had left: one press focuses a pane, two belong to whatever is

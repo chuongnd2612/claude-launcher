@@ -117,6 +117,13 @@ public sealed class App
     public HashSet<string> HiddenTiles { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
+    /// Panes marked important by hand. On the app for the same reason the hidden
+    /// set is - the wall is rebuilt every time it is opened - and written to
+    /// ui.json, because which session matters is not something to say twice.
+    /// </summary>
+    public HashSet<string> PinnedTiles { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
     /// Adds a tile and records the open set, so closing the launcher does not
     /// also lose the list of what was open.
     /// </summary>

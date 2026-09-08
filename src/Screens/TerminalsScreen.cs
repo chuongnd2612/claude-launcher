@@ -189,6 +189,14 @@ public sealed class TerminalsScreen : ScreenBase
         _columnsByRow = PaneSplits.ParseRows(app.Settings.TerminalSplits);
         _layout = PaneLayout.Parse(app.Settings.TerminalGroups);
 
+        foreach (var key in (app.Settings.TerminalPinned ?? string.Empty)
+                 .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            app.PinnedTiles.Add(key);
+        }
+
+        _pins = app.PinnedTiles;
+
         // Seeded before the Panes call below, because Stable() appends whatever
         // it has not seen - so seeding after it would put every restored
         // terminal ahead of the slot it was saved in.
@@ -299,6 +307,14 @@ public sealed class TerminalsScreen : ScreenBase
         _focus = Panes.FindIndex(row => string.Equals(DraftKey(row), keys[2], StringComparison.Ordinal));
 
         if (demo == "nested-focus") _mode = LayoutMode.Focus;
+
+        // A pin on an ordinary tile and one on a half of the divided tile, so the
+        // check covers both the double border and the star that says which half.
+        if (demo == "nested-pinned")
+        {
+            _pins.Add(keys[1]);
+            _pins.Add(keys[3]);
+        }
     }
 
     // A terminal tile has to keep up with a program drawing itself, not with a
@@ -458,6 +474,36 @@ public sealed class TerminalsScreen : ScreenBase
         App.Settings.TerminalGroups = _layout.Format();
         StateStore.SaveSettings(App.Settings);
     }
+
+    /// <summary>
+    /// A pinned pane is drawn to be found at a glance: a double border where
+    /// every other tile has a single one, violet where the wall is blue and
+    /// grey, and a star before the number.
+    ///
+    /// Three signals rather than one on purpose - colour alone is no use to
+    /// anyone reading this over a monochrome connection, and the border weight
+    /// is the only one of the three that survives that.
+    /// </summary>
+    private const string PinMark = "★";
+
+    /// <summary>
+    /// Where this screen's pins live: the app's set in a real run, and a set of
+    /// its own for a --selftest fixture.
+    ///
+    /// The fixtures share one App, so a fixture pinning through the app would
+    /// paint every other wall in the check - and would inherit the pins of
+    /// whoever ran it, which makes a render check depend on the machine.
+    /// </summary>
+    private readonly HashSet<string> _pins = new(StringComparer.Ordinal);
+
+    private bool Pinned(SessionRow row) => _pins.Contains(DraftKey(row));
+
+    private bool PinnedIn(PaneNode tile) => tile.Leaves().Any(_pins.Contains);
+
+    private static BoxStyle Frame(bool pinned) => pinned ? BoxStyle.Double : BoxStyle.Rounded;
+
+    /// <summary>The border a pinned tile takes, whatever it would have had.</summary>
+    private static Rgb PinColour(bool focused) => focused ? Theme.Violet : Theme.VioletSoft;
 
     private static bool IsPicker(SessionRow row) =>
         string.Equals(row.ProjectPath, PanePicker.Key, StringComparison.Ordinal);
@@ -860,6 +906,10 @@ public sealed class TerminalsScreen : ScreenBase
             var color = Color(panes[active ? _focus : mine[0]], active);
 
             x = buffer.Write(x, y, active ? "●" : "○", new Sty(color, Theme.Bg, bold: active));
+
+            if (PinnedIn(tiles[i]))
+                x = buffer.Write(x, y, " " + PinMark, new Sty(PinColour(active), Theme.Bg, bold: true));
+
             x = buffer.Write(x, y, $" {i + 1} ", new Sty(color, Theme.Bg, bold: active));
             x = buffer.WriteClipped(x, y, lead.ProjectName, 14,
                 new Sty(active ? Theme.Text : Theme.Dim, Theme.Bg));
@@ -1209,9 +1259,12 @@ public sealed class TerminalsScreen : ScreenBase
 
             buffer.Write(x + 2, rowY, active ? "●" : "○",
                 new Sty(Color(row, active), Theme.Panel, bold: active));
-            buffer.Write(x + 4, rowY, (i + 1).ToString(), new Sty(Theme.Dim, Theme.Panel));
+            buffer.Write(x + 4, rowY, (i + 1).ToString(),
+                new Sty(PinnedIn(tiles[i]) ? PinColour(active) : Theme.Dim, Theme.Panel,
+                    bold: PinnedIn(tiles[i])));
 
-            var name = mine.Count > 1 ? $"{row.ProjectName} +{mine.Count - 1}" : row.ProjectName;
+            var pin = PinnedIn(tiles[i]) ? PinMark + " " : string.Empty;
+            var name = mine.Count > 1 ? $"{pin}{row.ProjectName} +{mine.Count - 1}" : pin + row.ProjectName;
             buffer.WriteClipped(x + 6, rowY, name, width - 8,
                 new Sty(active ? Theme.Text : Theme.Muted, Theme.Panel, bold: active));
         }
@@ -1300,16 +1353,19 @@ public sealed class TerminalsScreen : ScreenBase
         }
 
         var typing = focused && !_released;
+        var pinned = PinnedIn(tile);
+
         var border = Held(number) ? Theme.Blue
             : Landing(number) ? Theme.Amber
+            : pinned ? PinColour(focused)
             : typing ? Theme.Blue : focused ? Theme.BorderAccent : Theme.Border;
 
         var fill = focused ? Theme.PanelSelected : Theme.Panel;
-        buffer.Box(x, y, width, height, new Sty(border, fill), BoxStyle.Rounded, fill);
+        buffer.Box(x, y, width, height, new Sty(border, fill), Frame(pinned), fill);
 
         var first = _inner.Count;
         Inside(buffer, x + 1, y + 1, width - 2, height - 2, tile, panes, fill);
-        Joins(buffer, x, y, width, height, first, border, fill);
+        Joins(buffer, x, y, width, height, first, border, fill, pinned);
         Shared(buffer, x, y, width, tile, number, panes, border, fill);
 
         if (mine.Count > 0) _rects.Add((x, y, width, height, mine[0]));
@@ -1355,16 +1411,19 @@ public sealed class TerminalsScreen : ScreenBase
             };
         }
 
+        var pinned = Pinned(row);
+
         var border = Held(number) ? Theme.Blue
             : Landing(number) ? Theme.Amber
+            : pinned ? PinColour(focused)
             : row.State == SessionState.Waiting ? Theme.Amber
             : focused ? Theme.Blue : Theme.Border;
 
         var fill = focused ? Theme.PanelSelected : Theme.Panel;
-        buffer.Box(x, y, width, height, new Sty(border, fill), BoxStyle.Rounded, fill);
+        buffer.Box(x, y, width, height, new Sty(border, fill), Frame(pinned), fill);
 
         // Legends notched into the top border.
-        var title = $" {number + 1} · {row.ProjectName} ";
+        var title = $" {(pinned ? PinMark + " " : string.Empty)}{number + 1} · {row.ProjectName} ";
         buffer.WriteClipped(x + 2, y, title, width - 4, new Sty(border, fill, bold: true));
 
         // While a tile is being carried, the badge says so - it is the one slot
@@ -1445,16 +1504,18 @@ public sealed class TerminalsScreen : ScreenBase
         SessionRow row, int index, bool focused, TerminalTile terminal, int number)
     {
         var typing = focused && !_released;
+        var pinned = Pinned(row);
 
         var border = Held(number) ? Theme.Blue
             : Landing(number) ? Theme.Amber
             : terminal.HasExited ? Theme.Dim
+            : pinned ? PinColour(focused)
             : typing ? Theme.Blue : focused ? Theme.BorderAccent : Theme.Border;
 
         var fill = focused ? Theme.PanelSelected : Theme.Panel;
-        buffer.Box(x, y, width, height, new Sty(border, fill), BoxStyle.Rounded, fill);
+        buffer.Box(x, y, width, height, new Sty(border, fill), Frame(pinned), fill);
 
-        var title = $" {number + 1} · {row.ProjectName} ";
+        var title = $" {(pinned ? PinMark + " " : string.Empty)}{number + 1} · {row.ProjectName} ";
         buffer.WriteClipped(x + 2, y, title, width - 4, new Sty(border, fill, bold: true));
 
         var searching = focused && _finding;
@@ -1525,13 +1586,20 @@ public sealed class TerminalsScreen : ScreenBase
         // Names first, badge only with the room left over: which sessions are in
         // the tile outranks what one of them is doing.
         var room = width - 6 - (badge.Length + 2 <= width / 2 ? badge.Length : 0);
-        var at = buffer.Write(x + 2, y, $" {number + 1} · ", new Sty(border, fill, bold: true));
+        var mark = PinnedIn(tile) ? PinMark + " " : string.Empty;
+        var at = buffer.Write(x + 2, y, $" {mark}{number + 1} · ", new Sty(border, fill, bold: true));
 
         for (var i = 0; i < mine.Count && at < x + 2 + room; i++)
         {
             if (i > 0) at = buffer.Write(at, y, " │ ", new Sty(Theme.BorderMuted, fill));
 
             var here = mine[i] == _focus;
+
+            // Which half is pinned, not just that one of them is: the border
+            // says the tile holds something important, the star says which.
+            if (Pinned(panes[mine[i]]))
+                at = buffer.Write(at, y, PinMark + " ", new Sty(PinColour(here), fill, bold: true));
+
             at = buffer.WriteClipped(at, y, panes[mine[i]].ProjectName, x + 2 + room - at,
                 new Sty(here ? Theme.Blue : Theme.Dim, fill, bold: here));
         }
@@ -1626,9 +1694,15 @@ public sealed class TerminalsScreen : ScreenBase
     /// tile rather than as the tile being divided.
     /// </summary>
     private void Joins(ScreenBuffer buffer, int x, int y, int width, int height, int from,
-        Rgb border, Rgb fill)
+        Rgb border, Rgb fill, bool pinned)
     {
         var style = new Sty(border, fill);
+
+        // A pinned tile is drawn with a double border, and a single-line tee
+        // against it reads as a gap rather than a join.
+        var (down, up, left, right) = pinned
+            ? ('╤', '╧', '╟', '╢')
+            : ('┬', '┴', '├', '┤');
 
         for (var i = from; i < _inner.Count; i++)
         {
@@ -1636,13 +1710,13 @@ public sealed class TerminalsScreen : ScreenBase
 
             if (divider.Vertical)
             {
-                if (divider.From == y + 1) buffer.Set(divider.At, y, '┬', style);
-                if (divider.To == y + height - 2) buffer.Set(divider.At, y + height - 1, '┴', style);
+                if (divider.From == y + 1) buffer.Set(divider.At, y, down, style);
+                if (divider.To == y + height - 2) buffer.Set(divider.At, y + height - 1, up, style);
                 continue;
             }
 
-            if (divider.From == x + 1) buffer.Set(x, divider.At, '├', style);
-            if (divider.To == x + width - 2) buffer.Set(x + width - 1, divider.At, '┤', style);
+            if (divider.From == x + 1) buffer.Set(x, divider.At, left, style);
+            if (divider.To == x + width - 2) buffer.Set(x + width - 1, divider.At, right, style);
 
             // Where a divider inside one half meets the one that made the half.
             foreach (var crossed in _inner.Skip(from).Where(other => other.Vertical))
@@ -1803,6 +1877,7 @@ public sealed class TerminalsScreen : ScreenBase
         if (KeyBindings.Is(KeyAction.PaneToPrevious, key)) return Regroup(panes, -1);
         if (KeyBindings.Is(KeyAction.PaneToNext, key)) return Regroup(panes, 1);
         if (KeyBindings.Is(KeyAction.PaneOut, key)) return Regroup(panes, 0);
+        if (KeyBindings.Is(KeyAction.PinTile, key)) return TogglePin(panes);
 
         // A focused terminal tile takes every key, because Claude's own UI needs
         // Esc, Tab and the arrows. Ctrl+] hands the keyboard back to the wall -
@@ -1842,7 +1917,9 @@ public sealed class TerminalsScreen : ScreenBase
             // that belongs to Claude, which uses it to interrupt a turn.
             if (KeyBindings.Is(KeyAction.CloseTerminal, key))
             {
-                CloseTerminal(panes[_focus], terminal);
+                // Through Remove, so the pin is honoured here too - this is the
+                // key most likely to be pressed by accident, mid-sentence.
+                Remove(panes[_focus]);
                 return ScreenAction.None;
             }
 
@@ -2123,6 +2200,12 @@ public sealed class TerminalsScreen : ScreenBase
     /// </summary>
     private void Remove(SessionRow row)
     {
+        if (Pinned(row))
+        {
+            _notice = $"{row.ProjectName} is pinned · {KeyBindings.Describe(KeyAction.PinTile)} to unpin it first";
+            return;
+        }
+
         var terminal = LiveTerminal(row);
 
         if (terminal is not null)
@@ -2910,6 +2993,38 @@ public sealed class TerminalsScreen : ScreenBase
         _notice = step == 0
             ? $"{name} is a tile of its own now"
             : $"moved {name} into tile {now + 1}";
+
+        return ScreenAction.None;
+    }
+
+    /// <summary>
+    /// Marks the focused pane important, or takes the mark off.
+    ///
+    /// The mark is not only paint: a pinned pane refuses to be closed. Three
+    /// quick clicks now close a pane, and the session you must not lose is
+    /// exactly the one a stray gesture should not be able to end.
+    /// </summary>
+    private ScreenAction TogglePin(List<SessionRow> panes)
+    {
+        if (_focus < 0 || _focus >= panes.Count) return ScreenAction.None;
+
+        var row = panes[_focus];
+        if (IsPicker(row)) return ScreenAction.None;
+
+        var key = DraftKey(row);
+        var pinned = !_pins.Remove(key);
+        if (pinned) _pins.Add(key);
+
+        if (!Transient)
+        {
+            App.Settings.TerminalPinned = string.Join('|', _pins);
+            StateStore.SaveSettings(App.Settings);
+        }
+
+        var back = KeyBindings.Describe(KeyAction.PinTile);
+        _notice = pinned
+            ? $"pinned {row.ProjectName} · it will not close until you unpin it with {back}"
+            : $"unpinned {row.ProjectName}";
 
         return ScreenAction.None;
     }
