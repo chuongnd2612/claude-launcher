@@ -78,7 +78,10 @@ public enum KeyAction
     ZoomPane,
     TerminalHere,
     SplitHere,
-    SplitHereDown
+    SplitHereDown,
+    PaneToPrevious,
+    PaneToNext,
+    PaneOut
 }
 
 /// <summary>Which screen a binding belongs to, for clash checking and the editor.</summary>
@@ -239,7 +242,8 @@ public static class KeyBindings
         {
             KeyAction.ReleaseKeyboard, KeyAction.FindInPane, KeyAction.CloseTerminal,
             KeyAction.SelectText, KeyAction.ZoomPane, KeyAction.TerminalHere,
-            KeyAction.SplitHere, KeyAction.SplitHereDown
+            KeyAction.SplitHere, KeyAction.SplitHereDown,
+            KeyAction.PaneToPrevious, KeyAction.PaneToNext, KeyAction.PaneOut
         })
     };
 
@@ -383,6 +387,11 @@ public static class KeyBindings
         // readline chords a shell and Claude's own prompt use - alt+b, alt+f,
         // alt+d - have to keep reaching them.
         Row(KeyAction.SplitHere, KeyScope.Tile, "Split this pane in two, side by side", "alt+\\"),
-        Row(KeyAction.SplitHereDown, KeyScope.Tile, "Split this pane in two, one above the other", "alt+-")
+        Row(KeyAction.SplitHereDown, KeyScope.Tile, "Split this pane in two, one above the other", "alt+-"),
+        // Punctuation rather than letters, for the same reason the splits are:
+        // alt and a letter is how a shell and Claude's own prompt move by word.
+        Row(KeyAction.PaneToPrevious, KeyScope.Tile, "Move this pane into the tile before it", "alt+,"),
+        Row(KeyAction.PaneToNext, KeyScope.Tile, "Move this pane into the tile after it", "alt+."),
+        Row(KeyAction.PaneOut, KeyScope.Tile, "Move this pane out into a tile of its own", "alt+/")
     };
 }
