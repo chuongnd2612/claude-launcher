@@ -2428,7 +2428,10 @@ public sealed class TerminalsScreen : ScreenBase
 
         try
         {
-            terminal.Dispose();
+            // Close, not Dispose: the pty takes its time going away and this is
+            // a keystroke. The tile comes off the wall on this frame and the
+            // teardown finishes behind it.
+            terminal.Close();
         }
         catch (Exception)
         {

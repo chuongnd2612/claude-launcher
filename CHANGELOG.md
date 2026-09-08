@@ -3,6 +3,15 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **Closing a pane is instant again.** `Ctrl+W` tore the pseudo console down on the keystroke itself,
+  and that is a slow thing to do: it waits for the child to notice the console closing and then gives
+  the reader up to two seconds to see the pipe close. The tile stayed on screen for all of it and the
+  wall stopped repainting. Quitting already ran this on threads behind a progress panel for the same
+  reason; one pane closing now does the same, so the pane goes the moment you press the key and the
+  teardown finishes behind it. Claude is stopped exactly as before.
+
 ## 1.43.0
 
 - **A pane can leave the tile it is in: `Alt+,`, `Alt+.` and `Alt+/`.** Splitting could only ever add

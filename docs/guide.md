@@ -624,6 +624,11 @@ typing, because a terminal tile owns every printable key. `w` does the same from
 for a session running in someone else's terminal it only hides the pane, since that one is not ours
 to end. Nothing is lost either way — the conversation is on disk and `r` or **Resume** brings it back.
 
+The pane comes off the wall on the same frame as the keystroke. Stopping a pseudo console is not
+quick — it waits for the child to notice, and then for the pipe to close, which is up to two seconds —
+so that part happens behind the repaint rather than in front of it. Claude is stopped exactly as
+before; you simply do not wait for it.
+
 **`Ctrl+C` goes to Claude**, which uses it to interrupt a turn. It never closes the launcher and never
 stops other sessions.
 
