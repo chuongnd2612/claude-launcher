@@ -81,6 +81,14 @@ public sealed class App
     {
         State = state;
         Settings = settings;
+
+        // Seeded here rather than by the wall: whether a session is pinned
+        // decides what is reopened at startup, which happens before any screen.
+        foreach (var key in (settings.TerminalPinned ?? string.Empty)
+                 .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            PinnedTiles.Add(key);
+        }
     }
 
     public LauncherState State { get; }
@@ -140,7 +148,9 @@ public sealed class App
     /// </summary>
     public void RememberTerminals()
     {
-        Workspace.Remember(Terminals
+        // Pinned first, because the remembered set is capped: a pinned session
+        // is the last one that should fall off the end of it.
+        Workspace.Remember(PinnedTiles, Terminals
             .Where(t => !t.HasExited && !string.IsNullOrEmpty(t.SessionId))
             .Select(t => new WorkspaceEntry
             {
@@ -155,13 +165,18 @@ public sealed class App
     /// Reopens the terminals that were up last time, resuming each conversation
     /// rather than starting a fresh one. Returns how many came back.
     /// </summary>
-    public int RestoreTerminals(out string? failure)
+    /// <param name="wanted">
+    /// Which of the remembered terminals to bring back, or null for all of them.
+    /// Startup passes the pinned ones; Home's "reopen last" passes nothing.
+    /// </param>
+    public int RestoreTerminals(out string? failure, Func<WorkspaceEntry, bool>? wanted = null)
     {
         failure = null;
         var restored = 0;
 
         foreach (var entry in Workspace.Restorable())
         {
+            if (wanted is not null && !wanted(entry)) continue;
             if (Terminals.Any(t => !t.HasExited && t.SessionId == entry.SessionId)) continue;
 
             try

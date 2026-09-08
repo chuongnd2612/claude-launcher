@@ -472,6 +472,26 @@ public sealed class PaneLayout
     private static int First(PaneNode root, Dictionary<string, int> order) =>
         root.Leaves().Select(key => order.TryGetValue(key, out var at) ? at : int.MaxValue).DefaultIfEmpty(int.MaxValue).Min();
 
+    /// <summary>
+    /// Moves the tiles holding a pinned pane to the front, keeping the order
+    /// they were in among themselves.
+    ///
+    /// Applied after <see cref="Sync"/> rather than inside it, because it
+    /// answers a different question: Sync says where a tile sits in the wall's
+    /// own order, and this says that being pinned outranks that.
+    /// </summary>
+    public void First(Func<string, bool> pinned)
+    {
+        var wanted = Roots.Where(root => root.Leaves().Any(pinned)).ToList();
+        if (wanted.Count == 0 || wanted.Count == Roots.Count) return;
+
+        var rest = Roots.Where(root => !root.Leaves().Any(pinned)).ToList();
+
+        Roots.Clear();
+        Roots.AddRange(wanted);
+        Roots.AddRange(rest);
+    }
+
     /// <summary>Every pane, tile by tile - the order the wall draws them in.</summary>
     public List<string> Order() => Roots.SelectMany(root => root.Leaves()).ToList();
 

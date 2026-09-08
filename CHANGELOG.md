@@ -3,6 +3,19 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **Pinned tiles lead the wall.** Pinning now moves a tile to the front and keeps it there, ahead of
+  the remembered order and of wherever it happened to be opened, so what matters is tile `1`. Within
+  the pinned group the old order holds, and a tile moved past them lands after them with a notice
+  saying why.
+- **Pinned sessions come back on their own.** Quitting and starting again resumes every pinned session
+  on the wall without pressing `r` — in its slot, and in its tile's shape when it was part of a split.
+  They are also kept ahead of the cap on the remembered set, so a pinned session is the last thing to
+  fall off it. Only on the interactive path: a launch that names a profile and a project is scripted
+  and still opens nothing on its own. The process does not survive quitting and cannot — a tile runs
+  under a pseudo console the launcher owns — so what comes back is the conversation, resumed.
+
 ## 1.44.0
 
 - **Pin the panes that matter: `Alt+P`.** A pinned tile is drawn to be found at a glance — a double

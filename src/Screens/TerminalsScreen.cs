@@ -189,12 +189,6 @@ public sealed class TerminalsScreen : ScreenBase
         _columnsByRow = PaneSplits.ParseRows(app.Settings.TerminalSplits);
         _layout = PaneLayout.Parse(app.Settings.TerminalGroups);
 
-        foreach (var key in (app.Settings.TerminalPinned ?? string.Empty)
-                 .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            app.PinnedTiles.Add(key);
-        }
-
         _pins = app.PinnedTiles;
 
         // Seeded before the Panes call below, because Stable() appends whatever
@@ -308,12 +302,18 @@ public sealed class TerminalsScreen : ScreenBase
 
         if (demo == "nested-focus") _mode = LayoutMode.Focus;
 
-        // A pin on an ordinary tile and one on a half of the divided tile, so the
-        // check covers both the double border and the star that says which half.
+        // Deliberately the second tile, and a half of it rather than all of it:
+        // the check then shows the star saying which half, the double border
+        // round the tile it is in, and that tile leading a wall it did not
+        // start at the front of.
         if (demo == "nested-pinned")
         {
-            _pins.Add(keys[1]);
+            _layout.Roots.Clear();
+            _layout.Sync(keys);
+            _layout.Split(keys[1], keys[2], vertical: true);
+            _layout.Split(keys[2], keys[3], vertical: false);
             _pins.Add(keys[3]);
+            _focus = Panes.FindIndex(row => string.Equals(DraftKey(row), keys[3], StringComparison.Ordinal));
         }
     }
 
@@ -442,6 +442,11 @@ public sealed class TerminalsScreen : ScreenBase
         foreach (var row in rows) byKey.TryAdd(DraftKey(row), row);
 
         _layout.Sync(byKey.Keys.OrderBy(key => rows.FindIndex(r => DraftKey(r) == key)).ToList());
+
+        // Pinned tiles lead the wall. A pane you have said matters should be the
+        // one you land on and the one numbered 1, not wherever it happened to be
+        // opened - so this outranks both the remembered order and the tree.
+        _layout.First(_pins.Contains);
 
         return _layout.Order().Where(byKey.ContainsKey).Select(key => byKey[key]).ToList();
     }
@@ -608,6 +613,10 @@ public sealed class TerminalsScreen : ScreenBase
         var name = first >= 0 ? panes[first].ProjectName : "that tile";
         SaveOrder(keys);
 
+        // Read after the wall has been rebuilt: pinned tiles lead it, so a tile
+        // does not always land on the slot it was dropped in.
+        var slot = Panes.Count > 0 ? _layout.TileOf(carried[0]) : to;
+
         // Follow the tile, but do not start typing into it. Focus() hands the
         // keyboard over, which is right when you are switching panes and wrong
         // here: someone arranging the wall released it on purpose, and would
@@ -620,7 +629,9 @@ public sealed class TerminalsScreen : ScreenBase
         _released = released;
 
         // Focus() clears the notice, so it has to be set after, not before.
-        _notice = $"moved {name} to tile {to + 1}";
+        _notice = slot == to
+            ? $"moved {name} to tile {to + 1}"
+            : $"moved {name} to tile {slot + 1} · pinned tiles lead the wall";
         return true;
     }
 
@@ -3014,6 +3025,11 @@ public sealed class TerminalsScreen : ScreenBase
         var key = DraftKey(row);
         var pinned = !_pins.Remove(key);
         if (pinned) _pins.Add(key);
+
+        // The wall reorders under your hands - the tile just pinned moves to the
+        // front - so the focus follows the pane rather than the slot it was in.
+        var landed = Panes.FindIndex(r => string.Equals(DraftKey(r), key, StringComparison.Ordinal));
+        if (landed >= 0) _focus = landed;
 
         if (!Transient)
         {
