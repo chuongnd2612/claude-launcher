@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.41.0
 
 - **Split a pane and start a session in it, without leaving the wall: `Alt+\`.** The new-terminal
   flow now happens *inside* the pane the split makes — project, then New / Continue / Resume and the
