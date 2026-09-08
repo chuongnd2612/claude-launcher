@@ -149,7 +149,8 @@ public static class KeyMap
             new KeyHint("z / alt+z", "Zoom this pane"),
             splitting
                 ? new KeyHint("v / s", "Split right / down")
-                : new KeyHint("v / s", "Split (off while tiles are on)")),
+                : new KeyHint("v / s", "Split here and pick a session"),
+            Bound(KeyAction.SplitHere, "Same, from inside a pane")),
         new KeyGroup("Leaving",
             UsageKey,
             RefreshUsageKey,
@@ -180,6 +181,7 @@ public static class KeyMap
             Bound(KeyAction.ReleaseKeyboard, "Take the keyboard back"),
             Bound(KeyAction.FindInPane, "Find in this pane"),
             Bound(KeyAction.CloseTerminal, "Close this pane"),
+            Bound(KeyAction.SplitHere, "Split and start one beside it"),
             Bound(KeyAction.SelectText, "Select text with the mouse"),
             new KeyHint("⇧pgup/pgdn", "Scroll this pane's history")),
         new KeyGroup("Panes",
@@ -219,7 +221,8 @@ public static class KeyMap
             new KeyHint("space / ^l", "Layout"),
             new KeyHint("z", "Zoom"),
             new KeyHint("w", "Close this pane"),
-            new KeyHint("t", "New terminal")),
+            new KeyHint("t", "New terminal"),
+            Bound(KeyAction.SplitHere, "Split and start one here")),
         new KeyGroup("Arranging",
             new KeyHint("^⇧←→↑↓", "Move this pane"),
             new KeyHint("alt+⇧←→↑↓", "Resize"),

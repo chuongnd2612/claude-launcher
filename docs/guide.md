@@ -511,6 +511,22 @@ Searching an 18 MB transcript takes about 120 ms, and the list stops at the firs
 header says so when it does). Only this session's own transcript is searched — not every session on
 the machine.
 
+**Splitting where you are: `Alt+\`.** Opens a pane beside the focused one and puts the new-terminal
+flow *inside it* — no full-screen picker, no trip back to the wall. It works while a terminal has the
+keyboard, so the pane you are reading stays on screen while you choose what starts next to it:
+
+| Step | What the pane shows | Keys |
+| --- | --- | --- |
+| Project | the quick-path list, with a filter at the top | type to filter · `↑↓` pick · `Enter` next · `Esc` cancel the split |
+| How it starts | New session, Continue, Resume, and the profile it runs under | `↑↓` or `n`/`c`/`r` · `←→` change profile · `Enter` start it here · `Esc` back |
+| Which one | the project's recorded conversations, newest first — only after Resume | `↑↓` pick · `Enter` resume it here · `Esc` back |
+
+The terminal starts in the slot the split made rather than at the end of the wall, and the keyboard
+goes straight into it. `Continue` resolves to the newest recorded conversation, exactly as step 3
+does. From the wall itself — no tile holding the keyboard — `v` and `s` do the same thing, since with
+terminal tiles on there is no Windows Terminal pane for them to split into. `Esc` closes the pane
+again if you change your mind, and the wall is never covered while any of this happens.
+
 **Zooming without letting go: `Alt+Z`.** Fills the wall with the focused terminal and keeps the
 keyboard in it, so a pane can be read closely mid-sentence rather than after releasing the keyboard,
 pressing `z`, and taking it back. `Alt+Z` again returns to the wall. Plain `z` still zooms from the

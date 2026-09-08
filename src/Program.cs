@@ -147,6 +147,18 @@ public static class Program
         Console.WriteLine("  CLAUDE_LAUNCHER_REPO       owner/repo to check for newer releases");
     }
 
+    /// <summary>
+    /// The inline picker one step in, with a project chosen. Driven by the same
+    /// key the user presses, because the second step is a different layout in
+    /// the same pane and is otherwise never rendered by a check.
+    /// </summary>
+    private static TerminalsScreen Chosen(App app)
+    {
+        var screen = new TerminalsScreen(app, DemoSnapshot(), picking: true);
+        screen.HandleKey(new ConsoleKeyInfo('\r', ConsoleKey.Enter, false, false, false));
+        return screen;
+    }
+
     /// <summary>Renders each screen to stdout as plain text - handy for checking layout over SSH or in CI.</summary>
     private static void SelfTest(App app, string[] args)
     {
@@ -168,6 +180,8 @@ public static class Program
         {
             ("home", new HomeScreen(app, DemoSnapshot())),
             ("terminals", new TerminalsScreen(app, DemoSnapshot())),
+            ("terminals-split", new TerminalsScreen(app, DemoSnapshot(), picking: true)),
+            ("terminals-split-mode", Chosen(app)),
             ("terminal-preview", new TerminalPreviewScreen(app)),
             ("new-terminal", new NewTerminalScreen(app)),
             ("kill-session", new KillSessionScreen(app, DemoSnapshot().Sessions[0], () => { })),

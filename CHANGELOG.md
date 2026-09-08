@@ -5,6 +5,14 @@ Every release, newest first. The tags are on the
 
 ## Unreleased
 
+- **Split a pane and start a session in it, without leaving the wall: `Alt+\`.** The new-terminal
+  flow now happens *inside* the pane the split makes — project, then New / Continue / Resume and the
+  profile, then which conversation when that is Resume. It works while a terminal tile has the
+  keyboard, so the session you were reading stays on screen the whole time, and the terminal starts
+  in the slot the split made rather than at the end of the wall. On the wall itself `v` and `s` do
+  the same thing now: with terminal tiles on they had nothing to split into and did nothing at all.
+  The chord is rebindable like the rest.
+
 - **Fixed: `claude-launcher` was missing after a first install on a fresh machine.** The command is
   a PowerShell function, and the installers only ever wrote the dot-source line into `$PROFILE` —
   the profile of the host running the installer. `install.cmd` runs Windows PowerShell, so a machine
