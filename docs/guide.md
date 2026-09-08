@@ -583,6 +583,13 @@ quick edit is exactly what drags a selection — the two cannot both be on. `Alt
 dragging selects and copies as it does anywhere else, and the mouse stops focusing tiles until you
 press `Alt+S` again. The launcher restores whatever your console had when it exits.
 
+**Triple-click a tile to close it.** Three presses in the same place within about three quarters of a
+second close that pane, exactly as `Ctrl+W` does — the session is stopped and the conversation stays
+on disk. It is the gesture the wall had left: one press focuses a pane, two belong to whatever is
+inside it, and a press that moves is carrying a tile. On the half of a split tile that is still
+waiting for a session, it cancels the split instead. A pinned tile refuses, the same as it does from
+the keyboard.
+
 **The mouse works too.** Click any tile to focus it and start typing into it. **Clicking off the
 tiles hands the keyboard back**, the same as `Ctrl+]` — so the next key is a wall command rather than
 another character in whichever terminal had focus. The wheel scrolls whichever tile is under the
