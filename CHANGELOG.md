@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.43.1
 
 - **Closing a pane is instant again.** `Ctrl+W` tore the pseudo console down on the keystroke itself,
   and that is a slow thing to do: it waits for the child to notice the console closing and then gives
