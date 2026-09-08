@@ -83,6 +83,18 @@ public sealed class TerminalsScreen : ScreenBase
     private int _menuIndex;
 
     /// <summary>
+    /// The inline new-terminal picker, while a fresh pane is waiting to be
+    /// filled, and the slot on the wall it is holding.
+    ///
+    /// A pane rather than a screen, which is the whole point of the key: the
+    /// wall you split stays in front of you while the next session is chosen,
+    /// and the terminal starts in the space the split made.
+    /// </summary>
+    private PanePicker? _picker;
+
+    private int _pickerAt;
+
+    /// <summary>
     /// Tiles closed by hand. Lives on the app, not here: leaving the wall and
     /// coming back builds a new screen, and a set kept on the screen meant a
     /// closed tile was back on the next visit.
@@ -242,11 +254,22 @@ public sealed class TerminalsScreen : ScreenBase
         if (!string.IsNullOrEmpty(key)) Hidden.Remove(key);
     }
 
-    /// <summary>Fixture constructor for --selftest.</summary>
-    public TerminalsScreen(App app, SessionSnapshot snapshot) : base(app)
+    /// <summary>
+    /// Fixture constructor for --selftest. With <paramref name="picking"/> the
+    /// wall opens with the inline picker up, which is the only way a render
+    /// check can see it: it exists between a key press and a pane, and neither
+    /// can be driven from a piped session.
+    /// </summary>
+    public TerminalsScreen(App app, SessionSnapshot snapshot, bool picking = false) : base(app)
     {
         _service = null;
         _snapshot = snapshot;
+
+        if (!picking) return;
+
+        _picker = new PanePicker(app);
+        _pickerAt = Math.Min(1, _snapshot.Sessions.Count);
+        _focus = _pickerAt;
     }
 
     // A terminal tile has to keep up with a program drawing itself, not with a
@@ -341,9 +364,40 @@ public sealed class TerminalsScreen : ScreenBase
                 });
             }
 
-            return Stable(rows);
+            return WithPicker(Stable(rows));
         }
     }
+
+    /// <summary>
+    /// Slots the picker placeholder in beside the pane the split came from.
+    ///
+    /// It goes in after <see cref="Stable"/> rather than through it: that order
+    /// is written to settings, and a pane which exists for the next twenty
+    /// seconds has no business being remembered across runs.
+    /// </summary>
+    private List<SessionRow> WithPicker(List<SessionRow> rows)
+    {
+        if (_picker is null) return rows;
+
+        _pickerAt = Math.Clamp(_pickerAt, 0, rows.Count);
+
+        rows.Insert(_pickerAt, new SessionRow
+        {
+            SessionId = string.Empty,
+            ProjectName = "new terminal",
+            ProjectPath = PanePicker.Key,
+            Task = "picker",
+            State = SessionState.Idle
+        });
+
+        return rows;
+    }
+
+    private static bool IsPicker(SessionRow row) =>
+        string.Equals(row.ProjectPath, PanePicker.Key, StringComparison.Ordinal);
+
+    private bool Picking(List<SessionRow> panes) =>
+        _picker is not null && _focus >= 0 && _focus < panes.Count && IsPicker(panes[_focus]);
 
     /// <summary>
     /// Moves a hiding onto the session id once Claude hands one out.
@@ -416,6 +470,10 @@ public sealed class TerminalsScreen : ScreenBase
     /// <returns>False when the pane is already at that end, so a key can say so.</returns>
     private bool MovePane(List<SessionRow> panes, int from, int to)
     {
+        // The placeholder has no key worth remembering, and reordering around
+        // it would write one into settings.
+        if (_picker is not null) return false;
+
         if (from < 0 || from >= panes.Count) return false;
         if (to < 0 || to >= panes.Count || to == from) return false;
 
@@ -538,6 +596,13 @@ public sealed class TerminalsScreen : ScreenBase
     private void Footer(ScreenBuffer buffer, int count)
     {
         var panes = Panes;
+
+        if (Picking(panes))
+        {
+            Widgets.Footer(buffer, _picker!.Footer(), KeyMap.Help);
+            return;
+        }
+
         var terminal = panes.Count > 0 && _focus < panes.Count ? LiveTerminal(panes[_focus]) : null;
         var alive = terminal is not null && !terminal.HasExited;
 
@@ -1010,6 +1075,12 @@ public sealed class TerminalsScreen : ScreenBase
 
         _rects.Add((x, y, width, height, index));
 
+        if (_picker is not null && IsPicker(row))
+        {
+            _picker.Render(buffer, x, y, width, height, index, focused);
+            return;
+        }
+
         var terminal = LiveTerminal(row);
         if (terminal is not null)
         {
@@ -1246,6 +1317,17 @@ public sealed class TerminalsScreen : ScreenBase
     {
         _notice = null;
         var panes = Panes;
+
+        // The picker owns every key while it is up: it has a filter to type
+        // into, so the wall cannot keep reading letters as commands. F1 is the
+        // exception, because the footer promises it on every screen.
+        if (Picking(panes))
+            return key.Key == ConsoleKey.F1 ? Keys() : Picked(_picker!.HandleKey(key), panes);
+
+        // Checked before the tile below is handed anything, because the pane
+        // this splits is usually one you are typing in - waiting for the
+        // keyboard to be given back first is the trip this key exists to save.
+        if (KeyBindings.Is(KeyAction.SplitHere, key)) return OpenPicker(panes);
 
         // A focused terminal tile takes every key, because Claude's own UI needs
         // Esc, Tab and the arrows. Ctrl+] hands the keyboard back to the wall -
@@ -1491,6 +1573,9 @@ public sealed class TerminalsScreen : ScreenBase
         switch (key.Key)
         {
             case ConsoleKey.Escape:
+                // A picker that lost the focus - a session ended under it, say -
+                // is still on the wall, and Esc is the key that closes it.
+                if (_picker is not null) return ClosePicker();
                 if (_zoom) { _zoom = false; return ScreenAction.None; }
                 return Leave();
             case ConsoleKey.LeftArrow:
@@ -1529,11 +1614,13 @@ public sealed class TerminalsScreen : ScreenBase
             return ScreenAction.None;
         }
 
+        // With tiles on there is no Windows Terminal pane to hand this to, so
+        // the split happens here instead of doing nothing at all.
         if (KeyBindings.Is(KeyAction.SplitRight, key))
-            return Splitting ? Split(panes, vertical: true) : ScreenAction.None;
+            return Splitting ? Split(panes, vertical: true) : OpenPicker(panes);
 
         if (KeyBindings.Is(KeyAction.SplitDown, key))
-            return Splitting ? Split(panes, vertical: false) : ScreenAction.None;
+            return Splitting ? Split(panes, vertical: false) : OpenPicker(panes);
 
         if (KeyBindings.Is(KeyAction.NewSession, key))
             return ScreenAction.Push(new ProfileScreen(App));
@@ -2186,6 +2273,92 @@ public sealed class TerminalsScreen : ScreenBase
     /// meant to live in this one window.
     /// </summary>
     private bool Splitting => !App.Settings.TerminalTiles;
+
+    /// <summary>
+    /// Opens a pane beside the focused one with the new-terminal flow in it.
+    /// </summary>
+    private ScreenAction OpenPicker(List<SessionRow> panes)
+    {
+        // Already waiting somewhere on the wall: put the focus back on it
+        // rather than opening a second one.
+        if (_picker is not null)
+        {
+            _focus = Math.Clamp(_pickerAt, 0, Math.Max(0, panes.Count - 1));
+            return ScreenAction.None;
+        }
+
+        if (App.State.Profiles.Count == 0)
+        {
+            _notice = "no profiles yet - add one from Home first";
+            return ScreenAction.None;
+        }
+
+        _picker = new PanePicker(App);
+        _pickerAt = panes.Count == 0 ? 0 : Math.Min(_focus + 1, panes.Count);
+        _focus = _pickerAt;
+
+        // Zoom would hide the wall the split was made against, which is the one
+        // thing this key is for.
+        _zoom = false;
+        return ScreenAction.None;
+    }
+
+    private ScreenAction Picked(PanePick pick, List<SessionRow> panes) => pick.Outcome switch
+    {
+        PanePickOutcome.Cancel => ClosePicker(),
+        PanePickOutcome.Launch => Spawn(pick, panes),
+        _ => ScreenAction.None
+    };
+
+    private ScreenAction ClosePicker()
+    {
+        _picker = null;
+        _focus = Math.Max(0, _pickerAt - 1);
+        return ScreenAction.None;
+    }
+
+    /// <summary>
+    /// Starts the chosen session in the slot the placeholder was holding.
+    ///
+    /// The slot has to be handed over deliberately: a tile the order has never
+    /// heard of is appended, so without this the terminal just split for would
+    /// appear at the far end of the wall.
+    /// </summary>
+    private ScreenAction Spawn(PanePick pick, List<SessionRow> panes)
+    {
+        if (pick.Project is null || pick.Profile is null) return ScreenAction.None;
+
+        var before = _pickerAt > 0 && _pickerAt - 1 < panes.Count ? DraftKey(panes[_pickerAt - 1]) : null;
+
+        try
+        {
+            var tile = TerminalTile.Start(pick.Project.Path, pick.Project.Name,
+                StateStore.ExpandHome(pick.Profile.ConfigDir), 100, 30, pick.ResumeId);
+
+            App.AddTerminal(tile);
+
+            var at = before is null ? 0 : _order.IndexOf(before) + 1;
+            _order.Insert(Math.Clamp(at, 0, _order.Count), tile.SessionId);
+            SaveOrder(_order.ToList());
+
+            _picker = null;
+            Show(TileKey(tile.SessionId, tile.ProjectPath));
+
+            var index = Panes.FindIndex(p => ReferenceEquals(LiveTerminal(p), tile));
+            if (index >= 0) _focus = index;
+
+            // Straight into it: the split was made to type in the new pane.
+            _released = false;
+            return ScreenAction.None;
+        }
+        catch (Exception ex)
+        {
+            // A pseudo console needs Windows 10 1809 or newer. The picker stays
+            // up, so the notice is read beside the pane it is about.
+            _notice = "terminal unavailable: " + ex.Message;
+            return ScreenAction.None;
+        }
+    }
 
     private ScreenAction Split(List<SessionRow> panes, bool vertical)
     {

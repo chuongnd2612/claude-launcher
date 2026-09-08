@@ -76,7 +76,8 @@ public enum KeyAction
     CloseTerminal,
     SelectText,
     ZoomPane,
-    TerminalHere
+    TerminalHere,
+    SplitHere
 }
 
 /// <summary>Which screen a binding belongs to, for clash checking and the editor.</summary>
@@ -236,7 +237,8 @@ public static class KeyBindings
         (KeyScope.Tile, new[]
         {
             KeyAction.ReleaseKeyboard, KeyAction.FindInPane, KeyAction.CloseTerminal,
-            KeyAction.SelectText, KeyAction.ZoomPane, KeyAction.TerminalHere
+            KeyAction.SelectText, KeyAction.ZoomPane, KeyAction.TerminalHere,
+            KeyAction.SplitHere
         })
     };
 
@@ -374,6 +376,11 @@ public static class KeyBindings
         Row(KeyAction.CloseTerminal, KeyScope.Tile, "Close this pane", "ctrl+w"),
         Row(KeyAction.SelectText, KeyScope.Tile, "Select text with the mouse", "alt+s"),
         Row(KeyAction.ZoomPane, KeyScope.Tile, "Zoom this pane", "alt+z"),
-        Row(KeyAction.TerminalHere, KeyScope.Tile, "New terminal", "ctrl+t")
+        Row(KeyAction.TerminalHere, KeyScope.Tile, "New terminal", "ctrl+t"),
+        // Read before anything is handed to the child, so it works from a
+        // terminal tile, a chat tile and the bare wall alike. alt+\ because the
+        // readline chords a shell and Claude's own prompt use - alt+b, alt+f,
+        // alt+d - have to keep reaching them.
+        Row(KeyAction.SplitHere, KeyScope.Tile, "Split and start one here", "alt+\\")
     };
 }
