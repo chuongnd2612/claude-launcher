@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.42.0
 
 - **A tile can be divided, not just added to: `Alt+\` and `Alt+-`.** Splitting used to mean another
   box somewhere on the wall, because the wall was a flow of boxes. A tile is a tree now: the pane you
