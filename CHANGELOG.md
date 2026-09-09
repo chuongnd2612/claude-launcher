@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.45.0
 
 - **Updates install themselves in the background.** Finding a newer release now downloads it, checks
   it against the SHA256 published beside it, and puts it on disk while you carry on working — the
