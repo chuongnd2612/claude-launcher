@@ -48,6 +48,11 @@ public static class Program
                 return 0;
             }
 
+            // If the last run installed an update, this run is the new build and
+            // the one it replaced is no longer open by anything - so this is the
+            // first moment it can be cleared away.
+            UpdateInstall.Reap();
+
             // Off the startup path entirely: the answer arrives when it arrives,
             // and wakes the render loop rather than holding it up.
             UpdateCheck.Start(settings, Version, Tui.ConsoleInput.Wake);
@@ -238,12 +243,8 @@ public static class Program
             ("settings", new SettingsScreen(app)),
             ("keys", new KeysScreen(app, "Terminals · the wall", KeyMap.Wall(splitting: false))),
             ("keys-edit", new KeysEditScreen(app)),
-            ("update", new UpdateScreen(app, new UpdateInfo
-            {
-                Latest = "v9.9.9",
-                Url = "https://github.com/chuongnd2612/claude-launcher/releases/tag/v9.9.9",
-                PublishedUtc = "2026-01-14T09:00:00Z"
-            }))
+            ("update", new UpdateScreen(app, DemoRelease())),
+            ("update-installed", new UpdateScreen(app, DemoRelease(), installed: true))
         };
 
         foreach (var (name, screen) in screens)
@@ -253,6 +254,17 @@ public static class Program
             Console.WriteLine();
         }
     }
+
+    /// <summary>
+    /// A fixed newer release for the two update screens. Shared by both so the
+    /// only difference between what they render is the state they are in.
+    /// </summary>
+    private static UpdateInfo DemoRelease() => new()
+    {
+        Latest = "v9.9.9",
+        Url = "https://github.com/chuongnd2612/claude-launcher/releases/tag/v9.9.9",
+        PublishedUtc = "2026-01-14T09:00:00Z"
+    };
 
     /// <summary>
     /// Fixed per-account percentages for the header band. Deliberately spread

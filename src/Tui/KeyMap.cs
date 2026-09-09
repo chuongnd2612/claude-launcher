@@ -530,7 +530,7 @@ public static class KeyMap
 
     public static KeyGroup[] Update() => With(
         new KeyGroup("This release",
-            new KeyHint("↵", "Update now"),
+            new KeyHint("↵", "Update now, or quit to restart into one"),
             new KeyHint("n", "Read the release notes"),
             new KeyHint("s", "Stop asking about updates")),
         new KeyGroup("Leaving",

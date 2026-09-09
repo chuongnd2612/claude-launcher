@@ -116,6 +116,16 @@ public sealed class UiSettings
     public bool CheckForUpdates { get; set; } = true;
 
     /// <summary>
+    /// Install a newer release as soon as the check finds one, in the
+    /// background, so the only thing left to do is start the launcher again. On
+    /// by default: an update nobody has to stop working for is one that actually
+    /// gets applied. Only ever touches an installed launcher - a build running
+    /// out of src/bin is left alone - and only after the download matches the
+    /// release's published SHA256.
+    /// </summary>
+    public bool AutoInstallUpdates { get; set; } = true;
+
+    /// <summary>
     /// Show what Claude has cost on the dashboard. On by default - it is the
     /// number people open that screen for - but a single switch hides every
     /// figure for anyone who shares their screen.

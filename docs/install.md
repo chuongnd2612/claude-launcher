@@ -84,22 +84,45 @@ left by the previous version. `profiles.json` is untouched and stays compatible.
 
 ## Updates
 
-The launcher asks GitHub whether there is a newer release when it starts, and says so on whichever
-screen you land on — the profile picker, Home, or Settings:
+The launcher asks GitHub whether there is a newer release when it starts, installs it in the
+background, and says so on whichever screen you land on — the profile picker, Home, or Settings:
 
 ```text
-update available · v1.29.0 · press u
+downloading v1.29.0…
+✓ update installed · v1.29.0 · restart to update
 ```
 
-**`u` asks again, any time.** With an update known it opens the update screen; with none known it
+Nothing stops while that happens, and nothing has to be typed afterwards. The new build is on disk
+by the time the banner says so, and the next `claude-launcher` runs it.
+
+**`u` asks again, any time.** With an update installed it opens the update screen, which says as
+much and quits on `Enter` so you can start the new one. With an update known but not installed it
+offers the old route instead: `Enter` closes the launcher and lets the wrapper run the installer,
+because that installer replaces the very exe the launcher is running from. With nothing known it
 runs a check there and then and says what came back — `up to date · v1.31.0 is the newest`, or
 `could not reach github`. That works from the profile picker, Home and Settings, and it works even
-with the automatic check switched off: pressing the key is you asking, not the setting.
+with the automatic check switched off: pressing the key is you asking, not the setting. `n` opens the
+release notes in a browser, `s` stops the asking, `Esc` leaves it for later.
 
-The update screen shows what is installed, what is available, and how to get it.
-`Enter` closes the launcher and lets the wrapper run the installer — it has to happen in that order,
-because the installer replaces the very exe the launcher is running from. `n` opens the release notes
-in a browser, `s` stops the asking, `Esc` leaves it for later.
+### How it installs without quitting
+
+Windows will not let anything overwrite a running program, but it will let one be *renamed* — the
+process carries on from the copy it already loaded. So the swap is two renames: the live
+`ClaudeLauncher.exe` becomes `ClaudeLauncher.exe.old`, and the downloaded build takes its name. The
+next start runs the new one and clears the old one away.
+
+- **It verifies before it swaps.** The release zip is checked against the SHA256 published beside it,
+  and a mismatch — or a release with no checksum at all — installs nothing.
+- **It updates the wrapper too.** `claude-launcher.ps1` is refreshed wherever the installer put it.
+  Nothing is registered that was not registered already, and no shell profile is touched.
+- **It only ever replaces an installed launcher.** The running exe has to be the one in
+  `$HOME\.claude-launcher`; a build running out of `src\bin` is left alone.
+- **It leaves a working build alone when it fails.** A download that does not arrive, or does not
+  verify, changes nothing: the banner turns amber and `u` shows what went wrong along with the
+  command to run by hand.
+
+Turn it off with **Settings → Install updates**, which leaves the check on and the manual route
+intact.
 
 What the check does and does not do:
 

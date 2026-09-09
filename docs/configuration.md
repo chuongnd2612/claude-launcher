@@ -69,6 +69,7 @@ be removed.
 | Default open in | Where `Enter` launches Claude (`current` / `new tab` / `split right` / `split down`) |
 | Remote control | Start new sessions with `claude --remote-control`, so they accept input from claude.ai and the phone app |
 | Check for updates | On: ask GitHub once every six hours whether a newer release exists, and say so on Home |
+| Install updates | On (default): install a newer release in the background, so the banner reads `✓ update installed · restart to update` and the next start runs it. The zip is verified against its published SHA256 first, and only an exe installed in `$HOME\.claude-launcher` is ever replaced. Off leaves the check on and `Enter` on the update screen back to closing the launcher for the installer |
 | Show costs | On: show what Claude has cost on the dashboard. Off hides every figure and keeps the token counts |
 | Terminal splits | Not on the settings screen: where the wall's dividers sit, written as you drag them. Delete the line to go back to equal panes |
 | Terminal order | Not on the settings screen: the order the wall's tiles sit in, written when you move one. Delete the line to go back to the order sessions were opened in |
