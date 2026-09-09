@@ -9,6 +9,12 @@ public sealed class UpdateInfo
     public string Url { get; set; } = string.Empty;
     public string PublishedUtc { get; set; } = string.Empty;
     public string CheckedUtc { get; set; } = string.Empty;
+
+    /// <summary>The release zip, which the background install downloads.</summary>
+    public string ZipUrl { get; set; } = string.Empty;
+
+    /// <summary>Its published SHA256, without which nothing is installed.</summary>
+    public string ShaUrl { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -45,6 +51,13 @@ public static class UpdateCheck
     public static string CacheFile => Path.Combine(StateStore.DataDir, "update.json");
 
     /// <summary>
+    /// Whether finding a newer release should also install it, in the
+    /// background. Read from the settings when the check starts, and kept here
+    /// so the settings screen can turn it off without a check running again.
+    /// </summary>
+    public static bool AutoInstall { get; set; }
+
+    /// <summary>
     /// Drops the offer. Turning the checks off has to take the banner with it,
     /// or the launcher goes on suggesting an update nobody asked it about.
     /// </summary>
@@ -52,6 +65,11 @@ public static class UpdateCheck
     {
         Available = null;
         Answer = null;
+
+        // And no new download either: "stop asking" is not a request to keep
+        // fetching quietly. One already in flight was allowed when it started
+        // and is left to finish - stopping halfway would only waste it.
+        AutoInstall = false;
     }
 
     /// <summary>
@@ -84,7 +102,7 @@ public static class UpdateCheck
 
                 if (IsNewer(info.Latest, current))
                 {
-                    Available = info;
+                    Offer(info, current, changed);
                     Answer = null;
                 }
                 else
@@ -111,6 +129,8 @@ public static class UpdateCheck
     /// </summary>
     public static void Start(UiSettings settings, string current, Action? changed = null)
     {
+        AutoInstall = settings.AutoInstallUpdates;
+
         if (!settings.CheckForUpdates) return;
         if (Environment.GetEnvironmentVariable("CLAUDE_LAUNCHER_NO_UPDATE_CHECK") is "1" or "true") return;
 
@@ -155,6 +175,11 @@ public static class UpdateCheck
         if (!IsNewer(info.Latest, current)) return;
 
         Available = info;
+
+        // The offer and the install start together: by the time anyone reads the
+        // banner it usually says the new build is already on disk.
+        if (AutoInstall) UpdateInstall.Start(info, changed);
+
         changed?.Invoke();
     }
 
@@ -178,13 +203,38 @@ public static class UpdateCheck
         var tag = Text(root, "tag_name");
         if (tag.Length == 0) return null;
 
-        return new UpdateInfo
+        var info = new UpdateInfo
         {
             Latest = tag,
             Url = Text(root, "html_url"),
             PublishedUtc = Text(root, "published_at"),
             CheckedUtc = DateTime.UtcNow.ToString("o")
         };
+
+        Assets(root, info);
+        return info;
+    }
+
+    /// <summary>
+    /// Picks the two assets the background install needs out of the release.
+    ///
+    /// Matched on the name rather than by position: the release carries the bare
+    /// exe and the wrapper too, and their order is whatever the workflow's file
+    /// list happens to be that month.
+    /// </summary>
+    private static void Assets(JsonElement release, UpdateInfo info)
+    {
+        if (!release.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array) return;
+
+        foreach (var asset in assets.EnumerateArray())
+        {
+            var name = Text(asset, "name");
+            var url = Text(asset, "browser_download_url");
+            if (url.Length == 0) continue;
+
+            if (name.EndsWith(".zip.sha256", StringComparison.OrdinalIgnoreCase)) info.ShaUrl = url;
+            else if (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) info.ZipUrl = url;
+        }
     }
 
     private static string Text(JsonElement element, string name) =>

@@ -5,6 +5,17 @@ Every release, newest first. The tags are on the
 
 ## Unreleased
 
+- **Updates install themselves in the background.** Finding a newer release now downloads it, checks
+  it against the SHA256 published beside it, and puts it on disk while you carry on working — the
+  banner goes from `downloading v1.45.0…` to `✓ update installed · restart to update`, and the next
+  `claude-launcher` runs the new build. It works because Windows lets a running exe be *renamed* even
+  though it will not let one be overwritten: the live `ClaudeLauncher.exe` becomes
+  `ClaudeLauncher.exe.old` and the new build takes its name, with the old one cleared away at the
+  next start. `claude-launcher.ps1` is refreshed wherever the installer put it, and nothing new is
+  registered. Only ever applies to a launcher installed in `$HOME\.claude-launcher`, so a build
+  running out of `src\bin` is left alone; a download that fails or does not verify changes nothing
+  and leaves the manual route — and the reason it was needed — on the update screen. Turn it off
+  with **Settings → Install updates**.
 - **Pinned tiles lead the wall.** Pinning now moves a tile to the front and keeps it there, ahead of
   the remembered order and of wherever it happened to be opened, so what matters is tile `1`. Within
   the pinned group the old order holds, and a tile moved past them lands after them with a notice

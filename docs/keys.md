@@ -40,6 +40,7 @@ nothing to type into.
 | Remove profile | `←→` / `Tab` choose · `Enter` confirm · `y` remove · `n` / `Esc` cancel |
 | Settings | `↑↓` / `Tab` navigate · `Enter` / `Space` / `←→` change · `u` check for updates now · `Esc`, `q` or `s` back — `q` does not quit here |
 | Update available | `Enter` update now · `n` release notes · `s` stop asking · `Esc` / `Backspace` later · `q` quit |
+| Update installed | `Enter` quit, so the next start runs the new build · `n` release notes · `s` stop asking · `Esc` / `Backspace` later · `q` quit |
 | Dashboard (`d`) | `p` period · `r` read again · `↑↓` pick a project · `Enter` its sessions · `Esc` / `Backspace` back · `q` quit |
 
 The window can be resized at any time; the UI redraws itself.

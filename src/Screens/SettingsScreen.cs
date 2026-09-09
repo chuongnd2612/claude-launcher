@@ -5,7 +5,7 @@ namespace ClaudeLauncher.Screens;
 /// <summary>UI preferences, persisted to ~/.claude-launcher/ui.json.</summary>
 public sealed class SettingsScreen : ScreenBase
 {
-    private const int ItemCount = 8;
+    private const int ItemCount = 9;
 
     private int _index;
 
@@ -46,13 +46,17 @@ public sealed class SettingsScreen : ScreenBase
             App.Settings.RemoteControl ? "on" : "off",
             "New sessions accept input from claude.ai");
 
-        Toggle(buffer, margin + 2, y + 8, panelWidth - 4, 7, "Show costs",
+        Toggle(buffer, margin + 2, y + 9, panelWidth - 4, 8, "Show costs",
             App.Settings.ShowCosts ? "on" : "off",
             "What Claude has cost, on the dashboard");
 
         Toggle(buffer, margin + 2, y + 7, panelWidth - 4, 6, "Check for updates",
             App.Settings.CheckForUpdates ? "on" : "off",
             "Ask GitHub for a newer release, at most once every six hours");
+
+        Toggle(buffer, margin + 2, y + 8, panelWidth - 4, 7, "Install updates",
+            App.Settings.AutoInstallUpdates ? "on" : "off",
+            "Install one in the background, ready on the next start");
 
         Toggle(buffer, margin + 2, y + 6, panelWidth - 4, 5, "Terminal tiles",
             App.Settings.TerminalTiles ? "on" : "off",
@@ -167,8 +171,18 @@ public sealed class SettingsScreen : ScreenBase
             case 6:
                 App.Settings.CheckForUpdates = !App.Settings.CheckForUpdates;
 
-                // Off means the banner goes too, not just the next request.
-                if (!App.Settings.CheckForUpdates) UpdateCheck.Forget();
+                // Off means the banner goes too, not just the next request -
+                // and Forget stops the installing with it, so turning the check
+                // back on has to put the other setting back in charge.
+                if (App.Settings.CheckForUpdates) UpdateCheck.AutoInstall = App.Settings.AutoInstallUpdates;
+                else UpdateCheck.Forget();
+                break;
+            case 7:
+                App.Settings.AutoInstallUpdates = !App.Settings.AutoInstallUpdates;
+
+                // Takes effect now, not at the next check: someone turning this
+                // off has just decided they do not want a download starting.
+                UpdateCheck.AutoInstall = App.Settings.AutoInstallUpdates;
                 break;
             default:
                 App.Settings.ShowCosts = !App.Settings.ShowCosts;
