@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.46.0
 
 - **Clone a profile: `c` on the profile screen.** Starts a new profile from the highlighted one's
   label, icon set and description, and seeds its config directory with the source's `settings.json`,
