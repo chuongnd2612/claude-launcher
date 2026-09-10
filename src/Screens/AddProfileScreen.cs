@@ -9,6 +9,7 @@ public sealed class AddProfileScreen : ScreenBase
     private const int FieldCount = 4;
 
     private readonly ProfileEntry? _existing;
+    private readonly ProfileEntry? _cloneSource;
     private readonly string _originalName;
 
     private string _label = string.Empty;
@@ -39,7 +40,27 @@ public sealed class AddProfileScreen : ScreenBase
         _iconTouched = true;
     }
 
+    /// <summary>
+    /// A new profile pre-filled from an existing one, whose plugins, skills and
+    /// MCP servers are copied across on save. Its own factory rather than a third
+    /// constructor overload: the fields it starts from (label, description) come
+    /// from <paramref name="source"/> the same way edit mode reads <c>existing</c>,
+    /// but it is not that profile being changed - it is a new one being appended.
+    /// </summary>
+    public static AddProfileScreen Cloning(App app, ProfileEntry source) => new(app, source, clone: true);
+
+    private AddProfileScreen(App app, ProfileEntry source, bool clone) : base(app)
+    {
+        _cloneSource = source;
+        _originalName = string.Empty;
+        _label = $"{source.DisplayLabel} copy";
+        _description = source.Description ?? string.Empty;
+        _directory = Slug.Length > 0 ? $"$HOME/.claude-{Slug}" : string.Empty;
+        _icon = Suggested();
+    }
+
     private bool IsEdit => _existing is not null;
+    private bool IsClone => _cloneSource is not null;
 
     /// <summary>An icon no other profile is using, from this label.</summary>
     private string Suggested() => ProfileLook.Suggest(_label, App.State.Profiles
@@ -68,6 +89,7 @@ public sealed class AddProfileScreen : ScreenBase
         var margin = Widgets.Margin(buffer);
 
         if (IsEdit) Widgets.SectionTitle(buffer, y, "Edit profile", $"Update '{_existing!.DisplayLabel}'");
+        else if (IsClone) Widgets.SectionTitle(buffer, y, "Clone profile", $"Copy of '{_cloneSource!.DisplayLabel}'");
         else Widgets.SectionTitle(buffer, y, "Add profile", "Create a new Claude profile");
         y += 2;
 
@@ -93,6 +115,10 @@ public sealed class AddProfileScreen : ScreenBase
         var infoY = y + formHeight;
         buffer.Write(margin + 1, infoY, $"Key: {(Slug.Length == 0 ? "—" : Slug)}", new Sty(Theme.Dim, Theme.Bg));
         buffer.Write(margin + 1, infoY + 1, $"File: {StateStore.ProfilesFilePath}", new Sty(Theme.Dim, Theme.Bg));
+
+        if (IsClone)
+            buffer.WriteClipped(margin + 1, infoY + 2, $"Copies MCP servers, plugins and skills from '{_cloneSource!.DisplayLabel}'. Not copied: login or session history.",
+                width, new Sty(Theme.Muted, Theme.Bg, italic: true));
 
         if (_error is not null)
             buffer.Write(margin + 1, infoY + 3, "✗ " + _error, new Sty(Theme.Red, Theme.Bg, bold: true));
@@ -245,6 +271,8 @@ public sealed class AddProfileScreen : ScreenBase
             else StateStore.AppendProfile(profile);
 
             Directory.CreateDirectory(StateStore.ExpandHome(profile.ConfigDir));
+
+            if (IsClone) StateStore.CloneProfileData(_cloneSource!.ConfigDir, profile.ConfigDir);
         }
         catch (Exception ex)
         {

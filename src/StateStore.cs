@@ -361,6 +361,113 @@ public static class StateStore
         WriteProfilesFile(file);
     }
 
+    /// <summary>
+    /// What a clone carries over: the parts of a config dir that describe how
+    /// Claude is set up rather than who is signed in or what was done with it.
+    /// Never copied: .credentials.json (the source's login), projects/ (its
+    /// session history), and everything else the daemon treats as runtime state.
+    /// </summary>
+    private static readonly string[] CloneableFiles = { "settings.json", ".mcp.json" };
+    private static readonly string[] CloneableDirectories = { "plugins", "skills" };
+
+    /// <summary>
+    /// Copies MCP servers, plugins and skills from one profile's config dir into
+    /// another's, so a clone starts set up like the profile it came from instead
+    /// of empty. Returns what it actually found and copied, for the screen to
+    /// report back. Missing files and directories are skipped, not an error.
+    /// </summary>
+    public static List<string> CloneProfileData(string sourceConfigDir, string destConfigDir)
+    {
+        var copied = new List<string>();
+        var source = ExpandHome(sourceConfigDir);
+        var dest = ExpandHome(destConfigDir);
+        if (!Directory.Exists(source)) return copied;
+
+        Directory.CreateDirectory(dest);
+
+        foreach (var name in CloneableFiles)
+        {
+            var from = Path.Combine(source, name);
+            if (!File.Exists(from)) continue;
+
+            File.Copy(from, Path.Combine(dest, name), overwrite: true);
+            copied.Add(name);
+        }
+
+        foreach (var name in CloneableDirectories)
+        {
+            var from = Path.Combine(source, name);
+            if (!Directory.Exists(from)) continue;
+
+            CopyDirectoryRecursive(from, Path.Combine(dest, name));
+            copied.Add(name + "/");
+        }
+
+        // User-scope MCP servers live in .claude.json, alongside the account and
+        // recent-project history a clone must never carry - so only the server
+        // definitions are lifted across, merged into whatever the destination
+        // already has rather than replacing the whole file.
+        if (CopyMcpServers(Path.Combine(source, ".claude.json"), Path.Combine(dest, ".claude.json")))
+            copied.Add("mcpServers");
+
+        return copied;
+    }
+
+    private static void CopyDirectoryRecursive(string from, string to)
+    {
+        Directory.CreateDirectory(to);
+
+        foreach (var file in Directory.GetFiles(from))
+            File.Copy(file, Path.Combine(to, Path.GetFileName(file)), overwrite: true);
+
+        foreach (var dir in Directory.GetDirectories(from))
+            CopyDirectoryRecursive(dir, Path.Combine(to, Path.GetFileName(dir)));
+    }
+
+    private static bool CopyMcpServers(string sourceFile, string destFile)
+    {
+        if (!File.Exists(sourceFile)) return false;
+
+        try
+        {
+            using var sourceDoc = JsonDocument.Parse(File.ReadAllText(sourceFile), new JsonDocumentOptions
+            {
+                AllowTrailingCommas = true,
+                CommentHandling = JsonCommentHandling.Skip
+            });
+
+            if (sourceDoc.RootElement.ValueKind != JsonValueKind.Object) return false;
+            if (!sourceDoc.RootElement.TryGetProperty("mcpServers", out var servers)) return false;
+            if (servers.ValueKind != JsonValueKind.Object || !servers.EnumerateObject().Any()) return false;
+
+            var merged = new Dictionary<string, JsonElement>();
+            if (File.Exists(destFile))
+            {
+                using var destDoc = JsonDocument.Parse(File.ReadAllText(destFile), new JsonDocumentOptions
+                {
+                    AllowTrailingCommas = true,
+                    CommentHandling = JsonCommentHandling.Skip
+                });
+
+                if (destDoc.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var property in destDoc.RootElement.EnumerateObject())
+                        merged[property.Name] = property.Value.Clone();
+                }
+            }
+
+            merged["mcpServers"] = servers.Clone();
+            File.WriteAllText(destFile, JsonSerializer.Serialize(merged, WriteOptions));
+            return true;
+        }
+        catch (JsonException)
+        {
+            // A .claude.json that will not parse is left alone rather than
+            // clobbered; the rest of the clone still went through.
+            return false;
+        }
+    }
+
     /// <summary>Reads profiles.json, backing up and starting fresh when it is not valid JSON.</summary>
     private static ProfilesFile ReadProfilesFile()
     {

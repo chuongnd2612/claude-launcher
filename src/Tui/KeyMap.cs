@@ -330,6 +330,7 @@ public static class KeyMap
         new KeyGroup("Editing",
             new KeyHint("a", "Add a profile"),
             new KeyHint("e", "Edit this one"),
+            new KeyHint("c", "Clone this one"),
             new KeyHint("x / del", "Remove this one")),
         new KeyGroup("Elsewhere",
             new KeyHint("d", "Dashboard"),

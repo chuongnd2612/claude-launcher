@@ -3,6 +3,18 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **Clone a profile: `c` on the profile screen.** Starts a new profile from the highlighted one's
+  label, icon set and description, and seeds its config directory with the source's `settings.json`,
+  `.mcp.json`, `plugins/`, `skills/` and any user-scope MCP servers in `.claude.json`. The source's
+  login and session history are never copied, so the clone starts set up the same way rather than
+  signed in as it.
+- **`claude-work setup-token` (and `mcp`, `doctor`, `--version`, and friends) run claude directly.**
+  These used to be swallowed as a project name — the first bare word after `claude-work` or
+  `claude-personal` — which sent the launcher into the interactive picker instead of running the
+  command. They now bypass the picker entirely and run `claude` with that profile's config dir.
+
 ## 1.45.0
 
 - **Updates install themselves in the background.** Finding a newer release now downloads it, checks
