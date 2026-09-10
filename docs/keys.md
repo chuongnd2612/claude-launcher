@@ -29,14 +29,14 @@ nothing to type into.
 | Terminals (chat tile focused) | type to message · `Enter` send · `/` commands · `↑↓←→` / `Tab` move between tiles · `y`/`a`/`n` answer a permission · `Ctrl+T` new terminal · `Ctrl+Z` zoom · `Ctrl+L` layout · `Ctrl+W` hide this tile · `Ctrl+Shift+←→↑↓` move it · `Esc` clear, stop, back |
 | Terminals (find bar) | type the query · `Enter` next hit · `Shift+Enter` previous · `↑↓` step · `Tab` search the whole session · `Ctrl+F` / `Esc` close |
 | Stop session | `←→` / `Tab` choose · `Enter` confirm · `y` stop · `n` / `Esc` cancel |
-| Profile | `↑↓←→` / `Tab` navigate · `Home/End` first / last · `Enter` / `Space` select · `1..9` jump · `a` add · `e` edit · `x` / `Del` remove · `d` dashboard · `s` settings · `u` check for updates · `Esc` back · `q` quit |
+| Profile | `↑↓←→` / `Tab` navigate · `Home/End` first / last · `Enter` / `Space` select · `1..9` jump · `a` add · `e` edit · `c` clone · `x` / `Del` remove · `d` dashboard · `s` settings · `u` check for updates · `Esc` back · `q` quit |
 | Project | `↑↓` navigate · `PgUp/PgDn` `Home/End` · `Enter` select · `a` add a folder · `d` forget one · `/` filter · `Esc` / `Backspace` back · `q` quit |
 | Session | `↑↓` / `Tab` navigate · `Enter` / `Space` launch · `p` change profile · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `h` chat view (only with terminal tiles off) · `Esc` / `Backspace` back · `q` quit |
 | Chat | type · `Enter` send · `/` commands (`↑↓` pick, `Tab` complete) · `y`/`a`/`n` answer a permission request · `Ctrl+D` detach to a pane · `Esc` clear, then stop the turn, then Home · `↑↓` `PgUp/PgDn` scroll · `End` follow. Keystrokes are ignored while Claude is working |
 | Resume | `↑↓` navigate · `Enter` resume (a terminal tile, or a real terminal when tiles are off) · `t` force a terminal tile · `c` resume in the chat view · `/` filter · `l` logs · `d` delete · `Esc` back |
 | Session detail | `↑↓` scroll · `PgUp/PgDn` page · `Home/End` jump · `Esc` / `Backspace` back · `q` quit |
 | Delete session | `←→` / `Tab` choose · `Enter` confirm · `y` delete · `n` / `Esc` cancel |
-| Add / Edit profile | `Tab` / `↑↓` next field · `←→` cycle the icon, on the icon field · `Enter` save · `Esc` cancel |
+| Add / Edit / Clone profile | `Tab` / `↑↓` next field · `←→` cycle the icon, on the icon field · `Enter` save · `Esc` cancel |
 | Remove profile | `←→` / `Tab` choose · `Enter` confirm · `y` remove · `n` / `Esc` cancel |
 | Settings | `↑↓` / `Tab` navigate · `Enter` / `Space` / `←→` change · `u` check for updates now · `Esc`, `q` or `s` back — `q` does not quit here |
 | Update available | `Enter` update now · `n` release notes · `s` stop asking · `Esc` / `Backspace` later · `q` quit |

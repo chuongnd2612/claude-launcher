@@ -239,6 +239,7 @@ public static class Program
             ("session", new SessionScreen(app)),
             ("add-profile", new AddProfileScreen(app)),
             ("edit-profile", new AddProfileScreen(app, app.State.Profiles[0])),
+            ("clone-profile", AddProfileScreen.Cloning(app, app.State.Profiles[0])),
             ("delete-profile", new DeleteProfileScreen(app, app.State.Profiles[0])),
             ("settings", new SettingsScreen(app)),
             ("keys", new KeysScreen(app, "Terminals · the wall", KeyMap.Wall(splitting: false))),

@@ -50,6 +50,13 @@ takes the next free one. Eight colours are available; past that they repeat.
 A profile written before this, or by hand with no `icon`, is given one when the file is read. Your
 `profiles.json` is not rewritten for it.
 
+**`c` clones the highlighted profile.** The new profile starts from the same label, icon set and
+description, with its own key and config directory, and its config directory is seeded from the
+source's: `settings.json`, `.mcp.json`, and the `plugins/` and `skills/` directories are copied
+across, and any user-scope MCP servers in `.claude.json` are merged in. What is **never** copied:
+`.credentials.json` (the source's login) and `projects/` (its session history) — a clone starts set
+up the same way, signed out and with no history of its own.
+
 `icon` should stay a single, single-width character (a letter or a symbol such as `◆`); wide emoji
 break the grid alignment. Profiles created from the **Add profile** screen are appended to this same file, with the
 path stored back as `$HOME/...` when it sits under your user profile. **Edit profile** rewrites the

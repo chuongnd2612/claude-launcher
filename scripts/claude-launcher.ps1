@@ -6,6 +6,18 @@ $script:ClaudeLauncherRoot = Join-Path $HOME '.claude-launcher'
 $script:ClaudeLauncherProfiles = Join-Path $script:ClaudeLauncherRoot 'profiles.json'
 $script:ClaudeLauncherBin = Join-Path $script:ClaudeLauncherRoot 'ClaudeLauncher.exe'
 
+<#
+    Subcommands and flags claude itself understands that have nothing to do
+    with picking a project or a session mode - claude-work setup-token must
+    run claude, not open the picker with "setup-token" mistaken for a project
+    name (it is the first positional argument, so that is exactly what
+    PowerShell binds it to otherwise).
+#>
+$script:ClaudeLauncherDirectCommands = @(
+    'setup-token', 'mcp', 'config', 'doctor', 'update', 'migrate-installer',
+    'plugin', 'install', '--version', '-v', '--help', '-h'
+)
+
 function Test-ClaudeLauncherAnsi {
     if ($env:WT_SESSION) { return $true }
     if ($env:TERM_PROGRAM) { return $true }
@@ -433,8 +445,58 @@ function Invoke-ClaudeLauncher {
     }
 }
 
+function Test-ClaudeLauncherDirectCommand {
+    param([string[]]$Arguments)
+
+    if (-not $Arguments -or $Arguments.Count -eq 0) { return $false }
+    return $script:ClaudeLauncherDirectCommands -contains $Arguments[0]
+}
+
+<#
+    Runs claude straight away, in the current console and directory, for a
+    subcommand that has nothing to do with picking a project or a session -
+    no state.json, no picker. Only the config dir is set, and only when a
+    profile was named; claude-launcher itself (no profile shortcut) leaves
+    CLAUDE_CONFIG_DIR exactly as the caller already has it.
+#>
+function Invoke-ClaudeLauncherDirect {
+    param(
+        [string]$ProfileName,
+        [Parameter(ValueFromRemainingArguments = $true)][string[]]$ClaudeArgs
+    )
+
+    if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
+        Write-Host 'claude was not found on PATH.' -ForegroundColor Red
+        return
+    }
+
+    $oldConfig = $env:CLAUDE_CONFIG_DIR
+
+    try {
+        if ($ProfileName) {
+            Initialize-ClaudeLauncher
+            $match = Get-ClaudeLauncherProfiles | Where-Object { $_.name -eq $ProfileName } | Select-Object -First 1
+            if ($match) {
+                $env:CLAUDE_CONFIG_DIR = ([string]$match.configDir).Replace('$HOME', $HOME)
+            }
+        }
+
+        & claude @ClaudeArgs
+    }
+    finally {
+        if ($null -eq $oldConfig) { Remove-Item Env:CLAUDE_CONFIG_DIR -ErrorAction SilentlyContinue }
+        else { $env:CLAUDE_CONFIG_DIR = $oldConfig }
+    }
+}
+
 function claude-launcher {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$ClaudeArgs)
+
+    if (Test-ClaudeLauncherDirectCommand $ClaudeArgs) {
+        Invoke-ClaudeLauncherDirect -ClaudeArgs $ClaudeArgs
+        return
+    }
+
     Invoke-ClaudeLauncher -ClaudeArgs $ClaudeArgs
 }
 
@@ -463,6 +525,20 @@ function claude-work {
         [Parameter(ValueFromRemainingArguments = $true)][string[]]$ClaudeArgs
     )
 
+    # "claude-work setup-token" binds 'setup-token' to $Project - it is the
+    # first positional argument, and PowerShell has no way to know it was
+    # meant for claude. Reclaim it before it is sent to the picker as a
+    # project name nothing will ever match.
+    if ($Project -and (Test-ClaudeLauncherDirectCommand @($Project))) {
+        $ClaudeArgs = @($Project) + $ClaudeArgs
+        $Project = $null
+    }
+
+    if ((-not $Project) -and (Test-ClaudeLauncherDirectCommand $ClaudeArgs)) {
+        Invoke-ClaudeLauncherDirect -ProfileName 'work' -ClaudeArgs $ClaudeArgs
+        return
+    }
+
     $parsed = Resolve-ClaudeShortcutArguments $ClaudeArgs
 
     if ($Project) {
@@ -478,6 +554,17 @@ function claude-personal {
         [string]$Project,
         [Parameter(ValueFromRemainingArguments = $true)][string[]]$ClaudeArgs
     )
+
+    # See claude-work: the same positional-argument mistake happens here.
+    if ($Project -and (Test-ClaudeLauncherDirectCommand @($Project))) {
+        $ClaudeArgs = @($Project) + $ClaudeArgs
+        $Project = $null
+    }
+
+    if ((-not $Project) -and (Test-ClaudeLauncherDirectCommand $ClaudeArgs)) {
+        Invoke-ClaudeLauncherDirect -ProfileName 'personal' -ClaudeArgs $ClaudeArgs
+        return
+    }
 
     $parsed = Resolve-ClaudeShortcutArguments $ClaudeArgs
 

@@ -25,6 +25,12 @@ Profile -> Project -> Session -> Launch
 The profile shortcuts preselect the profile. If a project is supplied, the launcher can launch
 directly without showing the selection screens.
 
+**A bare claude subcommand skips the picker entirely.** `claude-work setup-token`,
+`claude-work mcp`, `claude-work doctor`, `claude-personal --version` and the like run `claude`
+directly, with `CLAUDE_CONFIG_DIR` set to that profile — no project, no session mode, nothing to
+pick. The full list: `setup-token`, `mcp`, `config`, `doctor`, `update`, `migrate-installer`,
+`plugin`, `install`, `--version`/`-v`, `--help`/`-h`.
+
 ## Home: what is running
 
 With at least one Claude session alive, `claude-launcher` opens on **Home** instead of the profile

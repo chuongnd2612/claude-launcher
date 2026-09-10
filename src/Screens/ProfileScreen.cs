@@ -75,7 +75,7 @@ public sealed class ProfileScreen : ScreenBase
             {
                 "Profiles keep work and personal Claude sessions apart (CLAUDE_CONFIG_DIR)",
                 "Each profile has its own settings, history and MCP servers",
-                "Press e to edit or d to remove the highlighted profile",
+                "Press e to edit, c to clone, or x to remove the highlighted profile",
                 "Projects come from your existing QuickPaths registry"
             });
         }
@@ -192,6 +192,7 @@ public sealed class ProfileScreen : ScreenBase
         if (KeyBindings.Is(KeyAction.Quit, key)) return ScreenAction.Exit;
         if (KeyBindings.Is(KeyAction.AddProfile, key)) return ScreenAction.Push(new AddProfileScreen(App));
         if (KeyBindings.Is(KeyAction.EditProfile, key)) return Edit();
+        if (KeyBindings.Is(KeyAction.CloneProfile, key)) return Clone();
 
         // Remove used to share 'd' with the dashboard, and being first it took
         // every press - so the dashboard this screen advertised could never be
@@ -234,6 +235,13 @@ public sealed class ProfileScreen : ScreenBase
     {
         if (_index == AddTileIndex) return ScreenAction.None;
         return ScreenAction.Push(new AddProfileScreen(App, App.State.Profiles[_index]));
+    }
+
+    /// <summary>Clone, like edit and remove, only applies to a real profile.</summary>
+    private ScreenAction Clone()
+    {
+        if (_index == AddTileIndex) return ScreenAction.None;
+        return ScreenAction.Push(AddProfileScreen.Cloning(App, App.State.Profiles[_index]));
     }
 
     private ScreenAction Remove()

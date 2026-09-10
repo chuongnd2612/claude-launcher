@@ -41,6 +41,7 @@ public enum KeyAction
     AddProfile,
     EditProfile,
     RemoveProfile,
+    CloneProfile,
 
     Filter,
     AddFolder,
@@ -220,7 +221,7 @@ public static class KeyBindings
         }),
         (KeyScope.Profiles, new[]
         {
-            KeyAction.AddProfile, KeyAction.EditProfile, KeyAction.RemoveProfile,
+            KeyAction.AddProfile, KeyAction.EditProfile, KeyAction.RemoveProfile, KeyAction.CloneProfile,
             KeyAction.Settings, KeyAction.Updates, KeyAction.Dashboard
         }),
         (KeyScope.Projects, new[] { KeyAction.Filter, KeyAction.AddFolder, KeyAction.ForgetFolder }),
@@ -354,6 +355,7 @@ public static class KeyBindings
         Row(KeyAction.AddProfile, KeyScope.Profiles, "Add a profile", "a"),
         Row(KeyAction.EditProfile, KeyScope.Profiles, "Edit this profile", "e"),
         Row(KeyAction.RemoveProfile, KeyScope.Profiles, "Remove this profile", "x"),
+        Row(KeyAction.CloneProfile, KeyScope.Profiles, "Clone this profile", "c"),
 
         Row(KeyAction.Filter, KeyScope.Projects, "Filter the list", "/"),
         Row(KeyAction.AddFolder, KeyScope.Projects, "Add a folder", "a"),
