@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.47.0
 
 - **`Alt+G` draws each tile's account usage over the tile.** Off until you press it; on, every pane
   on the wall paints a small panel into its top-right corner with that account's two windows — `5h`
