@@ -191,6 +191,11 @@ cached; it cannot ask the API itself, so a figure only moves once Claude has tal
 from a focused terminal tile too, and `r` on the `Alt+U` detail screen now refreshes the
 band along with the screen. Both keys are rebindable under `everywhere` in the key editor.
 
+**The band can be turned off.** `s` on the profile screen has a **Usage band** switch: off leaves a
+plain rule under the header and gives the byline its room back. Nothing stops being measured — the
+figures are still read every minute, `Alt+U` still has the detail, and `Alt+G` still draws them over
+the wall's tiles. It is remembered in `ui.json`, so the band stays off until you turn it back on.
+
 **`Alt+U` opens the detail** — both windows per account side by side with how long until
 each resets, when each account's figure was last refreshed, and then sessions, prompts,
 cost and output tokens with a line saying which of those follow the period and which are

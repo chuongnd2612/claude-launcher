@@ -5,7 +5,7 @@ namespace ClaudeLauncher.Screens;
 /// <summary>UI preferences, persisted to ~/.claude-launcher/ui.json.</summary>
 public sealed class SettingsScreen : ScreenBase
 {
-    private const int ItemCount = 9;
+    private const int ItemCount = 10;
 
     private int _index;
 
@@ -15,7 +15,11 @@ public sealed class SettingsScreen : ScreenBase
 
     public override void Render(ScreenBuffer buffer)
     {
-        var y = Widgets.Chrome(buffer, 0);
+        // The compact header, not the wizard one: settings is not a step in the
+        // three-step flow, and the banner and step badges were spending nine
+        // rows that the list itself needs - at 100x30 the panel used to run off
+        // the bottom of the window and lose its last settings to the footer.
+        var y = Widgets.CompactChrome(buffer);
         var margin = Widgets.Margin(buffer);
 
         Widgets.SectionTitle(buffer, y, "Settings", "Launcher preferences");
@@ -24,45 +28,55 @@ public sealed class SettingsScreen : ScreenBase
         var width = buffer.Width - margin * 2;
         var panelWidth = Math.Min(width, Math.Max(52, width * 3 / 4));
 
-        Widgets.TitledBox(buffer, margin, y, panelWidth, ItemCount + 2, "Appearance", Theme.VioletSoft);
+        var items = new (string Label, string Value, string Detail)[]
+        {
+            ("Paint background", On(App.Settings.PaintBackground),
+                "Use the launcher canvas color instead of the terminal's"),
+            ("Show tips", On(App.Settings.ShowTips),
+                "Tips box on the profile screen"),
+            ("Default session mode", App.Settings.DefaultMode,
+                "Pre-selected option on step 3"),
+            ("Default open in", LaunchTarget.Label(App.Settings.DefaultOpenIn),
+                "Where Enter launches Claude"),
+            ("Remote control", On(App.Settings.RemoteControl),
+                "New sessions accept input from claude.ai"),
+            ("Terminal tiles", On(App.Settings.TerminalTiles),
+                "Claude's own UI instead of our chat view"),
+            ("Check for updates", On(App.Settings.CheckForUpdates),
+                "Ask GitHub for a newer release, at most once every six hours"),
+            ("Install updates", On(App.Settings.AutoInstallUpdates),
+                "Install one in the background, ready on the next start"),
+            ("Show costs", On(App.Settings.ShowCosts),
+                "What Claude has cost, on the dashboard"),
+            ("Usage band", On(App.Settings.ShowUsageBand),
+                "Per-account usage in the rule under the header")
+        };
 
-        Toggle(buffer, margin + 2, y + 1, panelWidth - 4, 0, "Paint background",
-            App.Settings.PaintBackground ? "on" : "off",
-            "Use the launcher canvas color instead of the terminal's");
+        // The panel shows what the window has room for and scrolls the rest
+        // into view. At 80x24 the wizard chrome leaves nine rows here, which is
+        // fewer than there are settings - and a box drawn past that used to run
+        // straight over the footer.
+        var shown = Math.Clamp(buffer.Height - 5 - y, 3, items.Length);
+        var first = _index >= shown ? Math.Min(_index - shown + 1, items.Length - shown) : 0;
 
-        Toggle(buffer, margin + 2, y + 2, panelWidth - 4, 1, "Show tips",
-            App.Settings.ShowTips ? "on" : "off",
-            "Tips box on the profile screen");
+        Widgets.TitledBox(buffer, margin, y, panelWidth, shown + 2, "Appearance", Theme.VioletSoft);
 
-        Toggle(buffer, margin + 2, y + 3, panelWidth - 4, 2, "Default session mode",
-            App.Settings.DefaultMode,
-            "Pre-selected option on step 3");
+        for (var row = 0; row < shown; row++)
+        {
+            var index = first + row;
+            var item = items[index];
+            Toggle(buffer, margin + 2, y + 1 + row, panelWidth - 4, index, item.Label, item.Value, item.Detail);
+        }
 
-        Toggle(buffer, margin + 2, y + 4, panelWidth - 4, 3, "Default open in",
-            LaunchTarget.Label(App.Settings.DefaultOpenIn),
-            "Where Enter launches Claude");
+        // Only when something is off screen: a count on a list that is all there
+        // is one more thing to read for nothing.
+        if (shown < items.Length)
+        {
+            buffer.WriteRight(margin + panelWidth - 3, y + shown + 1,
+                $" {first + shown} of {items.Length} ", new Sty(Theme.Dim, Theme.Bg));
+        }
 
-        Toggle(buffer, margin + 2, y + 5, panelWidth - 4, 4, "Remote control",
-            App.Settings.RemoteControl ? "on" : "off",
-            "New sessions accept input from claude.ai");
-
-        Toggle(buffer, margin + 2, y + 9, panelWidth - 4, 8, "Show costs",
-            App.Settings.ShowCosts ? "on" : "off",
-            "What Claude has cost, on the dashboard");
-
-        Toggle(buffer, margin + 2, y + 7, panelWidth - 4, 6, "Check for updates",
-            App.Settings.CheckForUpdates ? "on" : "off",
-            "Ask GitHub for a newer release, at most once every six hours");
-
-        Toggle(buffer, margin + 2, y + 8, panelWidth - 4, 7, "Install updates",
-            App.Settings.AutoInstallUpdates ? "on" : "off",
-            "Install one in the background, ready on the next start");
-
-        Toggle(buffer, margin + 2, y + 6, panelWidth - 4, 5, "Terminal tiles",
-            App.Settings.TerminalTiles ? "on" : "off",
-            "Claude's own UI instead of our chat view");
-
-        var infoY = y + ItemCount + 3;
+        var infoY = y + shown + 3;
         if (infoY + 6 <= buffer.Height - 4)
         {
             Widgets.TitledBox(buffer, margin, infoY, panelWidth, 6, "Paths", Theme.Blue);
@@ -76,7 +90,7 @@ public sealed class SettingsScreen : ScreenBase
         // where someone goes looking for that. Pinned above the footer rather
         // than under the Paths box, which a short window does not draw at all.
         var update = UpdateBanner.Line();
-        var updateY = Math.Max(y + ItemCount + 3, buffer.Height - 6);
+        var updateY = Math.Max(y + shown + 3, buffer.Height - 6);
 
         if (update is not null && updateY < buffer.Height - 4)
         {
@@ -86,6 +100,8 @@ public sealed class SettingsScreen : ScreenBase
 
         Widgets.Footer(buffer, KeyMap.SettingsFooter(), KeyMap.Help);
     }
+
+    private static string On(bool value) => value ? "on" : "off";
 
     private void Toggle(ScreenBuffer buffer, int x, int y, int width, int index, string label, string value, string detail)
     {
@@ -184,8 +200,11 @@ public sealed class SettingsScreen : ScreenBase
                 // off has just decided they do not want a download starting.
                 UpdateCheck.AutoInstall = App.Settings.AutoInstallUpdates;
                 break;
-            default:
+            case 8:
                 App.Settings.ShowCosts = !App.Settings.ShowCosts;
+                break;
+            default:
+                App.Settings.ShowUsageBand = !App.Settings.ShowUsageBand;
                 break;
         }
 

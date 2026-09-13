@@ -66,7 +66,9 @@ be removed.
 
 ## Settings
 
-`s` on the profile screen opens preferences, saved to `$HOME\.claude-launcher\ui.json`:
+`s` on the profile screen opens preferences, saved to `$HOME\.claude-launcher\ui.json`. The panel
+shows as many settings as the window has room for and scrolls the rest into view, with a `9 of 10`
+count on its bottom edge when some are off screen:
 
 | Setting | Effect |
 | ------- | ------ |
@@ -78,6 +80,7 @@ be removed.
 | Check for updates | On: ask GitHub once every six hours whether a newer release exists, and say so on Home |
 | Install updates | On (default): install a newer release in the background, so the banner reads `✓ update installed · restart to update` and the next start runs it. The zip is verified against its published SHA256 first, and only an exe installed in `$HOME\.claude-launcher` is ever replaced. Off leaves the check on and `Enter` on the update screen back to closing the launcher for the installer |
 | Show costs | On: show what Claude has cost on the dashboard. Off hides every figure and keeps the token counts |
+| Usage band | On (default): draw the per-account usage band into the rule under the header, on every screen. Off leaves a plain rule and gives the byline its room back — nothing stops being measured, `Alt+U` still has the detail, and `Alt+G` still draws the same figures over the wall's tiles |
 | Terminal splits | Not on the settings screen: where the wall's dividers sit, written as you drag them. Delete the line to go back to equal panes |
 | Terminal order | Not on the settings screen: the order the wall's tiles sit in, written when you move one. Delete the line to go back to the order sessions were opened in |
 | Terminal pinned | Not on the settings screen: the panes marked important with `Alt+P`, one session id or project path per `\|`. A pinned pane leads the wall, refuses to close, is kept ahead of the cap in `workspace.json`, and is resumed automatically at startup. Delete the line to unpin everything |

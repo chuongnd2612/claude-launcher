@@ -126,6 +126,17 @@ public sealed class UiSettings
     public bool AutoInstallUpdates { get; set; } = true;
 
     /// <summary>
+    /// Draw the per-account usage band into the rule under the header.
+    ///
+    /// On by default - it is the only place the percentages appear on every
+    /// screen - but a band of several accounts is a dense line to read past, and
+    /// the wall can now show the same figures over the tiles instead. Off leaves
+    /// a plain rule and gives the byline its room back; nothing stops being
+    /// measured, and Alt+U still has the detail.
+    /// </summary>
+    public bool ShowUsageBand { get; set; } = true;
+
+    /// <summary>
     /// Show what Claude has cost on the dashboard. On by default - it is the
     /// number people open that screen for - but a single switch hides every
     /// figure for anyone who shares their screen.
