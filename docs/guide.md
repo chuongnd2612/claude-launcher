@@ -197,6 +197,33 @@ cost and output tokens with a line saying which of those follow the period and w
 running totals. Alt rather than a plain letter because a focused terminal takes every
 ordinary key, so `Alt+U` works from the wall mid-sentence too.
 
+### Usage over the tiles
+
+**`Alt+G` on the wall draws the same reading over every tile**, in its top-right corner:
+
+```text
+╭─ 2 · api-gateway ────────── waiting? 46s ─╮
+│ main                 ╭─ W Work ────────────╮
+│ › add a redis token b│ 5h █░░░░░░░░░ 3%    │
+│ ◆ Read api/router.ts │    resets →2h11m    │
+│ ◆ Write api/limiter.t│ wk ███░░░░░░░ 28%   │
+│ Mount the limiter bef│    resets →4d       │
+│                      ╰─────────────────────╯
+```
+
+The band answers the question for the launcher; this answers it for the pane you are about
+to type into, which is the account you are about to spend. Each pane shows **its own**
+profile's figures, so a tile running under `Personal` says so beside one running under
+`Work` — including the two halves of a split, which get a panel each.
+
+It covers whatever the pane was drawing, which is why it is off until you ask for it and why
+`Alt+G` hides it again. Pressing it asks the band to read its files again, so what appears is
+as fresh as the launcher can make it. A pane too narrow for the panel drops to one line —
+`5h 3% · wk 28%` — and one narrower still to the readings alone, `3%/28%`.
+
+The key works from a focused terminal tile, like the splits and the pin do, and is rebindable
+under `tile` in the key editor.
+
 ## Chatting inside the launcher
 
 Step 3 has a fourth option, **Chat here** (`h`). It starts Claude as a session the launcher owns and

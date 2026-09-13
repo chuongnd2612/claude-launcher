@@ -32,6 +32,9 @@ public sealed class TerminalsScreen : ScreenBase
     private bool _zoom;
     private string? _notice;
 
+    /// <summary>True while every tile draws its account's usage over itself.</summary>
+    private bool _drawer;
+
     // Search state. The hit list is rebuilt every frame rather than tracked,
     // because Claude repaints its whole screen constantly and a remembered
     // position would point at whatever moved into that cell since.
@@ -301,6 +304,10 @@ public sealed class TerminalsScreen : ScreenBase
         _focus = Panes.FindIndex(row => string.Equals(DraftKey(row), keys[2], StringComparison.Ordinal));
 
         if (demo == "nested-focus") _mode = LayoutMode.Focus;
+
+        // The drawers are off until a key turns them on, so a render check
+        // can only see them if the fixture presses that key for it.
+        if (demo == "nested-usage") _drawer = true;
 
         // Deliberately the second tile, and a half of it rather than all of it:
         // the check then shows the star saying which half, the double border
@@ -707,6 +714,10 @@ public sealed class TerminalsScreen : ScreenBase
         else
         {
             Grid(buffer, margin, y, width, gridHeight, panes);
+
+            // After the grid, never inside it: the drawer sits over whatever the
+            // tile drew, and a terminal pane repaints its own interior.
+            if (_drawer) Drawers(buffer, panes);
 
             if (wantTips)
             {
@@ -1889,6 +1900,7 @@ public sealed class TerminalsScreen : ScreenBase
         if (KeyBindings.Is(KeyAction.PaneToNext, key)) return Regroup(panes, 1);
         if (KeyBindings.Is(KeyAction.PaneOut, key)) return Regroup(panes, 0);
         if (KeyBindings.Is(KeyAction.PinTile, key)) return TogglePin(panes);
+        if (KeyBindings.Is(KeyAction.UsageDrawer, key)) return ToggleDrawer();
 
         // A focused terminal tile takes every key, because Claude's own UI needs
         // Esc, Tab and the arrows. Ctrl+] hands the keyboard back to the wall -
@@ -2499,6 +2511,97 @@ public sealed class TerminalsScreen : ScreenBase
     }
 
     /// <summary>
+    /// Turns the usage drawers on or off, and asks for a fresh reading as it
+    /// does: the figures are at most a minute old, and the moment you ask to see
+    /// them is the moment a minute-old answer is worth least.
+    /// </summary>
+    private ScreenAction ToggleDrawer()
+    {
+        _drawer = !_drawer;
+
+        if (_drawer) Metrics.RefreshBand();
+
+        var back = KeyBindings.Describe(KeyAction.UsageDrawer);
+        _notice = _drawer ? $"usage over every tile · {back} to hide it" : null;
+        return ScreenAction.None;
+    }
+
+    /// <summary>
+    /// One drawer per pane, drawn last so it sits over what the pane drew.
+    ///
+    /// A split tile records a rect for the whole tile as well as one per half,
+    /// and the outer one is dropped: the halves can be running under different
+    /// accounts, so a single panel across the tile would put one account's
+    /// figures over the other's pane.
+    /// </summary>
+    private void Drawers(ScreenBuffer buffer, List<SessionRow> panes)
+    {
+        foreach (var rect in _rects)
+        {
+            if (rect.Index < 0 || rect.Index >= panes.Count) continue;
+            if (Encloses(rect)) continue;
+
+            var row = panes[rect.Index];
+            if (IsPicker(row)) continue;
+
+            if (Usage(row, LiveTerminal(row)) is { } chip)
+                TileUsage.Draw(buffer, rect.X, rect.Y, rect.W, rect.H, chip);
+        }
+    }
+
+    /// <summary>True when another rect sits inside this one, so this is a tile of panes.</summary>
+    private bool Encloses((int X, int Y, int W, int H, int Index) rect)
+    {
+        foreach (var other in _rects)
+        {
+            if (other.W >= rect.W && other.H >= rect.H) continue;
+
+            if (other.X >= rect.X && other.Y >= rect.Y &&
+                other.X + other.W <= rect.X + rect.W &&
+                other.Y + other.H <= rect.Y + rect.H)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The account reading behind one pane, or null when there is none to show.
+    ///
+    /// Read from the band's own chips rather than from the config dir directly:
+    /// they are already built off the render path and refreshed at most once a
+    /// minute, and a panel that read .claude.json per tile per frame would put
+    /// file IO in front of every keystroke.
+    /// </summary>
+    private UsageChip? Usage(SessionRow row, TerminalTile? terminal)
+    {
+        var chips = Widgets.Usage;
+        if (chips is null || chips.Count == 0) return null;
+
+        var label = row.ProfileName.Length > 0 ? row.ProfileName : Profile(terminal)?.DisplayLabel ?? string.Empty;
+
+        foreach (var chip in chips)
+        {
+            if (string.Equals(chip.Label, label, StringComparison.OrdinalIgnoreCase)) return chip;
+        }
+
+        // One account configured means the pane can only be running under it,
+        // whatever the registry has caught up with. More than one and a guess
+        // would put another account's numbers on this tile, which is worse than
+        // an empty corner.
+        return chips.Count == 1 ? chips[0] : null;
+    }
+
+    /// <summary>The profile a launcher-started tile runs under, by its config dir.</summary>
+    private ProfileEntry? Profile(TerminalTile? terminal) => terminal is null
+        ? null
+        : App.State.Profiles.FirstOrDefault(p =>
+            string.Equals(StateStore.ExpandHome(p.ConfigDir).TrimEnd('\\', '/'),
+                terminal.ConfigDir.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
     /// Which profile a pane runs under, and who Claude is signed in as there.
     ///
     /// With several profiles open at once the panes are otherwise identical, and
@@ -2515,9 +2618,7 @@ public sealed class TerminalsScreen : ScreenBase
         // registry has not caught up with it yet.
         if (label.Length == 0 && terminal is not null)
         {
-            var profile = App.State.Profiles.FirstOrDefault(p =>
-                string.Equals(StateStore.ExpandHome(p.ConfigDir).TrimEnd('\\', '/'),
-                    terminal.ConfigDir.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase));
+            var profile = Profile(terminal);
 
             if (profile is not null)
             {

@@ -292,7 +292,7 @@ public static class Widgets
         if (Names(shape)) x = buffer.Write(x, y, " " + name, new Sty(Theme.Dim, Theme.Bg));
 
         x = buffer.Write(x, y, " ", new Sty(Theme.Dim, Theme.Bg));
-        if (HasMeter(shape)) x = Meter(buffer, x, y, percent);
+        if (HasMeter(shape)) x = Meter(buffer, x, y, percent, Theme.Bg);
 
         // A stale reading keeps its colour and loses its weight: muting it would
         // take the warning off a number that may still be the one that matters.
@@ -355,27 +355,27 @@ public static class Widgets
     /// earlier version unreadable, because a coloured blob says nothing about
     /// magnitude.
     /// </summary>
-    private static int Meter(ScreenBuffer buffer, int x, int y, int percent)
+    public static int Meter(ScreenBuffer buffer, int x, int y, int percent, Rgb back, int cells = MeterCells)
     {
-        var filled = (int)Math.Round(Math.Clamp(percent, 0, 100) / 100.0 * MeterCells);
+        var filled = (int)Math.Round(Math.Clamp(percent, 0, 100) / 100.0 * cells);
         if (percent > 0 && filled == 0) filled = 1;
 
         var heat = Heat(percent);
 
-        for (var i = 0; i < MeterCells; i++)
+        for (var i = 0; i < cells; i++)
         {
             var on = i < filled;
-            buffer.Set(x + i, y, on ? '█' : '░', new Sty(on ? heat : Theme.Dim, Theme.Bg));
+            buffer.Set(x + i, y, on ? '█' : '░', new Sty(on ? heat : Theme.Dim, back));
         }
 
         // Written, not skipped: an unwritten cell leaves the rule showing
         // through and the gauge reads as if it were joined to the number.
-        buffer.Set(x + MeterCells, y, ' ', new Sty(Theme.Dim, Theme.Bg));
-        return x + MeterCells + 1;
+        buffer.Set(x + cells, y, ' ', new Sty(Theme.Dim, back));
+        return x + cells + 1;
     }
 
     /// <summary>Green while there is room, amber when it is going, red near the end.</summary>
-    private static Rgb Heat(int percent) => percent >= 85 ? Theme.Red
+    public static Rgb Heat(int percent) => percent >= 85 ? Theme.Red
         : percent >= 60 ? Theme.Amber
         : Theme.Green;
 
@@ -401,7 +401,7 @@ public static class Widgets
     /// Minutes and up - a figure that ticks every second belongs on the usage
     /// screen, not in chrome that is drawn everywhere.
     /// </summary>
-    private static string Countdown(DateTime? resetsUtc, DateTime now)
+    public static string Countdown(DateTime? resetsUtc, DateTime now)
     {
         if (resetsUtc is not { } at) return string.Empty;
 
@@ -470,7 +470,7 @@ public static class Widgets
         return name + 1 + meter + Reading(percent, stale).Length + reset;
     }
 
-    private static string Reading(int percent, bool stale) =>
+    public static string Reading(int percent, bool stale) =>
         (stale ? "~" : string.Empty) + percent + "%";
 
     /// <summary>
