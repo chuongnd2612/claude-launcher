@@ -3,6 +3,19 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **The usage band can be turned off: `Usage band` on the settings screen.** On by default, as
+  before. Off leaves a plain rule under the header and gives the byline its room back — a band of
+  several accounts is a dense line to read past on every screen, and the wall can now show the same
+  figures over the tiles with `Alt+G`. Nothing stops being measured: the figures are still read
+  every minute and `Alt+U` still has the detail. Remembered in `ui.json`.
+- **The settings screen fits the window.** It used to draw the full wizard header — banner, byline
+  and the three step badges — above a panel that then ran off the bottom: at 100x30 the box lost its
+  last two settings and its own bottom border to the footer. Settings is not a step in that flow, so
+  it now takes the compact one-line header instead, which leaves room for every setting at 80x24.
+  The panel also scrolls if a window is shorter still, with a `9 of 10` count on its bottom edge.
+
 ## 1.47.0
 
 - **`Alt+G` draws each tile's account usage over the tile.** Off until you press it; on, every pane

@@ -415,6 +415,10 @@ public sealed class App
     /// </summary>
     private void RefreshUsage()
     {
+        // Set every frame rather than at startup: the settings screen can turn
+        // it off while the band is on screen, and the next paint has to agree.
+        Widgets.ShowUsage = Settings.ShowUsageBand;
+
         if (State.Profiles.Count == 0) return;
 
         var accounts = Metrics.Band(State, ConsoleInput.Wake);

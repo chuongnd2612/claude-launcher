@@ -95,6 +95,15 @@ public static class Widgets
     public static bool UsageRefreshing { get; set; }
 
     /// <summary>
+    /// Whether the band is drawn into the rule at all.
+    ///
+    /// Separate from <see cref="Usage"/> being null, because the chips are read
+    /// by the wall's own per-tile drawers too: hiding the band must leave the
+    /// figures measured, or turning it off would empty the tiles as well.
+    /// </summary>
+    public static bool ShowUsage { get; set; } = true;
+
+    /// <summary>
     /// Where the band's own label ended up, so a click on it can ask for a
     /// refresh. Set as the band draws and cleared when it does not, because the
     /// row it lands on is the header's business and differs per screen.
@@ -172,7 +181,7 @@ public static class Widgets
         // The byline gives way to the band: a number that changes earns the room
         // over one that never does.
         var credit = $"{Author} - {AuthorHandle}";
-        if (Usage is null && margin + 20 + credit.Length < buffer.Width - margin)
+        if ((Usage is null || !ShowUsage) && margin + 20 + credit.Length < buffer.Width - margin)
             buffer.WriteRight(buffer.Width - margin - 1, y, credit, new Sty(Theme.Dim, Theme.Bg));
 
         UsageRule(buffer, y + 1);
@@ -196,7 +205,7 @@ public static class Widgets
 
         UsageButton = null;
 
-        var chips = Usage;
+        var chips = ShowUsage ? Usage : null;
         if (chips is null || chips.Count == 0 || width < 22) return;
 
         // Room for the band, less the rule stub either side of it.
