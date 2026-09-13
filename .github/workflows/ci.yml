@@ -59,7 +59,7 @@ jobs:
           $always += @('Tokens        38,412', 'Context       61%      of 200K', '> try /model next')
           # The launch summary and the tips box are intentionally dropped when the
           # window is too short, so only require them on roomy terminals.
-          $tall = @('Launch summary', 'Tips', 'Opens in', 'Opening prompt', 'Counters')
+          $tall = @('Launch summary', 'Tips', 'Opens in', 'Opening prompt', 'Counters', 'Usage over the tiles', 'resets')
 
           foreach ($size in @(@(80, 24), @(100, 30), @(132, 44), @(200, 60))) {
             # -join matters: with an array on the left, -notmatch filters instead

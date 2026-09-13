@@ -3,6 +3,15 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **`Alt+G` draws each tile's account usage over the tile.** Off until you press it; on, every pane
+  on the wall paints a small panel into its top-right corner with that account's two windows — `5h`
+  and `wk` — each as a gauge, a percentage and how long the window has left. It is the same reading
+  as the header band, per tile rather than per launcher, so a wall of panes under different profiles
+  says which account each one is spending. Narrow panes drop to one line, and then to the two
+  percentages alone. Pressing it asks for a fresh reading, and the key is rebindable.
+
 ## 1.46.0
 
 - **Clone a profile: `c` on the profile screen.** Starts a new profile from the highlighted one's

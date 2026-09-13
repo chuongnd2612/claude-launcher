@@ -51,6 +51,9 @@ public static class KeyMap
     /// </summary>
     public static KeyHint UsageKey => Bound(KeyAction.Usage, "Usage");
 
+    /// <summary>The same figures, over each tile on the wall rather than on a screen.</summary>
+    public static KeyHint UsageDrawerKey => Bound(KeyAction.UsageDrawer, "Usage over the tiles");
+
     /// <summary>
     /// Reads the band's figures again now. Alongside the detail key everywhere
     /// that key is offered: the band is on every screen, so the way to make it
@@ -156,6 +159,7 @@ public static class KeyMap
             new KeyHint("alt+⇧←→↑↓", "Resize the split you are in")),
         new KeyGroup("Leaving",
             UsageKey,
+            UsageDrawerKey,
             RefreshUsageKey,
             new KeyHint("esc", "Back to Home"),
             new KeyHint("q", "Quit"),
@@ -203,6 +207,7 @@ public static class KeyMap
         new KeyGroup("Note",
             new KeyHint("esc", "Goes to Claude, not back"),
             UsageKey,
+            UsageDrawerKey,
             RefreshUsageKey,
             Help));
 
