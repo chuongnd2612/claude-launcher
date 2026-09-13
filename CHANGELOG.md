@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.48.0
 
 - **The usage band can be turned off: `Usage band` on the settings screen.** On by default, as
   before. Off leaves a plain rule under the header and gives the byline its room back — a band of
