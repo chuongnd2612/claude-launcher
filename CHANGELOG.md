@@ -3,6 +3,16 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **Fixed: the usage watcher added in 1.49.0 never actually fired.** Claude replaces `.claude.json`
+  by writing a temp file and moving it over the original rather than editing it in place, and a move
+  over an existing file raises `Renamed`, never `Changed` — the only event 1.49.0 listened for. The
+  band and the `Alt+G` tile drawers were exactly as stale as before that release: only running
+  `/usage` inside a session (which makes Claude re-fetch and rewrite the cache) and then pressing
+  `Alt+G` in the launcher showed a real number. Now watches `Created` and `Renamed` too, confirmed
+  against a real move-over-existing write, and against the exact regression on the pre-fix build.
+
 ## 1.49.0
 
 - **The usage figures follow Claude's own writes.** Claude recalculates its utilisation whenever it
