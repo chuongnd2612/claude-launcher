@@ -3,6 +3,16 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **The usage figures follow Claude's own writes.** Claude recalculates its utilisation whenever it
+  talks to the API and writes it into `.claude.json`, so while a session is running the numbers on
+  disk are seconds old — but the launcher only re-read them once a minute, so the band and the
+  `Alt+G` tile drawers looked stale until something asked them to refresh. Each profile's config dir
+  is now watched, and a write reaches the screen in about a second. The minute poll stays as a floor,
+  a burst of writes rebuilds once rather than per write, and a config dir that cannot be watched — or
+  does not exist yet — simply keeps the poll.
+
 ## 1.48.0
 
 - **The usage band can be turned off: `Usage band` on the settings screen.** On by default, as

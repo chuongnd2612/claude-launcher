@@ -421,6 +421,10 @@ public sealed class App
 
         if (State.Profiles.Count == 0) return;
 
+        // Watching costs nothing while nothing is written, and is what makes the
+        // figures move with Claude rather than with the launcher's own minute.
+        Metrics.WatchLimits(State, ConsoleInput.Wake);
+
         var accounts = Metrics.Band(State, ConsoleInput.Wake);
         if (accounts is null) return;
 
