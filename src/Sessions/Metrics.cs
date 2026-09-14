@@ -191,6 +191,93 @@ public static class Metrics
     /// </summary>
     private static readonly TimeSpan BandFresh = TimeSpan.FromSeconds(60);
 
+    private static FileSystemWatcher[] _watchers = Array.Empty<FileSystemWatcher>();
+    private static string _watching = string.Empty;
+    private static DateTime _touchedAt;
+
+    /// <summary>
+    /// How close together a config dir's own writes are allowed to move the
+    /// band. Claude rewrites .claude.json on every API call, and a wall of busy
+    /// sessions would otherwise rebuild the band several times a second.
+    /// </summary>
+    private static readonly TimeSpan TouchFresh = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// Notices Claude writing its usage cache, instead of waiting out the
+    /// minute.
+    ///
+    /// Claude works the percentages out when it talks to the API and writes
+    /// them straight into .claude.json, so the figures on disk are seconds old
+    /// while a session is running - and the launcher's own minute was all that
+    /// stood between them and the screen. Watching the file is the only way to
+    /// be current without asking the API ourselves, which would spend the very
+    /// allowance the band is reporting on.
+    ///
+    /// Cheap to call every frame: it rebuilds the watchers only when the set of
+    /// config dirs changes, which is when a profile is added or removed.
+    /// </summary>
+    public static void WatchLimits(LauncherState state, Action? changed = null)
+    {
+        // Keyed on the dirs that exist, not on the ones configured: a profile
+        // whose config dir Claude has not created yet starts being watched when
+        // it appears, rather than never.
+        var dirs = state.Profiles
+            .Select(profile => StateStore.ExpandHome(profile.ConfigDir))
+            .Where(Directory.Exists)
+            .ToArray();
+
+        var key = string.Join("|", dirs);
+        if (key == _watching) return;
+
+        foreach (var watcher in _watchers) watcher.Dispose();
+
+        var made = new List<FileSystemWatcher>(dirs.Length);
+
+        foreach (var dir in dirs)
+        {
+            // A config dir that cannot be watched - on a share, out of handles -
+            // simply keeps the minute poll it always had.
+            try
+            {
+                var watcher = new FileSystemWatcher(dir, ".claude.json")
+                {
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size
+                };
+
+                watcher.Changed += (_, _) => Touched(changed);
+                watcher.EnableRaisingEvents = true;
+                made.Add(watcher);
+            }
+            catch (Exception)
+            {
+                // Deliberately silent: a band that is merely a minute behind is
+                // not worth telling anyone about.
+            }
+        }
+
+        _watchers = made.ToArray();
+        _watching = key;
+    }
+
+    /// <summary>
+    /// One write, from one config dir. Drops the band's answer and wakes the
+    /// loop, which is what rebuilds it - on the band's own thread, as always.
+    /// </summary>
+    private static void Touched(Action? changed)
+    {
+        lock (Recent)
+        {
+            if (DateTime.UtcNow - _touchedAt < TouchFresh) return;
+
+            _touchedAt = DateTime.UtcNow;
+            if (_bandBuilding) return;
+
+            _bandAt = DateTime.MinValue;
+        }
+
+        changed?.Invoke();
+    }
+
     /// <summary>
     /// Drops the band's answer so the next call goes looking again.
     ///

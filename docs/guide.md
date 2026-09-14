@@ -184,7 +184,15 @@ It is drawn *into* the rule rather than on a row of its own, so it costs no spac
 Whatever the width, the percentage is the last thing to go, because it is the only part
 that answers the question. On the compact header the author byline gives way to it.
 
-**It reads itself again every minute**, and the **`↻ usage` button reads it now** — click it,
+**It follows Claude's own writes.** Claude works the percentages out when it talks to the API and
+writes them straight into `.claude.json`, so while a session is running the figures on disk are
+seconds old. The launcher watches that file in every config dir and picks up a write within about a
+second, which is as current as anything can be without spending the allowance it is reporting on:
+there is no way to ask for a fresh number except by making an API call, and the launcher will not
+make one on your behalf.
+
+**It also reads itself again every minute** as a floor — for a config dir that cannot be watched, or
+a figure that changed while the launcher was not running — and the **`↻ usage` button reads it now** — click it,
 or press `Alt+R`. The band shows `↻ usage…` while it does. That re-reads what Claude
 cached; it cannot ask the API itself, so a figure only moves once Claude has talked to the API again, and the
 `~` is how you tell a stale one. `Alt+R` is handled before any screen sees it, so it works
