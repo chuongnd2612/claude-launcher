@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.49.0
 
 - **The usage figures follow Claude's own writes.** Claude recalculates its utilisation whenever it
   talks to the API and writes it into `.claude.json`, so while a session is running the numbers on
