@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.49.1
 
 - **Fixed: the usage watcher added in 1.49.0 never actually fired.** Claude replaces `.claude.json`
   by writing a temp file and moving it over the original rather than editing it in place, and a move
