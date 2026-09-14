@@ -63,7 +63,7 @@ public sealed class TerminalTile : IDisposable
     public string SessionId { get; private init; } = string.Empty;
 
     public static TerminalTile Start(string projectPath, string projectName, string configDir,
-        int cols, int rows, string? resumeSessionId = null)
+        int cols, int rows, string? resumeSessionId = null, string? newSessionId = null)
     {
         cols = Math.Max(20, cols);
         rows = Math.Max(4, rows);
@@ -73,8 +73,12 @@ public sealed class TerminalTile : IDisposable
         // same terminal in every one of its panes - each pane resizing the one
         // pty to a different size. Continue resolves to --resume before it gets
         // here, so this stays true.
+        //
+        // newSessionId lets a caller know the id before the process registers
+        // itself - a hidden probe hides its id first and starts second, which
+        // only works if it can choose the id rather than read it back afterwards.
         var resuming = !string.IsNullOrWhiteSpace(resumeSessionId);
-        var sessionId = resuming ? resumeSessionId! : Guid.NewGuid().ToString();
+        var sessionId = resuming ? resumeSessionId! : newSessionId ?? Guid.NewGuid().ToString();
 
         var command = new StringBuilder();
         command.Append('"').Append(Executable()).Append('"');

@@ -2519,11 +2519,39 @@ public sealed class TerminalsScreen : ScreenBase
     {
         _drawer = !_drawer;
 
-        if (_drawer) Metrics.RefreshBand();
+        if (_drawer)
+        {
+            Metrics.RefreshBand();
+            ProbeUsage(Panes);
+        }
 
         var back = KeyBindings.Describe(KeyAction.UsageDrawer);
-        _notice = _drawer ? $"usage over every tile · {back} to hide it" : null;
+        _notice = _drawer ? $"usage over every tile · reading live, {back} to hide it" : null;
         return ScreenAction.None;
+    }
+
+    /// <summary>
+    /// Asks Claude itself for a fresh reading, once per distinct profile with a
+    /// real terminal on the wall right now.
+    ///
+    /// Only ever runs because Alt+G was just pressed - a version of this that
+    /// woke up on its own, on a timer, was refused as an unattended agent
+    /// spawn. Cheap to call on every press: <see cref="UsageProbe.Refresh"/> is
+    /// itself a no-op while one is already running for that profile or one
+    /// finished too recently to be worth repeating.
+    /// </summary>
+    private void ProbeUsage(List<SessionRow> panes)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var row in panes)
+        {
+            var terminal = LiveTerminal(row);
+            if (terminal is null || terminal.HasExited) continue;
+            if (!seen.Add(terminal.ConfigDir)) continue;
+
+            UsageProbe.Refresh(terminal.ConfigDir, terminal.ProjectPath, ConsoleInput.Wake);
+        }
     }
 
     /// <summary>

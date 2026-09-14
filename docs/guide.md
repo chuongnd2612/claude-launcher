@@ -230,9 +230,17 @@ profile's figures, so a tile running under `Personal` says so beside one running
 `Work` — including the two halves of a split, which get a panel each.
 
 It covers whatever the pane was drawing, which is why it is off until you ask for it and why
-`Alt+G` hides it again. Pressing it asks the band to read its files again, so what appears is
-as fresh as the launcher can make it. A pane too narrow for the panel drops to one line —
-`5h 3% · wk 28%` — and one narrower still to the readings alone, `3%/28%`.
+`Alt+G` hides it again. A pane too narrow for the panel drops to one line — `5h 3% · wk 28%` —
+and one narrower still to the readings alone, `3%/28%`.
+
+**Opening it also asks Claude directly**, once per profile with a real terminal on the wall.
+The band's own figure is only ever as fresh as the last time something made Claude write
+`cachedUsageUtilization` — normal conversation does not touch it, only `/usage` does — so
+`Alt+G` starts a hidden, invisible `claude` session for each such profile, types `/usage` into
+it once it looks ready, waits for the figure to move, and closes it. Nothing appears on the
+wall while this happens; the drawer simply shows the number a few seconds later once it lands,
+same as it would if you had typed `/usage` yourself. This runs only because you pressed the
+key - never on a timer, and never while the drawers are hidden.
 
 The key works from a focused terminal tile, like the splits and the pin do, and is rebindable
 under `tile` in the key editor.

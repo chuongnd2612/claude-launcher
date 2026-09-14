@@ -58,6 +58,12 @@ public sealed class SessionService
 
             foreach (var entry in registry)
             {
+                // A session the launcher started to ask Claude something and
+                // never meant to be seen - a usage probe, so far. Filtered by
+                // id rather than by kind, because it is a real `claude`
+                // process and registers itself exactly like any other.
+                if (HiddenSessions.IsHidden(entry.SessionId)) continue;
+
                 // Background agents driven by the SDK are not terminals anyone can
                 // go back to, so they do not belong on this list. An unrecognised
                 // or missing entrypoint is kept: better an extra row than a hidden one.
