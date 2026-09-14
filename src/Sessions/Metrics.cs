@@ -241,10 +241,20 @@ public static class Metrics
             {
                 var watcher = new FileSystemWatcher(dir, ".claude.json")
                 {
-                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName
                 };
 
+                // Changed alone missed the one write that matters: Claude
+                // replaces the file by writing a temp file and moving it over
+                // the original rather than editing it in place, and a move over
+                // an existing file raises Renamed, never Changed - confirmed
+                // against a real move-over-existing in a throwaway directory
+                // before relying on it here. Changed is kept for whatever still
+                // writes in place, Created for the rarer case of the original
+                // being gone first.
                 watcher.Changed += (_, _) => Touched(changed);
+                watcher.Created += (_, _) => Touched(changed);
+                watcher.Renamed += (_, _) => Touched(changed);
                 watcher.EnableRaisingEvents = true;
                 made.Add(watcher);
             }
