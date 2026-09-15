@@ -183,6 +183,20 @@ public sealed class UiSettings
     public string TerminalPinned { get; set; } = string.Empty;
 
     /// <summary>
+    /// Not on the settings screen: the panes taken off the grid to free space
+    /// without closing them, one session id or project path per `|`. Delete the
+    /// line to bring everything back.
+    /// </summary>
+    public string TerminalMinimized { get; set; } = string.Empty;
+
+    /// <summary>
+    /// On (default): tiles sharing a project sit next to each other on the
+    /// wall, pinned tiles still leading. Off keeps whatever order dragging and
+    /// splitting already put them in.
+    /// </summary>
+    public bool GroupTilesByProject { get; set; } = true;
+
+    /// <summary>
     /// Start new sessions with claude --remote-control, so they accept input
     /// from claude.ai and the phone app. Off by default: it opens a relay
     /// through Anthropic's servers, which is the user's call to make.

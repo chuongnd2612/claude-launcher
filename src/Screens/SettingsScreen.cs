@@ -5,7 +5,7 @@ namespace ClaudeLauncher.Screens;
 /// <summary>UI preferences, persisted to ~/.claude-launcher/ui.json.</summary>
 public sealed class SettingsScreen : ScreenBase
 {
-    private const int ItemCount = 10;
+    private const int ItemCount = 11;
 
     private int _index;
 
@@ -49,7 +49,9 @@ public sealed class SettingsScreen : ScreenBase
             ("Show costs", On(App.Settings.ShowCosts),
                 "What Claude has cost, on the dashboard"),
             ("Usage band", On(App.Settings.ShowUsageBand),
-                "Per-account usage in the rule under the header")
+                "Per-account usage in the rule under the header"),
+            ("Group by project", On(App.Settings.GroupTilesByProject),
+                "Tiles sharing a project sit together on the wall")
         };
 
         // The panel shows what the window has room for and scrolls the rest
@@ -194,8 +196,11 @@ public sealed class SettingsScreen : ScreenBase
             case 8:
                 App.Settings.ShowCosts = !App.Settings.ShowCosts;
                 break;
-            default:
+            case 9:
                 App.Settings.ShowUsageBand = !App.Settings.ShowUsageBand;
+                break;
+            default:
+                App.Settings.GroupTilesByProject = !App.Settings.GroupTilesByProject;
                 break;
         }
 

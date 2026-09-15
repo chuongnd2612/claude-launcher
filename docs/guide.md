@@ -673,6 +673,31 @@ launcher owns, so when the launcher goes the child loses its console whatever el
 comes back is the *conversation* — `claude --resume` on the same session id, which is what `r` has
 always done, done for you.
 
+**Minimizing what is in the way: `Alt+M`.** Takes the focused tile off the grid without closing it -
+the session keeps running, only the space it was using comes back for whatever is still on the wall:
+
+```text
+● 1 claude-launcher  W   ○ 2 q-agent  ♦
+⊟ minimized  ▎ ddks_surency   ▎ ddks_surency
+```
+
+A minimized tile drops out of the strip's own numbering along with it - it is not tile `4` sitting
+just out of sight, it has no number at all until it comes back, the same as a tile that was never
+opened. It moves into a small tray under the strip instead, one entry per minimized tile, by
+project. **Click a tray entry to restore and focus it**; landing on its pane any other way -
+`Alt+1..9`, a search hit - restores it too, since there is nowhere on the wall for the keyboard to
+visibly go otherwise. `Alt+M` again on the tile you are now on minimizes it back. The tray itself
+only appears when something is minimized, and a triple-click on an entry closes it directly, the
+same as any tile. The set is remembered in `ui.json` as `terminalMinimized`.
+
+**Tiles group by project.** Wherever pinning and the wall's own remembered order leave them, tiles
+sharing a project are pulled next to each other - within the pinned group and within the rest,
+separately, so pinning still outranks it. The `▎` beside a project's name in the strip, the
+focus-layout sidebar and the tray is that project's own colour, drawn from the same kind of hash a
+profile's colour already comes from, so tiles that belong together read as one even across a wall
+busy enough that they are not literally touching. Turn it off with **Group by project** in Settings
+to keep whatever order dragging and splitting already put things in.
+
 **Triple-click a tile to close it.** Three presses in the same place within about three quarters of a
 second close that pane, exactly as `Ctrl+W` does — the session is stopped and the conversation stays
 on disk. It is the gesture the wall had left: one press focuses a pane, two belong to whatever is

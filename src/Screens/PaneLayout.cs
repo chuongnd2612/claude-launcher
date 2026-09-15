@@ -492,6 +492,55 @@ public sealed class PaneLayout
         Roots.AddRange(rest);
     }
 
+    /// <summary>
+    /// Clusters the tiles by a key drawn from their first leaf, so tiles that
+    /// share it end up adjacent - without alphabetising a wall that has
+    /// nothing to cluster in the first place.
+    ///
+    /// Not a sort: a key's whole group moves to sit where that key was *first*
+    /// seen, in the order keys were first seen, and a tile that already had
+    /// the wall to itself never moves at all. That is what keeps a wall of
+    /// distinct projects in the order they were opened rather than reshuffled
+    /// to A-Z the moment grouping is turned on.
+    ///
+    /// Applied within the boundary <see cref="First"/> already drew rather than
+    /// across it, so a tile leading the wall because it is pinned cannot swap
+    /// sides with one that only happens to share its project.
+    /// </summary>
+    public void Group(Func<string, bool> leads, Func<string, string> keyOf)
+    {
+        var split = Roots.FindIndex(root => !root.Leaves().Any(leads));
+        if (split < 0) split = Roots.Count;
+
+        ClusterRange(0, split, keyOf);
+        ClusterRange(split, Roots.Count, keyOf);
+    }
+
+    private void ClusterRange(int from, int to, Func<string, string> keyOf)
+    {
+        if (to - from < 2) return;
+
+        var order = new List<string>();
+        var groups = new Dictionary<string, List<PaneNode>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var root in Roots.GetRange(from, to - from))
+        {
+            var key = root.Leaves().Select(keyOf).FirstOrDefault() ?? string.Empty;
+
+            if (!groups.TryGetValue(key, out var group))
+            {
+                group = new List<PaneNode>();
+                groups[key] = group;
+                order.Add(key);
+            }
+
+            group.Add(root);
+        }
+
+        Roots.RemoveRange(from, to - from);
+        Roots.InsertRange(from, order.SelectMany(key => groups[key]));
+    }
+
     /// <summary>Every pane, tile by tile - the order the wall draws them in.</summary>
     public List<string> Order() => Roots.SelectMany(root => root.Leaves()).ToList();
 

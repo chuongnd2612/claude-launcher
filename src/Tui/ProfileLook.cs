@@ -24,9 +24,10 @@ public static class ProfileLook
 
     /// <summary>
     /// Colours far enough apart to be told apart side by side on a dark panel,
-    /// and all legible against it.
+    /// and all legible against it. Internal so ProjectLook can draw from the
+    /// same palette.
     /// </summary>
-    private static readonly Rgb[] Colors =
+    internal static readonly Rgb[] Colors =
     {
         Rgb.Hex("#5AA0FF"), // blue
         Rgb.Hex("#3FD07E"), // green
