@@ -3,6 +3,18 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **`Alt+G` now asks Claude directly, instead of only showing what it already cached.** Normal
+  conversation never touches Claude's own usage cache - only `/usage` does - so the figure sat
+  stale between whoever last typed that command, however well the launcher watched the file. Alt+G
+  now starts a hidden, invisible `claude` session per profile with a real terminal on the wall,
+  types `/usage` into it once it looks ready, waits for the cache to move, and closes it - all
+  before the drawer is shown. Nothing appears on the wall while this runs; the number simply lands
+  a few seconds later, as it would if you had run `/usage` yourself. This only ever runs from the
+  Alt+G key press itself, never on a timer: an earlier version of this that woke up on its own was
+  an unattended agent spawn and was not shipped.
+
 ## 1.49.1
 
 - **Fixed: the usage watcher added in 1.49.0 never actually fired.** Claude replaces `.claude.json`
