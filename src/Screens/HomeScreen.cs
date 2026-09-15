@@ -190,16 +190,10 @@ public sealed class HomeScreen : ScreenBase
             }
         }
 
-        // A newer release is worth one line and a key, not a dialog in front of
-        // what you came here to do. A real notice always wins the row.
-        var update = UpdateBanner.Line();
-        var line = _notice ?? update?.Text;
-
-        if (line is not null && y < buffer.Height - 5)
-        {
-            buffer.WriteClipped(margin + 1, y, line, width - 2,
-                new Sty(_notice is null ? update!.Value.Color : Theme.Amber, Theme.Bg));
-        }
+        // The update itself now lives in the footer's own corner, on every
+        // screen - this row is _notice's alone.
+        if (_notice is not null && y < buffer.Height - 5)
+            buffer.WriteClipped(margin + 1, y, _notice, width - 2, new Sty(Theme.Amber, Theme.Bg));
 
         Widgets.Footer(buffer, KeyMap.HomeFooter(Restorable.Count > 0), KeyMap.Help);
     }

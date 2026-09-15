@@ -733,12 +733,26 @@ public static class Widgets
             right -= pinnedWidth + 2;
         }
 
-        // Version sits at the right end of the bar, and only when it cannot
-        // crowd the hints - a hint that vanishes matters more than the number.
-        if (Version.Length > 0)
+        // The update line wins the corner over the plain version number - it
+        // is the thing worth going to look at, and every screen already draws
+        // this bar, which is what makes this the one place it can always be
+        // seen rather than only on the few screens that used to remember to
+        // draw it themselves. Falls back to the version, and either one only
+        // when it cannot crowd the hints - a hint that vanishes matters more
+        // than either.
+        var update = UpdateStatus.Line();
+        var free = right - 1 - (x + total);
+
+        if (update is { } notice && free >= notice.Text.Length + 3)
         {
+            buffer.WriteRight(right - 1, y + 1, notice.Text, new Sty(notice.Color, Theme.BgSoft));
+        }
+        else if (Version.Length > 0)
+        {
+            // Falls back here whether there was nothing to say or the update
+            // line itself was the thing too long for the room - the plain
+            // number is still worth showing rather than nothing at all.
             var label = "v" + Version;
-            var free = right - 1 - (x + total);
             if (free >= label.Length + 3)
                 buffer.WriteRight(right - 1, y + 1, label, new Sty(Theme.Dim, Theme.BgSoft));
         }

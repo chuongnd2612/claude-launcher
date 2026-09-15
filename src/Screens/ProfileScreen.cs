@@ -80,18 +80,8 @@ public sealed class ProfileScreen : ScreenBase
             });
         }
 
-        // Most runs start here, not on Home, so this is where an update has to
-        // be able to say so - on the row above the tips, which is the only free
-        // one when they are shown.
-        var update = UpdateBanner.Line();
-        var updateY = App.Settings.ShowTips ? tipsY - 1 : buffer.Height - 6;
-
-        if (update is not null && updateY > afterCards - 1 && updateY < buffer.Height - 4)
-        {
-            buffer.WriteClipped(Widgets.Margin(buffer) + 1, updateY, update.Value.Text,
-                buffer.Width - Widgets.Margin(buffer) * 2 - 2, new Sty(update.Value.Color, Theme.Bg));
-        }
-
+        // The update itself now lives in the footer's own corner, on every
+        // screen, rather than a row this screen has to find room for.
         Widgets.Footer(buffer, KeyMap.ProfileFooter(), KeyMap.Help);
     }
 
