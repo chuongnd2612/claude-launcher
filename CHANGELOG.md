@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.50.0
 
 - **`Alt+G` now asks Claude directly, instead of only showing what it already cached.** Normal
   conversation never touches Claude's own usage cache - only `/usage` does - so the figure sat
