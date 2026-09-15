@@ -3,6 +3,22 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **Minimize a tile: `Alt+M`.** Takes the focused tile off the grid without closing it - the session
+  keeps running, only the space it was using goes back to whatever else is on the wall. A minimized
+  tile drops out of the strip's own numbering and moves into a small tray under it instead, listed by
+  project; click a tray entry to restore and focus it (triple-click closes it, same as any tile), or
+  land on its pane any other way and it comes back on its own, since there is nowhere on the wall for
+  the keyboard to visibly go otherwise. `Alt+M` again minimizes it back. Remembered in `ui.json` as
+  `terminalMinimized`.
+- **Tiles group by project.** On by default: wherever pinning and the wall's own remembered order
+  leave them, tiles sharing a project sit next to each other - within the pinned group and within the
+  rest, separately, so pinning still outranks it. Each project gets its own colour, drawn beside its
+  name in the strip, the focus-layout sidebar and the minimize tray, the same way a profile already
+  does, so tiles that belong together read as one even on a wall busy enough that they are not
+  literally touching. `Group by project` on the settings screen turns it off.
+
 ## 1.50.1
 
 - **Fixed: the update line only ever showed on Home, the profile picker and Settings.** Three

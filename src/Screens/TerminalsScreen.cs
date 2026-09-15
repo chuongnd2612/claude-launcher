@@ -193,6 +193,7 @@ public sealed class TerminalsScreen : ScreenBase
         _layout = PaneLayout.Parse(app.Settings.TerminalGroups);
 
         _pins = app.PinnedTiles;
+        _minimized = app.MinimizedTiles;
 
         // Seeded before the Panes call below, because Stable() appends whatever
         // it has not seen - so seeding after it would put every restored
@@ -321,6 +322,16 @@ public sealed class TerminalsScreen : ScreenBase
             _layout.Split(keys[2], keys[3], vertical: false);
             _pins.Add(keys[3]);
             _focus = Panes.FindIndex(row => string.Equals(DraftKey(row), keys[3], StringComparison.Ordinal));
+        }
+
+        // The split tile holding keys[2] and keys[3]: minimized so the tray
+        // has exactly one entry to draw and the grid one fewer tile to lay out
+        // around it, with focus moved off it first - real usage never leaves
+        // it on a tile that is no longer drawn, and neither should this.
+        if (demo == "nested-minimized")
+        {
+            _minimized.Add(keys[3]);
+            _focus = Panes.FindIndex(row => string.Equals(DraftKey(row), keys[1], StringComparison.Ordinal));
         }
     }
 
@@ -455,6 +466,13 @@ public sealed class TerminalsScreen : ScreenBase
         // opened - so this outranks both the remembered order and the tree.
         _layout.First(_pins.Contains);
 
+        // Tiles sharing a project sit next to each other, within whichever
+        // half of the wall - pinned or not - Sync and First already put them
+        // in. A project seen once stays exactly where it was; only a project
+        // seen more than once moves its later tiles up to join the first.
+        if (App.Settings.GroupTilesByProject)
+            _layout.Group(_pins.Contains, key => byKey.TryGetValue(key, out var row) ? row.ProjectName : string.Empty);
+
         return _layout.Order().Where(byKey.ContainsKey).Select(key => byKey[key]).ToList();
     }
 
@@ -462,7 +480,10 @@ public sealed class TerminalsScreen : ScreenBase
     private int TileAt(int pane)
     {
         var panes = Panes;
-        return pane < 0 || pane >= panes.Count ? -1 : _layout.TileOf(DraftKey(panes[pane]));
+        if (pane < 0 || pane >= panes.Count) return -1;
+
+        var key = DraftKey(panes[pane]);
+        return Visible().FindIndex(tile => tile.Holds(key));
     }
 
     /// <summary>The panes of one tile, as places in the pane list.</summary>
@@ -511,6 +532,24 @@ public sealed class TerminalsScreen : ScreenBase
     private bool Pinned(SessionRow row) => _pins.Contains(DraftKey(row));
 
     private bool PinnedIn(PaneNode tile) => tile.Leaves().Any(_pins.Contains);
+
+    /// <summary>Where this screen's minimized set lives - the app's in a real run, a
+    /// fixture's own otherwise, for the same reason <see cref="_pins"/> is.</summary>
+    private readonly HashSet<string> _minimized = new(StringComparer.Ordinal);
+
+    private bool MinimizedIn(PaneNode tile) => tile.Leaves().Any(_minimized.Contains);
+
+    /// <summary>
+    /// The tiles actually on the wall - every real tile except the ones
+    /// minimized out of it.
+    ///
+    /// This is what the grid, the strip, the sidebar, and every keyboard and
+    /// mouse position operation number and index against - so a minimized tile
+    /// takes no slot in any of them, the same as one that was never opened.
+    /// <see cref="_layout"/>'s own Roots stay the source of truth for structure
+    /// and persistence; this is only ever a view of it.
+    /// </summary>
+    private List<PaneNode> Visible() => _layout.Roots.Where(t => !MinimizedIn(t)).ToList();
 
     private static BoxStyle Frame(bool pinned) => pinned ? BoxStyle.Double : BoxStyle.Rounded;
 
@@ -598,7 +637,7 @@ public sealed class TerminalsScreen : ScreenBase
         // it would write one into settings.
         if (_picker is not null) return false;
 
-        var tiles = _layout.Roots;
+        var tiles = Visible();
         if (from < 0 || from >= tiles.Count) return false;
         if (to < 0 || to >= tiles.Count || to == from) return false;
 
@@ -916,7 +955,7 @@ public sealed class TerminalsScreen : ScreenBase
     {
         var margin = Widgets.Margin(buffer);
         var x = margin;
-        var tiles = _layout.Roots;
+        var tiles = Visible();
 
         for (var i = 0; i < tiles.Count && x < buffer.Width - margin - 8; i++)
         {
@@ -933,6 +972,7 @@ public sealed class TerminalsScreen : ScreenBase
                 x = buffer.Write(x, y, " " + PinMark, new Sty(PinColour(active), Theme.Bg, bold: true));
 
             x = buffer.Write(x, y, $" {i + 1} ", new Sty(color, Theme.Bg, bold: active));
+            x = buffer.Write(x, y, ProjectMark, new Sty(ProjectLook.Color(lead.ProjectPath), Theme.Bg));
             x = buffer.WriteClipped(x, y, lead.ProjectName, 14,
                 new Sty(active ? Theme.Text : Theme.Dim, Theme.Bg));
 
@@ -954,6 +994,55 @@ public sealed class TerminalsScreen : ScreenBase
             x = buffer.Write(x, y, "   ", new Sty(Theme.Dim, Theme.Bg));
         }
 
+        return Tray(buffer, y + 2, panes);
+    }
+
+    /// <summary>
+    /// The tick that ties a tile to its project - one colour per project,
+    /// drawn wherever the strip, the sidebar and a tile's own header name it,
+    /// so tiles sharing one read as a family even when they are not adjacent.
+    /// </summary>
+    private const string ProjectMark = "▎";
+
+    /// <summary>
+    /// The tiles taken off the grid, listed by project so they stay reachable
+    /// without a grid slot to spend a number on. Not drawn when nothing is
+    /// minimized - chrome that would only ever say "nothing here" is worse
+    /// than chrome that is simply absent.
+    ///
+    /// Each chip gets a rect the same way a tile does, so the wall's own
+    /// mouse-down handling restores and focuses it on a click, and closes it
+    /// on a triple one, with nothing special written here for either.
+    /// </summary>
+    private int Tray(ScreenBuffer buffer, int y, List<SessionRow> panes)
+    {
+        var minimized = _layout.Roots.Where(MinimizedIn).ToList();
+        if (minimized.Count == 0) return y;
+
+        var margin = Widgets.Margin(buffer);
+        var x = buffer.Write(margin, y, "⊟ minimized  ", new Sty(Theme.Dim, Theme.Bg, italic: true));
+
+        foreach (var tile in minimized)
+        {
+            if (x >= buffer.Width - margin - 4) break;
+
+            var mine = PanesOf(tile, panes);
+            if (mine.Count == 0) continue;
+
+            var lead = panes[mine[0]];
+            var start = x;
+
+            x = buffer.Write(x, y, ProjectMark, new Sty(ProjectLook.Color(lead.ProjectPath), Theme.Bg));
+            x = buffer.WriteClipped(x, y, lead.ProjectName, 14, new Sty(Theme.Muted, Theme.Bg));
+
+            if (mine.Count > 1)
+                x = buffer.Write(x, y, $" +{mine.Count - 1}", new Sty(Theme.BorderMuted, Theme.Bg));
+
+            x = buffer.Write(x, y, "   ", new Sty(Theme.Dim, Theme.Bg));
+
+            _rects.Add((start, y, x - start, 1, mine[0]));
+        }
+
         return y + 2;
     }
 
@@ -965,9 +1054,19 @@ public sealed class TerminalsScreen : ScreenBase
 
     private void Grid(ScreenBuffer buffer, int x, int y, int width, int height, List<SessionRow> panes)
     {
-        var tiles = _layout.Roots;
+        var tiles = Visible();
         _inner.Clear();
         _spans.Clear();
+
+        // Everything on the wall is minimized: nothing for zoom or a shape to
+        // work with, and Focus() never lets that be true while a pane is
+        // focused, so this can only happen with the keyboard released.
+        if (tiles.Count == 0 && !_zoom)
+        {
+            buffer.WriteClipped(x + 1, y, "everything is minimized · click a tray tile to bring one back",
+                Math.Max(0, width - 2), new Sty(Theme.Dim, Theme.Bg, italic: true));
+            return;
+        }
 
         // Zoom is about one pane, not one tile: reading a half closely is the
         // whole reason to zoom, so it fills the wall on its own.
@@ -1268,7 +1367,7 @@ public sealed class TerminalsScreen : ScreenBase
     {
         Widgets.Panel(buffer, x, y, width, height, false);
 
-        var tiles = _layout.Roots;
+        var tiles = Visible();
 
         for (var i = 0; i < tiles.Count && i < height - 2; i++)
         {
@@ -1286,8 +1385,10 @@ public sealed class TerminalsScreen : ScreenBase
                     bold: PinnedIn(tiles[i])));
 
             var pin = PinnedIn(tiles[i]) ? PinMark + " " : string.Empty;
+            var at = buffer.Write(x + 6, rowY, ProjectMark, new Sty(ProjectLook.Color(row.ProjectPath), Theme.Panel));
+
             var name = mine.Count > 1 ? $"{pin}{row.ProjectName} +{mine.Count - 1}" : pin + row.ProjectName;
-            buffer.WriteClipped(x + 6, rowY, name, width - 8,
+            buffer.WriteClipped(at, rowY, name, width - 9,
                 new Sty(active ? Theme.Text : Theme.Muted, Theme.Panel, bold: active));
         }
     }
@@ -1901,6 +2002,7 @@ public sealed class TerminalsScreen : ScreenBase
         if (KeyBindings.Is(KeyAction.PaneOut, key)) return Regroup(panes, 0);
         if (KeyBindings.Is(KeyAction.PinTile, key)) return TogglePin(panes);
         if (KeyBindings.Is(KeyAction.UsageDrawer, key)) return ToggleDrawer();
+        if (KeyBindings.Is(KeyAction.MinimizeTile, key)) return MinimizeTile(panes);
 
         // A focused terminal tile takes every key, because Claude's own UI needs
         // Esc, Tab and the arrows. Ctrl+] hands the keyboard back to the wall -
@@ -2175,9 +2277,10 @@ public sealed class TerminalsScreen : ScreenBase
             // The number on a box is its tile, so this lands on the pane of that
             // tile you were last in - or its first, when you have not been in it.
             var target = ch - '1';
-            if (target < _layout.Roots.Count)
+            var visible = Visible();
+            if (target < visible.Count)
             {
-                var mine = PanesOf(_layout.Roots[target], panes);
+                var mine = PanesOf(visible[target], panes);
                 if (mine.Count > 0 && !mine.Contains(_focus)) _focus = mine[0];
             }
 
@@ -2835,6 +2938,37 @@ public sealed class TerminalsScreen : ScreenBase
         _released = false;
         _notice = null;
         _menuIndex = 0;
+
+        Restore(index);
+    }
+
+    /// <summary>
+    /// Brings a pane's whole tile back from minimized, if it was.
+    ///
+    /// A minimized tile has no slot on the wall for the keyboard to visibly go
+    /// to, so landing on one of its panes - however that happened - has to mean
+    /// it is not minimized any more. Every leaf, not only the pane landed on:
+    /// a split tile minimizes and restores as one piece.
+    /// </summary>
+    private void Restore(int pane)
+    {
+        var panes = Panes;
+        if (pane < 0 || pane >= panes.Count) return;
+
+        var tile = _layout.RootOf(DraftKey(panes[pane]));
+        if (tile is null) return;
+
+        var changed = false;
+        foreach (var leaf in tile.Leaves())
+        {
+            if (_minimized.Remove(leaf)) changed = true;
+        }
+
+        if (changed && !Transient)
+        {
+            App.Settings.TerminalMinimized = string.Join('|', _minimized);
+            StateStore.SaveSettings(App.Settings);
+        }
     }
 
     public override ScreenAction HandleInput(InputEvent input)
@@ -3129,7 +3263,10 @@ public sealed class TerminalsScreen : ScreenBase
         if (landed >= 0) Focus(landed);
         _released = released;
 
-        var now = _layout.TileOf(key);
+        // The number shown has to match what Visible() numbers it, not the
+        // structural index - a minimized tile elsewhere would otherwise throw
+        // the two out of step.
+        var now = landed >= 0 ? TileAt(landed) : _layout.TileOf(key);
         _notice = step == 0
             ? $"{name} is a tile of its own now"
             : $"moved {name} into tile {now + 1}";
@@ -3170,6 +3307,66 @@ public sealed class TerminalsScreen : ScreenBase
         _notice = pinned
             ? $"pinned {row.ProjectName} · it will not close until you unpin it with {back}"
             : $"unpinned {row.ProjectName}";
+
+        return ScreenAction.None;
+    }
+
+    /// <summary>
+    /// Takes the focused tile off the grid, or brings it back.
+    ///
+    /// Unlike pinning, minimizing has nothing to do with whether a tile can be
+    /// closed - it is only about whether it is taking up room right now. The
+    /// whole tile goes, every pane in it, so a split minimizes and restores as
+    /// one piece the same way <see cref="Restore"/> brings it back as one.
+    /// </summary>
+    private ScreenAction MinimizeTile(List<SessionRow> panes)
+    {
+        if (_focus < 0 || _focus >= panes.Count) return ScreenAction.None;
+
+        var row = panes[_focus];
+        if (IsPicker(row)) return ScreenAction.None;
+
+        var tile = _layout.RootOf(DraftKey(row));
+        if (tile is null) return ScreenAction.None;
+
+        var leaves = tile.Leaves().ToList();
+        var minimizing = !_minimized.Contains(leaves[0]);
+
+        foreach (var leaf in leaves)
+        {
+            if (minimizing) _minimized.Add(leaf);
+            else _minimized.Remove(leaf);
+        }
+
+        if (!Transient)
+        {
+            App.Settings.TerminalMinimized = string.Join('|', _minimized);
+            StateStore.SaveSettings(App.Settings);
+        }
+
+        if (minimizing)
+        {
+            // A minimized tile is not drawn, so the keyboard cannot stay on it -
+            // it moves to whatever is now first on the wall. Released rather
+            // than typing, on purpose: minimizing is a step back, not a reason
+            // to land in someone else's prompt mid-sentence.
+            var visible = Visible();
+            var next = visible.Count > 0
+                ? panes.FindIndex(r => string.Equals(DraftKey(r), visible[0].Leaves().First(), StringComparison.Ordinal))
+                : -1;
+
+            if (next >= 0) _focus = next;
+            _released = true;
+
+            _notice = $"minimized {row.ProjectName} · click its tile in the tray, or focus it another way, to bring it back";
+        }
+        else
+        {
+            var landed = Panes.FindIndex(r => string.Equals(DraftKey(r), leaves[0], StringComparison.Ordinal));
+            if (landed >= 0) Focus(landed);
+
+            _notice = $"restored {row.ProjectName}";
+        }
 
         return ScreenAction.None;
     }

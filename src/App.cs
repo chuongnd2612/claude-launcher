@@ -89,6 +89,12 @@ public sealed class App
         {
             PinnedTiles.Add(key);
         }
+
+        foreach (var key in (settings.TerminalMinimized ?? string.Empty)
+                 .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            MinimizedTiles.Add(key);
+        }
     }
 
     public LauncherState State { get; }
@@ -130,6 +136,13 @@ public sealed class App
     /// ui.json, because which session matters is not something to say twice.
     /// </summary>
     public HashSet<string> PinnedTiles { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Panes taken off the grid by hand, the same way pins are: on the app
+    /// rather than the screen, and written to ui.json, so a tile stays out of
+    /// the way across a rebuilt wall and a restarted launcher alike.
+    /// </summary>
+    public HashSet<string> MinimizedTiles { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Adds a tile and records the open set, so closing the launcher does not

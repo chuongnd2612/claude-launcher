@@ -84,7 +84,8 @@ public enum KeyAction
     PaneToNext,
     PaneOut,
     PinTile,
-    UsageDrawer
+    UsageDrawer,
+    MinimizeTile
 }
 
 /// <summary>Which screen a binding belongs to, for clash checking and the editor.</summary>
@@ -247,7 +248,7 @@ public static class KeyBindings
             KeyAction.SelectText, KeyAction.ZoomPane, KeyAction.TerminalHere,
             KeyAction.SplitHere, KeyAction.SplitHereDown,
             KeyAction.PaneToPrevious, KeyAction.PaneToNext, KeyAction.PaneOut,
-            KeyAction.PinTile, KeyAction.UsageDrawer
+            KeyAction.PinTile, KeyAction.UsageDrawer, KeyAction.MinimizeTile
         })
     };
 
@@ -401,6 +402,7 @@ public static class KeyBindings
         Row(KeyAction.PinTile, KeyScope.Tile, "Pin this pane, or unpin it", "alt+p"),
         // alt+u is the usage screen and cannot be taken; alt+g is free of the
         // readline word motions a shell and Claude's own prompt rely on.
-        Row(KeyAction.UsageDrawer, KeyScope.Tile, "Usage over every tile", "alt+g")
+        Row(KeyAction.UsageDrawer, KeyScope.Tile, "Usage over every tile", "alt+g"),
+        Row(KeyAction.MinimizeTile, KeyScope.Tile, "Minimize this pane, or restore it", "alt+m")
     };
 }
