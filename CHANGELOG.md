@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.50.1
 
 - **Fixed: the update line only ever showed on Home, the profile picker and Settings.** Three
   screens each remembered to draw it in whatever row was free that frame - which on Home could
