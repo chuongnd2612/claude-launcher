@@ -86,18 +86,9 @@ public sealed class SettingsScreen : ScreenBase
             Info(buffer, margin + 3, infoY + 4, "terminal", $"{buffer.Width} x {buffer.Height}", panelWidth);
         }
 
-        // Whatever the automatic check is set to, u asks right now - and this is
-        // where someone goes looking for that. Pinned above the footer rather
-        // than under the Paths box, which a short window does not draw at all.
-        var update = UpdateBanner.Line();
-        var updateY = Math.Max(y + shown + 3, buffer.Height - 6);
-
-        if (update is not null && updateY < buffer.Height - 4)
-        {
-            buffer.WriteClipped(margin + 1, updateY, update.Value.Text, panelWidth - 2,
-                new Sty(update.Value.Color, Theme.Bg));
-        }
-
+        // The update itself now lives in the footer's own corner, on every
+        // screen, rather than a row this screen has to find room for. u still
+        // asks right now, whatever the automatic check is set to.
         Widgets.Footer(buffer, KeyMap.SettingsFooter(), KeyMap.Help);
     }
 

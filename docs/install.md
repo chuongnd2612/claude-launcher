@@ -95,6 +95,14 @@ downloading v1.29.0…
 Nothing stops while that happens, and nothing has to be typed afterwards. The new build is on disk
 by the time the banner says so, and the next `claude-launcher` runs it.
 
+**The line itself is in every screen's footer now**, bottom-right - the same corner the version
+number sits in, which it replaces for as long as there is something to say: `checking for
+updates…`, `update available · v1.31.0 · press u`, `downloading v1.31.0…`, `installing v1.31.0…`,
+or `✓ update installed · v1.31.0 · restart to update`. It used to live in one row that only Home,
+the profile picker and Settings remembered to draw, which meant the wall - where most of a session
+happens - never showed it at all. A message too long for a narrow window's footer simply falls back
+to the plain version number rather than being cut off mid-word.
+
 **`u` asks again, any time.** With an update installed it opens the update screen, which says as
 much and quits on `Enter` so you can start the new one. With an update known but not installed it
 offers the old route instead: `Enter` closes the launcher and lets the wrapper run the installer,

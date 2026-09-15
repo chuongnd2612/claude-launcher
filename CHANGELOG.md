@@ -3,6 +3,16 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **Fixed: the update line only ever showed on Home, the profile picker and Settings.** Three
+  screens each remembered to draw it in whatever row was free that frame - which on Home could
+  collide with the dashboard panel below it, garbling both into one unreadable line. It now lives
+  in the footer bar every screen already draws, bottom-right, in the same corner the version number
+  sits in and replaces for as long as there is something to say. Nothing about the automatic check
+  (every six hours) or the automatic background install changes - both already ran regardless of
+  which screen this was drawn on. This is purely about being able to see it.
+
 ## 1.50.0
 
 - **`Alt+G` now asks Claude directly, instead of only showing what it already cached.** Normal
