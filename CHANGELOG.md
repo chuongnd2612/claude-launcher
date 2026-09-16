@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.51.0
 
 - **Minimize a tile: `Alt+M`.** Takes the focused tile off the grid without closing it - the session
   keeps running, only the space it was using goes back to whatever else is on the wall. A minimized
