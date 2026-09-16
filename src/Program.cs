@@ -223,6 +223,7 @@ public static class Program
             ("terminals-pinned", new TerminalsScreen(app, DemoSnapshot(), demo: "nested-pinned")),
             ("terminals-usage", new TerminalsScreen(app, DemoSnapshot(), demo: "nested-usage")),
             ("terminals-minimized", new TerminalsScreen(app, DemoSnapshot(), demo: "nested-minimized")),
+            ("terminals-filtered", new TerminalsScreen(app, DemoSnapshot(), demo: "nested-filtered")),
             ("terminals-regroup", Regrouped(app)),
             ("terminals-split", Splitting(app)),
             ("terminals-split-mode", Splitting(app, chosen: true)),

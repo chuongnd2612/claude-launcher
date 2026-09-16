@@ -698,6 +698,22 @@ profile's colour already comes from, so tiles that belong together read as one e
 busy enough that they are not literally touching. Turn it off with **Group by project** in Settings
 to keep whatever order dragging and splitting already put things in.
 
+**Click a project in the strip to show only its tiles.** The wall narrows to that project - every
+other tile drops out of the grid and out of the strip's own numbering, the same way a minimized one
+does, and the breadcrumb says which project it is showing and counts only what is drawn:
+
+```text
+Home  /  Terminals · 2 panes in 2 tiles · only ddks_surency
+```
+
+Click that project again for the whole wall back. Nothing is closed, minimized or rearranged by it -
+the sessions keep running and come back in their own slots - and it is not remembered between runs:
+it is a way of looking at a busy wall for a minute, not an arrangement of it. Focus follows the
+filter, so the keyboard lands in the first pane of that project, and moving focus to a pane of
+another project any other way clears the filter rather than typing into a tile that is not drawn.
+The minimize tray is not filtered, and closing or minimizing the last tile of the project you are
+looking at ends the filter rather than leaving an empty wall.
+
 **Triple-click a tile to close it.** Three presses in the same place within about three quarters of a
 second close that pane, exactly as `Ctrl+W` does — the session is stopped and the conversation stays
 on disk. It is the gesture the wall had left: one press focuses a pane, two belong to whatever is
