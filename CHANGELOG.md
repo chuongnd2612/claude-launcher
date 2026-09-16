@@ -3,6 +3,15 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **Click a project in the strip to show only its tiles.** The wall narrows to that project - every
+  other tile drops out of the grid and out of the strip's numbering, the same way a minimized one
+  does - and the breadcrumb says which project it is showing, counting only what is drawn. Click the
+  same project again for the whole wall back. Nothing is closed or rearranged, and the filter is not
+  remembered between runs: it is a way of looking at a busy wall, not an arrangement of it. Focus
+  follows the filter, and landing on a pane of another project any other way clears it.
+
 ## 1.51.0
 
 - **Minimize a tile: `Alt+M`.** Takes the focused tile off the grid without closing it - the session

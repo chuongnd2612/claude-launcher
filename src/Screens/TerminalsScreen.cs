@@ -333,6 +333,20 @@ public sealed class TerminalsScreen : ScreenBase
             _minimized.Add(keys[3]);
             _focus = Panes.FindIndex(row => string.Equals(DraftKey(row), keys[1], StringComparison.Ordinal));
         }
+
+        // The wall narrowed to one project, the way a click on the strip
+        // narrows it: one tile drawn, one chip in the strip, and the breadcrumb
+        // saying which project it is showing.
+        if (demo == "nested-filtered")
+        {
+            var lead = Panes.FindIndex(row => string.Equals(DraftKey(row), keys[1], StringComparison.Ordinal));
+
+            if (lead >= 0)
+            {
+                _focus = lead;
+                _filter = (Panes[lead].ProjectPath, Panes[lead].ProjectName);
+            }
+        }
     }
 
     // A terminal tile has to keep up with a program drawing itself, not with a
@@ -459,6 +473,12 @@ public sealed class TerminalsScreen : ScreenBase
         var byKey = new Dictionary<string, SessionRow>(StringComparer.Ordinal);
         foreach (var row in rows) byKey.TryAdd(DraftKey(row), row);
 
+        // The project behind each pane key, for the filter: a tile knows its
+        // leaves and nothing else, and looking the rows back up from inside the
+        // render loop would rebuild the pane list on every frame.
+        _projects.Clear();
+        foreach (var pair in byKey) _projects[pair.Key] = pair.Value.ProjectPath;
+
         _layout.Sync(byKey.Keys.OrderBy(key => rows.FindIndex(r => DraftKey(r) == key)).ToList());
 
         // Pinned tiles lead the wall. A pane you have said matters should be the
@@ -540,16 +560,52 @@ public sealed class TerminalsScreen : ScreenBase
     private bool MinimizedIn(PaneNode tile) => tile.Leaves().Any(_minimized.Contains);
 
     /// <summary>
+    /// The project the wall is narrowed to - path and display name - or null
+    /// when it shows everything. Clicking a project in the strip sets it,
+    /// clicking that same project again clears it.
+    ///
+    /// Deliberately not persisted: this is a way of looking at the wall for a
+    /// minute, not an arrangement of it, and a filter that survived a restart
+    /// would read as tiles having gone missing.
+    /// </summary>
+    private (string Path, string Name)? _filter;
+
+    /// <summary>The project each pane key belongs to, filled by <see cref="Arranged"/>.</summary>
+    private readonly Dictionary<string, string> _projects = new(StringComparer.Ordinal);
+
+    private static bool SameProject(string a, string b) =>
+        string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+    private bool InFilter(PaneNode tile, string path) => tile.Leaves()
+        .Any(key => _projects.TryGetValue(key, out var mine) && SameProject(mine, path));
+
+    /// <summary>
+    /// The filter as it is actually in force, or null when it has nothing left
+    /// to show: the last tile of a project can be closed or minimized while the
+    /// filter is on, and an empty wall is worse than one that stopped filtering.
+    /// </summary>
+    private (string Path, string Name)? Filtering =>
+        _filter is { } only && _layout.Roots.Any(t => !MinimizedIn(t) && InFilter(t, only.Path))
+            ? only : null;
+
+    /// <summary>
     /// The tiles actually on the wall - every real tile except the ones
-    /// minimized out of it.
+    /// minimized out of it, and, while a project filter is on, except the ones
+    /// belonging to another project.
     ///
     /// This is what the grid, the strip, the sidebar, and every keyboard and
-    /// mouse position operation number and index against - so a minimized tile
-    /// takes no slot in any of them, the same as one that was never opened.
-    /// <see cref="_layout"/>'s own Roots stay the source of truth for structure
-    /// and persistence; this is only ever a view of it.
+    /// mouse position operation number and index against - so a minimized or
+    /// filtered-out tile takes no slot in any of them, the same as one that was
+    /// never opened. <see cref="_layout"/>'s own Roots stay the source of truth
+    /// for structure and persistence; this is only ever a view of it.
     /// </summary>
-    private List<PaneNode> Visible() => _layout.Roots.Where(t => !MinimizedIn(t)).ToList();
+    private List<PaneNode> Visible()
+    {
+        var wall = _layout.Roots.Where(t => !MinimizedIn(t)).ToList();
+        if (Filtering is not { } only) return wall;
+
+        return wall.Where(t => InFilter(t, only.Path)).ToList();
+    }
 
     private static BoxStyle Frame(bool pinned) => pinned ? BoxStyle.Double : BoxStyle.Rounded;
 
@@ -708,14 +764,29 @@ public sealed class TerminalsScreen : ScreenBase
         var panes = Panes;
 
         _rects.Clear();
+        _chips.Clear();
 
         if (_focus >= panes.Count) _focus = Math.Max(0, panes.Count - 1);
 
         // Breadcrumb, with the right-hand status shortened rather than wrapped.
         var tiles = _layout.Roots.Count;
-        var left = panes.Count == 1 ? "Terminals · 1 pane"
-            : tiles == panes.Count ? $"Terminals · {panes.Count} panes"
-            : $"Terminals · {panes.Count} panes in {tiles} tiles";
+        var count = panes.Count;
+        var filter = string.Empty;
+
+        // Filtered, the breadcrumb counts what is drawn rather than what exists:
+        // "4 panes" over a wall showing one reads as a bug rather than a filter.
+        if (Filtering is { } only)
+        {
+            var shown = Visible();
+            tiles = shown.Count;
+            count = shown.Sum(tile => PanesOf(tile, panes).Count);
+            filter = $" · only {only.Name}";
+        }
+
+        var left = (count == 1 ? "Terminals · 1 pane"
+            : tiles == count ? $"Terminals · {count} panes"
+            : $"Terminals · {count} panes in {tiles} tiles") + filter;
+
         Widgets.SectionTitle(buffer, y, "Home", left);
 
         var right = $"layout {_mode.ToString().ToLowerInvariant()} · space to cycle";
@@ -972,9 +1043,13 @@ public sealed class TerminalsScreen : ScreenBase
                 x = buffer.Write(x, y, " " + PinMark, new Sty(PinColour(active), Theme.Bg, bold: true));
 
             x = buffer.Write(x, y, $" {i + 1} ", new Sty(color, Theme.Bg, bold: active));
+
+            var chip = x;
             x = buffer.Write(x, y, ProjectMark, new Sty(ProjectLook.Color(lead.ProjectPath), Theme.Bg));
             x = buffer.WriteClipped(x, y, lead.ProjectName, 14,
                 new Sty(active ? Theme.Text : Theme.Dim, Theme.Bg));
+
+            _chips.Add((chip, y, x - chip, lead.ProjectPath, lead.ProjectName));
 
             // A tile of several says how many rather than listing them: the
             // strip is for finding a tile that is off screen, and its own header
@@ -1398,6 +1473,12 @@ public sealed class TerminalsScreen : ScreenBase
     /// Rebuilt every frame; the layout is the only thing that knows the rects.
     /// </summary>
     private readonly List<(int X, int Y, int W, int H, int Index)> _rects = new();
+
+    /// <summary>
+    /// Where each project's name sits in the strip, so a click on one can
+    /// narrow the wall to it. Rebuilt every frame, like <see cref="_rects"/>.
+    /// </summary>
+    private readonly List<(int X, int Y, int W, string Path, string Name)> _chips = new();
 
     /// <summary>The pane drawn at a point, or -1 for none. Shared by click and drag.</summary>
     private int Under(int x, int y)
@@ -2940,6 +3021,7 @@ public sealed class TerminalsScreen : ScreenBase
         _menuIndex = 0;
 
         Restore(index);
+        Unfilter(index);
     }
 
     /// <summary>
@@ -2969,6 +3051,52 @@ public sealed class TerminalsScreen : ScreenBase
             App.Settings.TerminalMinimized = string.Join('|', _minimized);
             StateStore.SaveSettings(App.Settings);
         }
+    }
+
+    /// <summary>
+    /// Drops the project filter when focus lands outside it.
+    ///
+    /// The same invariant <see cref="Restore"/> keeps for minimized tiles: the
+    /// focused pane is always drawn, whichever way focus arrived - so no other
+    /// path has to know the filter exists.
+    /// </summary>
+    private void Unfilter(int pane)
+    {
+        if (_filter is not { } only) return;
+
+        var panes = Panes;
+        if (pane < 0 || pane >= panes.Count) return;
+
+        if (!SameProject(panes[pane].ProjectPath, only.Path)) _filter = null;
+    }
+
+    /// <summary>
+    /// Narrows the wall to one project, or shows every tile again when the
+    /// project clicked is the one already showing on its own.
+    ///
+    /// Focus moves with the filter, but not through <see cref="Focus"/>: that
+    /// hands the keyboard to the tile it lands on, and a click on the strip
+    /// asked to look at a project rather than to start typing in it.
+    /// </summary>
+    private void FilterTo(string path, string name)
+    {
+        if (_filter is { } only && SameProject(only.Path, path))
+        {
+            _filter = null;
+            _notice = "showing every tile again";
+            return;
+        }
+
+        _filter = (path, name);
+
+        var panes = Panes;
+        if (_focus < 0 || _focus >= panes.Count || !SameProject(panes[_focus].ProjectPath, path))
+        {
+            var first = panes.FindIndex(row => SameProject(row.ProjectPath, path));
+            if (first >= 0) _focus = first;
+        }
+
+        _notice = $"showing only {name} · click it again for every tile";
     }
 
     public override ScreenAction HandleInput(InputEvent input)
@@ -3050,6 +3178,21 @@ public sealed class TerminalsScreen : ScreenBase
 
             MovePane(Panes, drop.From, drop.To);
             return ScreenAction.None;
+        }
+
+        // A project name in the strip, before the tiles: clicking one narrows
+        // the wall to that project instead of releasing the keyboard the way a
+        // click on the chrome otherwise would.
+        if (input.Kind == InputKind.MouseDown)
+        {
+            var chip = _chips.FirstOrDefault(c =>
+                input.X >= c.X && input.X < c.X + c.W && input.Y == c.Y);
+
+            if (chip.W > 0)
+            {
+                FilterTo(chip.Path, chip.Name);
+                return ScreenAction.None;
+            }
         }
 
         var panes = Panes;
