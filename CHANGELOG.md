@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.52.0
 
 - **Browse every session, across every profile: `b` on Home.** One screen listing every conversation
   on disk under every profile, newest first, each row carrying its account and project - the one
