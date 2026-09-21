@@ -36,6 +36,14 @@ public sealed class AllSessionsScreen : ScreenBase
         _all = sessions;
     }
 
+    // The scan runs on a background task (Rebuild), so the loop has to be told
+    // to come back and look rather than block on a key - the same pattern the
+    // dashboard uses for its own background read.
+    public override TimeSpan? RefreshInterval =>
+        _service is null ? null : TimeSpan.FromMilliseconds(_building ? 120 : 2000);
+
+    public override bool NeedsRedraw() => true;
+
     private void Rebuild()
     {
         if (_service is null || _building) return;

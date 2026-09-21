@@ -467,8 +467,9 @@ public static class SessionReader
                         if (!string.IsNullOrEmpty(value)) return value;
                     }
                 }
-                catch (JsonException)
+                catch
                 {
+                    // Malformed line: try the next one rather than giving up on the file.
                 }
             }
         }
