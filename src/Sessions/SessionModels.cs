@@ -142,6 +142,13 @@ public sealed class PastSession
     public string Branch { get; set; } = string.Empty;
     public long ContextTokens { get; set; }
 
+    /// <summary>Set only by the all-sessions browser, which spans every profile and project.</summary>
+    public string ProfileName { get; set; } = string.Empty;
+    public string ProfileIcon { get; set; } = string.Empty;
+    public string ConfigDir { get; set; } = string.Empty;
+    public string ProjectName { get; set; } = string.Empty;
+    public string ProjectPath { get; set; } = string.Empty;
+
     public string ShortId => SessionId.Length >= 8 ? SessionId.Substring(0, 8) : SessionId;
 
     public string DisplayTitle =>

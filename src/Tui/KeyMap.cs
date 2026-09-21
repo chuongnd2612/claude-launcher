@@ -107,7 +107,8 @@ public static class KeyMap
             restorable
                 ? new KeyHint("r", "Reopen the terminals from last time")
                 : new KeyHint("r", "Reopen last terminals (none saved)"),
-            new KeyHint("k", "Stop a session")),
+            new KeyHint("k", "Stop a session"),
+            Bound(KeyAction.AllSessions, "Browse every session, across profiles")),
         new KeyGroup("Elsewhere",
             Bound(KeyAction.Dashboard, "Dashboard"),
             UsageKey,
@@ -452,6 +453,28 @@ public static class KeyMap
             new KeyHint("c", "Open in the chat view"),
             new KeyHint("l", "Read the log"),
             new KeyHint("d", "Delete it")),
+        new KeyGroup("Leaving",
+            new KeyHint("esc bksp", "Back"),
+            new KeyHint("q", "Quit"),
+            Help));
+
+    public static KeyHint[] AllSessionsFooter() => new[]
+    {
+        new KeyHint("↑↓", "Navigate"),
+        new KeyHint("↵", "Resume"),
+        Bound(KeyAction.ResumeLog, "Read the log"),
+        Bound(KeyAction.Filter, "Filter")
+    };
+
+    public static KeyGroup[] AllSessions() => With(
+        new KeyGroup("Choosing",
+            new KeyHint("↑↓", "Previous / next"),
+            new KeyHint("pgup pgdn", "By eight"),
+            new KeyHint("home end", "First / last"),
+            new KeyHint("/", "Filter by profile, project, title or id")),
+        new KeyGroup("Opening one",
+            new KeyHint("↵", "Resume it"),
+            new KeyHint("l", "Read the log")),
         new KeyGroup("Leaving",
             new KeyHint("esc bksp", "Back"),
             new KeyHint("q", "Quit"),

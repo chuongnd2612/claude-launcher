@@ -235,6 +235,7 @@ public static class Program
             ("dashboard", new DashboardScreen(app, DemoDashboard())),
             ("usage", new UsageScreen(app, DemoDashboard())),
             ("resume", new ResumeScreen(app, DemoPastSessions())),
+            ("all-sessions", new AllSessionsScreen(app, DemoAllSessions())),
             ("session-detail", new SessionDetailScreen(app, DemoPastSessions()[0], DemoDetail())),
             ("delete-session", new DeleteSessionScreen(app, DemoPastSessions()[0], () => { })),
             ("profile", new ProfileScreen(app)),
@@ -534,6 +535,36 @@ public static class Program
             ContextTokens = 76_000
         }
     };
+
+    /// <summary>
+    /// Sessions spanning two profiles and three projects, for the all-sessions
+    /// browser - the shape a real scan across accounts actually takes.
+    /// </summary>
+    private static List<PastSession> DemoAllSessions()
+    {
+        var sessions = new List<(string Profile, string Icon, string Project, string Path, string Title, int HoursAgo, long Tokens)>
+        {
+            ("Work", "W", "qagent", @"D:\demo\q-agent", "Refactor runner into stages", 2, 184_000),
+            ("Work", "W", "api-gateway", @"D:\demo\api-gateway", "Add rate limiting", 20, 97_000),
+            ("Personal", "P", "notes-cli", @"D:\demo\notes-cli", "Write test suite", 5, 63_000),
+            ("Personal", "P", "qagent", @"D:\demo\q-agent", "Golden tests before the refactor", 30, 76_000)
+        };
+
+        return sessions.Select((s, i) => new PastSession
+        {
+            SessionId = $"demo-{i:00}00-0000-0000-000000000000",
+            Path = Path.Combine(@"C:\Users\demo\.claude", s.Project, $"demo-{i:00}.jsonl"),
+            LastActivityUtc = DateTime.UtcNow.AddHours(-s.HoursAgo),
+            SizeBytes = 64_000,
+            Loaded = true,
+            Title = s.Title,
+            ContextTokens = s.Tokens,
+            ProfileName = s.Profile,
+            ProfileIcon = s.Icon,
+            ProjectName = s.Project,
+            ProjectPath = s.Path
+        }).ToList();
+    }
 
     private static SessionDetail DemoDetail()
     {
