@@ -362,6 +362,30 @@ cannot be resumed afterwards.
 **No cost column.** Pricing a session needs a per-model rate table that would go stale silently, and a
 wrong dollar figure is worse than none. Tokens are shown instead, and those are measured.
 
+## Every session, across every profile
+
+`b` on Home opens the all-sessions browser: every conversation on disk, under every profile,
+newest first — the one place to find a session again without first remembering which account it
+was under.
+
+```text
+╭─ Sessions · 212 ────────────────────────────────────────────────────────────╮
+│ ⌕ press / to filter by profile, project, title or id                        │
+│ ▸ P Personal  claude-launcher   Wire up the all-sessions browser  now   184k │
+│   W Work      ddks_surency      Fix the bronze ingest retry     11m ago  97k │
+│   W Work 2    q-agent           Refactor runner into stages      2h ago 63k  │
+╰────────────────────────────────────────────────────────────────────────────╯
+```
+
+Each row carries its profile and project, so `/` filters across all three at once — type an account
+name, a project, a title or a session id and the list narrows to it. `Enter` resumes the highlighted
+session exactly as the per-project Resume screen does: into a terminal tile when tiles are on and the
+target is this console, otherwise handed to the wrapper with the right profile and project already
+picked. `l` opens session detail, the same full read Resume's `l` does.
+
+Building the list means one small read per project folder across every profile to recover its real
+path, so it runs off the render thread; the screen shows what it has while that finishes.
+
 ## The terminal wall
 
 `t` on Home tiles every running session into one view, each tile tailing that session's transcript:

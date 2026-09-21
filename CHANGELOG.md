@@ -5,6 +5,12 @@ Every release, newest first. The tags are on the
 
 ## Unreleased
 
+- **Browse every session, across every profile: `b` on Home.** One screen listing every conversation
+  on disk under every profile, newest first, each row carrying its account and project - the one
+  place to find a session again without first remembering which account it was under. `/` filters by
+  profile, project, title or session id; `Enter` resumes exactly as the per-project Resume screen
+  does, into a terminal tile when tiles are on, or handed to the wrapper otherwise; `l` reads the
+  full log.
 - **Click a project in the strip to show only its tiles.** The wall narrows to that project - every
   other tile drops out of the grid and out of the strip's numbering, the same way a minimized one
   does - and the breadcrumb says which project it is showing, counting only what is drawn. Click the

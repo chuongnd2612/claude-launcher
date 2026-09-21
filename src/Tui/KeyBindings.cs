@@ -31,6 +31,7 @@ public enum KeyAction
     ReopenLast,
     ShowWall,
     StopSession,
+    AllSessions,
 
     Zoom,
     CloseTile,
@@ -103,6 +104,7 @@ public enum KeyScope
     Settings,
     Update,
     History,
+    AllSessions,
 
     /// <summary>Live while a terminal tile has the keyboard.</summary>
     Tile
@@ -214,7 +216,7 @@ public static class KeyBindings
         {
             KeyAction.Settings, KeyAction.Updates, KeyAction.Dashboard, KeyAction.NewSession,
             KeyAction.SwitchProfile, KeyAction.Attach, KeyAction.ReopenLast, KeyAction.ShowWall,
-            KeyAction.StopSession
+            KeyAction.StopSession, KeyAction.AllSessions
         }),
         (KeyScope.Wall, new[]
         {
@@ -242,6 +244,7 @@ public static class KeyBindings
         (KeyScope.Settings, new[] { KeyAction.Updates, KeyAction.Settings }),
         (KeyScope.Update, new[] { KeyAction.ReleaseNotes, KeyAction.StopAsking }),
         (KeyScope.History, new[] { KeyAction.Search }),
+        (KeyScope.AllSessions, new[] { KeyAction.Filter, KeyAction.ResumeLog }),
         (KeyScope.Tile, new[]
         {
             KeyAction.ReleaseKeyboard, KeyAction.FindInPane, KeyAction.CloseTerminal,
@@ -347,6 +350,7 @@ public static class KeyBindings
         Row(KeyAction.ReopenLast, KeyScope.Home, "Reopen last terminals", "r"),
         Row(KeyAction.ShowWall, KeyScope.Home, "Show the terminal wall", "t"),
         Row(KeyAction.StopSession, KeyScope.Home, "Stop a session", "k"),
+        Row(KeyAction.AllSessions, KeyScope.Home, "Browse every session, across profiles", "b"),
 
         Row(KeyAction.Zoom, KeyScope.Wall, "Zoom this pane", "z"),
         Row(KeyAction.CloseTile, KeyScope.Wall, "Close this pane", "w"),

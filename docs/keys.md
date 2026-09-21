@@ -14,7 +14,7 @@ nothing to type into.
 | Screen  | Keys |
 | ------- | ---- |
 | Everywhere, including a focused terminal tile | `F1` keys · `Alt+U` usage detail · `Alt+R` refresh the usage band, as does clicking its `↻ usage` button · `Alt+K` change these keys |
-| Home | `↑↓` navigate · `Tab` next · `Home/End` first / last · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` / `p` new session · `r` reopen last session's terminals · `t` tile · `k` stop · `d` dashboard · `Alt+U` usage · `s` settings · `u` check for updates · `Esc` / `q` quit the launcher |
+| Home | `↑↓` navigate · `Tab` next · `Home/End` first / last · `Enter` open on the wall · `a` attach to its Windows Terminal pane · `n` / `p` new session · `r` reopen last session's terminals · `t` tile · `k` stop · `b` browse every session, across profiles · `d` dashboard · `Alt+U` usage · `s` settings · `u` check for updates · `Esc` / `q` quit the launcher |
 | New terminal (`t` on the wall) | `↑↓` navigate · `Enter` pick the project, then choose new / continue / resume · `a` add a folder · `d` forget an added folder · `/` filter · `Esc` back |
 | Adding a folder (`a`) | type a path · `↑↓` pick from the folders below · `Tab` complete into one · `Enter` use this path, then name it · `Esc` cancel |
 | Dashboard (`d`) | `p` period · `r` read again · `↑↓` pick a project · `↵` its sessions · `Esc` back |
@@ -36,6 +36,7 @@ nothing to type into.
 | Session | `↑↓` / `Tab` navigate · `Enter` / `Space` launch · `p` change profile · `o` / `←→` open in · `n` new · `c` continue · `r` resume · `h` chat view (only with terminal tiles off) · `Esc` / `Backspace` back · `q` quit |
 | Chat | type · `Enter` send · `/` commands (`↑↓` pick, `Tab` complete) · `y`/`a`/`n` answer a permission request · `Ctrl+D` detach to a pane · `Esc` clear, then stop the turn, then Home · `↑↓` `PgUp/PgDn` scroll · `End` follow. Keystrokes are ignored while Claude is working |
 | Resume | `↑↓` navigate · `Enter` resume (a terminal tile, or a real terminal when tiles are off) · `t` force a terminal tile · `c` resume in the chat view · `/` filter · `l` logs · `d` delete · `Esc` back |
+| All sessions (`b` on Home) | `↑↓` `PgUp/PgDn` `Home/End` navigate · `Enter` resume · `l` read the log · `/` filter by profile, project, title or session id · `Esc` / `Backspace` back · `q` quit |
 | Session detail | `↑↓` scroll · `PgUp/PgDn` page · `Home/End` jump · `Esc` / `Backspace` back · `q` quit |
 | Delete session | `←→` / `Tab` choose · `Enter` confirm · `y` delete · `n` / `Esc` cancel |
 | Add / Edit / Clone profile | `Tab` / `↑↓` next field · `←→` cycle the icon, on the icon field · `Enter` save · `Esc` cancel |

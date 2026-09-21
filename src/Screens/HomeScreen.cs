@@ -411,6 +411,13 @@ public sealed class HomeScreen : ScreenBase
                 : ScreenAction.Push(new DashboardScreen(App, _service));
         }
 
+        if (KeyBindings.Is(KeyAction.AllSessions, key))
+        {
+            return _service is null
+                ? ScreenAction.None
+                : ScreenAction.Push(new AllSessionsScreen(App, _service));
+        }
+
         return ScreenAction.None;
     }
 

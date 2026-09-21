@@ -129,6 +129,33 @@ public sealed class SessionService
     }
 
     /// <summary>
+    /// Every past session across every profile and project, newest first - the
+    /// data behind the all-sessions browser. Unlike Build(), this never checks
+    /// whether a process is alive: closed sessions are the whole point of it.
+    /// </summary>
+    public List<PastSession> BuildAllSessions()
+    {
+        var results = new List<PastSession>();
+
+        foreach (var profile in _state.Profiles)
+        {
+            var configDir = StateStore.ExpandHome(profile.ConfigDir);
+            var sessions = SessionReader.ListAllSessions(configDir);
+
+            foreach (var session in sessions)
+            {
+                session.ProfileName = profile.DisplayLabel;
+                session.ProfileIcon = profile.DisplayIcon;
+                session.ConfigDir = configDir;
+            }
+
+            results.AddRange(sessions);
+        }
+
+        return results.OrderByDescending(s => s.LastActivityUtc).ToList();
+    }
+
+    /// <summary>
     /// Claude publishes only "busy" and "idle", so "waiting for input" is a
     /// guess: idle, but only just. It is rendered with a question mark for that
     /// reason - being vague beats being confidently wrong.

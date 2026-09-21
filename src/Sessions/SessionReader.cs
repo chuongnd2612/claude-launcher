@@ -362,8 +362,48 @@ public static class SessionReader
     /// </summary>
     public static List<PastSession> ListProjectSessions(string configDir, string projectPath)
     {
-        var results = new List<PastSession>();
         var dir = Path.Combine(ClaudePaths.ProjectsDir(configDir), ClaudePaths.EncodeProjectDir(projectPath));
+        return SessionsIn(dir).OrderByDescending(s => s.LastActivityUtc).ToList();
+    }
+
+    /// <summary>
+    /// Past sessions of every project under one config dir, newest first - the
+    /// data behind the all-sessions browser. A folder's name is a lossy encoding
+    /// of its project path (see EncodeProjectDir), so the real path is read back
+    /// from one transcript per folder rather than guessed from the name.
+    /// </summary>
+    public static List<PastSession> ListAllSessions(string configDir)
+    {
+        var results = new List<PastSession>();
+
+        string[] dirs;
+        try { dirs = Directory.GetDirectories(ClaudePaths.ProjectsDir(configDir)); }
+        catch { return results; }
+
+        foreach (var dir in dirs)
+        {
+            var sessions = SessionsIn(dir);
+            if (sessions.Count == 0) continue;
+
+            var newest = sessions.OrderByDescending(s => s.LastActivityUtc).First();
+            var projectPath = ReadCwd(newest.Path) ?? Path.GetFileName(dir);
+            var projectName = ProjectFolderName(projectPath);
+
+            foreach (var session in sessions)
+            {
+                session.ProjectPath = projectPath;
+                session.ProjectName = projectName;
+            }
+
+            results.AddRange(sessions);
+        }
+
+        return results.OrderByDescending(s => s.LastActivityUtc).ToList();
+    }
+
+    private static List<PastSession> SessionsIn(string dir)
+    {
+        var results = new List<PastSession>();
 
         string[] files;
         try { files = Directory.GetFiles(dir, "*.jsonl", SearchOption.TopDirectoryOnly); }
@@ -387,7 +427,57 @@ public static class SessionReader
             }
         }
 
-        return results.OrderByDescending(s => s.LastActivityUtc).ToList();
+        return results;
+    }
+
+    private static string ProjectFolderName(string path)
+    {
+        var trimmed = path.TrimEnd('\\', '/');
+        var name = Path.GetFileName(trimmed);
+        return string.IsNullOrEmpty(name) ? trimmed : name;
+    }
+
+    /// <summary>
+    /// The real project path, read from the "cwd" every line of a transcript
+    /// carries. Bounded to the first 8 KB: cwd is written from the first line
+    /// on, so a transcript that has grown to megabytes never needs a full read.
+    /// </summary>
+    public static string? ReadCwd(string path)
+    {
+        try
+        {
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete, 8 * 1024, FileOptions.SequentialScan);
+            using var reader = new StreamReader(stream);
+
+            var budget = 8 * 1024;
+            string? line;
+
+            while (budget > 0 && (line = reader.ReadLine()) is not null)
+            {
+                budget -= line.Length;
+                if (line.Length < 2) continue;
+
+                try
+                {
+                    using var document = JsonDocument.Parse(line);
+                    if (document.RootElement.TryGetProperty("cwd", out var cwd))
+                    {
+                        var value = cwd.GetString();
+                        if (!string.IsNullOrEmpty(value)) return value;
+                    }
+                }
+                catch (JsonException)
+                {
+                }
+            }
+        }
+        catch
+        {
+            // Missing, locked or unreadable: the caller falls back to the folder name.
+        }
+
+        return null;
     }
 
     /// <summary>Fills the fields the picker draws. Tail for the title, head for the opening prompt.</summary>
