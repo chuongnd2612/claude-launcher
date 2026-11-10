@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.54.2
 
 - **Hover lights the text, not the background.** What is under the pointer is lifted toward white
   in its own colour - an amber key goes pale amber, grey hint text goes near-white - instead of
