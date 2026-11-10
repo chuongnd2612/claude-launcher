@@ -3,6 +3,13 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **Slash commands read as typed in a tile.** After `/clear` (or any slash command) a session's
+  tile showed the raw `<local-command-caveat>` / `<command-name>` tags Claude records in the
+  transcript. The injected caveat and the command output are now skipped, and the command shows as
+  `/clear` or `/model opus`.
+
 ## 1.54.2
 
 - **Hover lights the text, not the background.** What is under the pointer is lifted toward white
