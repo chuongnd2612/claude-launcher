@@ -66,6 +66,12 @@ public static class Clicks
         return -1;
     }
 
+    /// <summary>
+    /// How far hovered text is lifted toward white: enough that dim hint text
+    /// reads as lit, not so much that a coloured key loses its colour.
+    /// </summary>
+    private const double HoverLift = 0.5;
+
     /// <summary>Where the pointer last was, or off the grid before it has moved.</summary>
     private static (int X, int Y) _pointer = (-1, -1);
 
@@ -92,7 +98,7 @@ public static class Clicks
         if (at < 0) return;
 
         var r = Regions[at];
-        buffer.Tint(r.X, r.Y, r.W, r.H, Theme.Hover);
+        buffer.Brighten(r.X, r.Y, r.W, r.H, HoverLift);
     }
 
     public static ConsoleKeyInfo Press(ConsoleKey key, char ch = '\0', bool shift = false, bool alt = false,
