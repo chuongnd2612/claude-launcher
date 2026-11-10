@@ -238,6 +238,9 @@ public sealed class UsageScreen : ScreenBase
 
             if (here) buffer.Fill(margin, y, width, 1, fill);
 
+            var picked = profiles.IndexOf(profile);
+            Clicks.Item(margin, y, width, 1, here, () => _index = picked, () => ScreenAction.None);
+
             buffer.Write(margin + 1, y, here ? "›" : " ", new Sty(Theme.Blue, fill, bold: true));
 
             var name = profile.Icon + " " + profile.Label;

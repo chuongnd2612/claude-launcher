@@ -105,6 +105,11 @@ public sealed class AllSessionsScreen : ScreenBase
         var filterRow = y + 1;
         var filterBg = _filtering ? Theme.PanelSelected : Theme.Panel;
         buffer.Fill(margin + 1, filterRow, width - 2, 1, filterBg);
+        Clicks.Add(margin + 1, filterRow, width - 2, 1, () =>
+        {
+            _filtering = true;
+            return ScreenAction.None;
+        });
         var cursorX = buffer.Write(margin + 3, filterRow, "⌕ ", new Sty(_filtering ? Theme.Blue : Theme.Dim, filterBg));
 
         if (_filtering)
@@ -154,6 +159,13 @@ public sealed class AllSessionsScreen : ScreenBase
             var bg = selected ? Theme.PanelSelected : Theme.Panel;
 
             buffer.Fill(margin + 1, rowY, width - 2, 1, bg);
+            var picked = itemIndex;
+            Clicks.Item(margin + 1, rowY, width - 2, 1, selected, () => _index = picked, () =>
+            {
+                // Enter only applies a filter; a click on a row means the row.
+                _filtering = false;
+                return HandleKey(Clicks.Press(ConsoleKey.Enter, '\r'));
+            });
             buffer.Write(margin + 2, rowY, selected ? "▸" : " ", new Sty(Theme.Blue, bg, bold: true));
 
             var profile = $"{session.ProfileIcon} {session.ProfileName}".Trim();

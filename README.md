@@ -178,6 +178,7 @@ it, or press `Alt+R`. `Alt+U` opens the full breakdown per account.
 | The wall | `1`–`9` focus · `Tab`/arrows move · `Enter` attach · `z` zoom · `t` new terminal · `w` close · `Space` layout · `Alt+P` pin |
 | A focused tile | every key goes to Claude · `Ctrl+]` release the keyboard · `Ctrl+T` new terminal · `Ctrl+F` find · `Alt+Z` zoom |
 | Lists | `↑`/`↓` move · `/` filter · `Enter` choose · `Esc` back |
+| The mouse | click a footer hint to press it · click a row to select, again to open · click a line in `F1` to run it · wheel scrolls |
 
 All of them are rebindable, and `Alt+K` is the editor — the full table is in
 **[Keys](docs/keys.md)**.

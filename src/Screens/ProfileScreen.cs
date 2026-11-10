@@ -58,6 +58,8 @@ public sealed class ProfileScreen : ScreenBase
             var column = i % columns;
             var x = margin + column * (cardWidth + Gap);
             var cardY = gridTop + (row - _scrollRow) * rowStride;
+            var tile = i;
+            Clicks.Item(x, cardY, cardWidth, cardHeight, i == _index, () => _index = tile);
 
             if (i == AddTileIndex) DrawAddTile(buffer, x, cardY, cardWidth, cardHeight, i == _index);
             else DrawProfileTile(buffer, x, cardY, cardWidth, cardHeight, App.State.Profiles[i], i, i == _index);

@@ -1582,6 +1582,7 @@ public sealed class TerminalsScreen : ScreenBase
 
         if (_picker is not null && IsPicker(row))
         {
+            _picker.Clickable = focused;
             _picker.Render(buffer, x, y, width, height, number, focused);
             return;
         }
@@ -1961,6 +1962,7 @@ public sealed class TerminalsScreen : ScreenBase
 
         if (_picker is not null && IsPicker(row))
         {
+            _picker.Clickable = focused;
             _picker.Body(buffer, x, y, width - 2, height, paint);
             return;
         }
@@ -3185,6 +3187,10 @@ public sealed class TerminalsScreen : ScreenBase
         // click on the chrome otherwise would.
         if (input.Kind == InputKind.MouseDown)
         {
+            // The footer's hints, and anything else drawn as a button, before
+            // the tiles: they sit outside every tile anyway.
+            if (Clicks.Hit(input.X, input.Y) is { } clicked) return clicked;
+
             var chip = _chips.FirstOrDefault(c =>
                 input.X >= c.X && input.X < c.X + c.W && input.Y == c.Y);
 
@@ -3240,6 +3246,8 @@ public sealed class TerminalsScreen : ScreenBase
 
         // The wheel scrolls whichever pane is under the pointer, focused or not -
         // looking back at a pane should not mean taking the keyboard off another.
+        if (IsPicker(panes[hit.Index]) && Picking(panes)) return Wheel(input.Delta);
+
         var wheeled = LiveTerminal(panes[hit.Index]);
         if (wheeled is null) return ScreenAction.None;
 

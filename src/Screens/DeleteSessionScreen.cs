@@ -42,8 +42,8 @@ public sealed class DeleteSessionScreen : ScreenBase
             "The conversation is deleted from disk and cannot be resumed afterwards.",
             textWidth, new Sty(Theme.Muted, Theme.Panel, italic: true));
 
-        Choice(buffer, margin + 3, y + panelHeight + 1, "Cancel", !_confirm, Theme.Blue);
-        Choice(buffer, margin + 18, y + panelHeight + 1, "Delete", _confirm, Theme.Red);
+        Choice(buffer, margin + 3, y + panelHeight + 1, "Cancel", !_confirm, Theme.Blue, 'n');
+        Choice(buffer, margin + 18, y + panelHeight + 1, "Delete", _confirm, Theme.Red, 'y');
 
         if (_error is not null)
             buffer.Write(margin + 1, y + panelHeight + 3, "✗ " + _error, new Sty(Theme.Red, Theme.Bg, bold: true));
@@ -57,11 +57,13 @@ public sealed class DeleteSessionScreen : ScreenBase
         }, KeyMap.Help);
     }
 
-    private static void Choice(ScreenBuffer buffer, int x, int y, string label, bool active, Rgb color)
+    /// <param name="key">The letter the button stands for, pressed when it is clicked.</param>
+    private static void Choice(ScreenBuffer buffer, int x, int y, string label, bool active, Rgb color, char key)
     {
         var bg = active ? Theme.PanelSelected : Theme.BgSoft;
         var text = $" {label} ";
         buffer.Fill(x, y, text.Length + 2, 1, bg);
+        Clicks.Key(x, y, text.Length + 2, Clicks.Press(key == 'y' ? ConsoleKey.Y : ConsoleKey.N, key));
         buffer.Write(x + 1, y, text, new Sty(active ? color : Theme.Muted, bg, bold: active));
     }
 

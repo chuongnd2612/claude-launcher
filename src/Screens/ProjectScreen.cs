@@ -66,6 +66,14 @@ public sealed class ProjectScreen : ScreenBase
         var filterRow = y + 1;
         var filterStyle = _filtering ? new Sty(Theme.Text, Theme.PanelSelected) : new Sty(Theme.Dim, Theme.Panel);
         buffer.Fill(margin + 1, filterRow, width - 2, 1, _filtering ? Theme.PanelSelected : Theme.Panel);
+        if (!_editor.Active)
+        {
+            Clicks.Add(margin + 1, filterRow, width - 2, 1, () =>
+            {
+                _filtering = true;
+                return ScreenAction.None;
+            });
+        }
         var cursorX = buffer.Write(margin + 3, filterRow, "⌕ ", new Sty(_filtering ? Theme.Blue : Theme.Dim, filterStyle.Bg));
 
         if (_filtering)
@@ -106,6 +114,8 @@ public sealed class ProjectScreen : ScreenBase
             var bg = selected ? Theme.PanelSelected : Theme.Panel;
 
             buffer.Fill(margin + 1, rowY, width - 2, 1, bg);
+            if (!_editor.Active)
+                Clicks.Item(margin + 1, rowY, width - 2, 1, selected, () => _index = itemIndex, Open);
             buffer.Write(margin + 2, rowY, selected ? "▸" : " ", new Sty(Theme.Blue, bg, bold: true));
 
             var isCurrent = itemIndex == items.Count - 1 && string.IsNullOrEmpty(_filter);
@@ -268,6 +278,13 @@ public sealed class ProjectScreen : ScreenBase
         }
 
         return ScreenAction.None;
+    }
+
+    /// <summary>A click opens the project even mid-filter, where Enter only applies it.</summary>
+    private ScreenAction Open()
+    {
+        _filtering = false;
+        return HandleKey(Clicks.Press(ConsoleKey.Enter, '\r'));
     }
 
     private void Move(int delta, int count)

@@ -102,6 +102,14 @@ public sealed class SettingsScreen : ScreenBase
         var bg = active ? Theme.PanelSelected : Theme.Panel;
         buffer.Fill(x, y, width, 1, bg);
 
+        // A setting is a switch, so one click flips it, the way a checkbox would.
+        Clicks.Add(x, y, width, 1, () =>
+        {
+            _index = index;
+            Change(1);
+            return ScreenAction.None;
+        });
+
         buffer.Write(x + 1, y, active ? "▸" : " ", new Sty(Theme.Blue, bg, bold: true));
         buffer.WriteClipped(x + 3, y, label, 22, new Sty(active ? Theme.Blue : Theme.Text, bg, bold: active));
         buffer.WriteClipped(x + 26, y, value, 12, new Sty(Theme.VioletSoft, bg, bold: true));

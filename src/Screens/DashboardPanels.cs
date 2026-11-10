@@ -90,7 +90,8 @@ public static class DashboardPanels
         return y + height;
     }
 
-    public static void Projects(ScreenBuffer buffer, int x, int y, int width, DashboardData data, int bottom, UiSettings settings, int selected = -1)
+    public static void Projects(ScreenBuffer buffer, int x, int y, int width, DashboardData data, int bottom, UiSettings settings, int selected = -1,
+        Action<int>? pick = null)
     {
         var height = Math.Min(bottom - y, Math.Max(4, data.Projects.Count + 3));
         if (height < 4) return;
@@ -121,6 +122,12 @@ public static class DashboardPanels
             var bg = here ? Theme.PanelSelected : Theme.Panel;
 
             buffer.Fill(x + 1, lineY, width - 2, 1, bg);
+            if (pick is not null)
+            {
+                var picked = row;
+                Clicks.Item(x + 1, lineY, width - 2, 1, here, () => pick(picked));
+            }
+
             buffer.Write(x + 2, lineY, here ? "▸" : " ", new Sty(Theme.Blue, bg, bold: true));
 
             buffer.WriteClipped(x + 4, lineY, project.Name, Math.Max(8, width / 3),

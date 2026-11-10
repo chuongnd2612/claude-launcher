@@ -87,6 +87,8 @@ public sealed class DashboardScreen : ScreenBase
             : $"{Metrics.Describe(_period)} · p to change";
 
         buffer.WriteRight(margin + width - 1, y, right, new Sty(Theme.Dim, Theme.Bg));
+        Clicks.Add(margin + width - right.Length, y, right.Length, 1,
+            () => HandleKey(Clicks.Bound(KeyAction.Period)));
         y += 2;
 
         if (_data is null)
@@ -113,7 +115,7 @@ public sealed class DashboardScreen : ScreenBase
             var stacked = DashboardPanels.Usage(buffer, margin, y, columnWidth, data, bottom, App.Settings);
             stacked = DashboardPanels.Activity(buffer, margin, stacked + 1, columnWidth, data, bottom, App.Settings);
             stacked = DashboardPanels.Work(buffer, margin, stacked + 1, columnWidth, data, bottom, App.Settings);
-            DashboardPanels.Projects(buffer, margin, stacked + 1, columnWidth, data, bottom, App.Settings, _index);
+            DashboardPanels.Projects(buffer, margin, stacked + 1, columnWidth, data, bottom, App.Settings, _index, i => _index = i);
         }
         else
         {
@@ -122,7 +124,7 @@ public sealed class DashboardScreen : ScreenBase
 
             var secondX = margin + columnWidth + 2;
             var rightY = DashboardPanels.Usage(buffer, secondX, y, columnWidth, data, bottom, App.Settings);
-            DashboardPanels.Projects(buffer, secondX, rightY + 1, columnWidth, data, bottom, App.Settings, _index);
+            DashboardPanels.Projects(buffer, secondX, rightY + 1, columnWidth, data, bottom, App.Settings, _index, i => _index = i);
         }
 
         if (_notice is not null)

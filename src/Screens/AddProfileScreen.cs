@@ -110,6 +110,12 @@ public sealed class AddProfileScreen : ScreenBase
         buffer.Write(margin + formWidth - 12, y + 8, $" {swatch} ",
             new Sty(ProfileLook.Color(key), Theme.PanelSelected, bold: true));
         buffer.Write(margin + 3, y + 9, "← → to pick another", new Sty(Theme.Dim, Theme.Bg, italic: true));
+        Clicks.Add(margin + formWidth - 12, y + 8, 3, 1, () =>
+        {
+            _field = 2;
+            Cycle(1);
+            return ScreenAction.None;
+        });
         Field(buffer, margin + 3, y + 10, formWidth - 6, "Description", _description, "optional", 3);
 
         var infoY = y + formHeight;
@@ -134,6 +140,11 @@ public sealed class AddProfileScreen : ScreenBase
     private void Field(ScreenBuffer buffer, int x, int y, int width, string label, string value, string placeholder, int index)
     {
         var active = _field == index;
+        Clicks.Add(x, y, width, 2, () =>
+        {
+            _field = index;
+            return ScreenAction.None;
+        });
         buffer.Write(x, y, label, new Sty(active ? Theme.Blue : Theme.Muted, Theme.Panel, bold: active));
 
         var boxY = y + 1;

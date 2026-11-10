@@ -88,6 +88,8 @@ public sealed class SessionScreen : ScreenBase
             if (cardY + 3 > buffer.Height - 4) break;
 
             Widgets.Panel(buffer, margin, cardY, cardWidth, 3, selected);
+            var card = i;
+            Clicks.Item(margin, cardY, cardWidth, 3, selected, () => _index = card);
             var bg = selected ? Theme.PanelSelected : Theme.Panel;
 
             buffer.Write(margin + 2, cardY + 1, option.Glyph,
@@ -113,6 +115,14 @@ public sealed class SessionScreen : ScreenBase
             Row(buffer, margin + 3, summaryY + 3, "Project", project.Name, width);
             Row(buffer, margin + 3, summaryY + 4, "Path", project.Path, width);
             Row(buffer, margin + 3, summaryY + 5, "Opens in", LaunchTarget.Describe(_openIn), width);
+
+            // The two lines that can be changed from here change on a click.
+            Clicks.Add(margin + 1, summaryY + 1, width - 2, 1, () => { CycleProfile(); return ScreenAction.None; });
+            Clicks.Add(margin + 1, summaryY + 5, width - 2, 1, () =>
+            {
+                _openIn = LaunchTarget.Next(_openIn);
+                return ScreenAction.None;
+            });
         }
 
         if (_notice is not null)
@@ -132,6 +142,8 @@ public sealed class SessionScreen : ScreenBase
             var bg = selected ? Theme.PanelSelected : Theme.Panel;
 
             buffer.Fill(margin, rowY, width, 1, bg);
+            var line = i;
+            Clicks.Item(margin, rowY, width, 1, selected, () => _index = line);
             buffer.Write(margin + 1, rowY, option.Glyph, new Sty(selected ? Theme.Blue : Theme.Muted, bg, bold: true));
             buffer.WriteClipped(margin + 4, rowY, option.Title, 16,
                 new Sty(selected ? Theme.Blue : Theme.Text, bg, bold: selected));
