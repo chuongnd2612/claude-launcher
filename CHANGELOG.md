@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.54.1
 
 - **Close a tile with `Ctrl`+double-click, not a triple-click.** Since clicks inside a tile reach
   Claude, picking from one of its lists with a few quick clicks could close the session. Two presses
