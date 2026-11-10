@@ -13,7 +13,10 @@ public enum InputKind
     MouseDrag,
 
     /// <summary>The left button came back up, wherever it happened.</summary>
-    MouseUp
+    MouseUp,
+
+    /// <summary>The pointer moved with no button held - hovering.</summary>
+    MouseMove
 }
 
 /// <summary>One thing the user did: a key press, a click, or a wheel notch.</summary>
@@ -183,12 +186,31 @@ public static class ConsoleInput
     /// </summary>
     public static bool Wait(TimeSpan timeout, out InputEvent input)
     {
-        if (Queue.TryDequeue(out input)) return true;
+        if (Next(out input)) return true;
 
         Signal.Wait(timeout);
         Signal.Reset();
 
-        return Queue.TryDequeue(out input);
+        return Next(out input);
+    }
+
+    /// <summary>
+    /// The next event, with a run of hover moves collapsed into the last one: a
+    /// sweep across the window reports every cell it crosses, and only where
+    /// the pointer ended up decides what is under it.
+    /// </summary>
+    private static bool Next(out InputEvent input)
+    {
+        if (!Queue.TryDequeue(out input)) return false;
+
+        while (input.Kind == InputKind.MouseMove &&
+               Queue.TryPeek(out var after) && after.Kind == InputKind.MouseMove &&
+               Queue.TryDequeue(out var newer))
+        {
+            input = newer;
+        }
+
+        return true;
     }
 
     private static void Pump()
@@ -267,9 +289,18 @@ public static class ConsoleInput
                         record.Mouse.Position.X, record.Mouse.Position.Y, 0));
                     break;
 
-                case MouseEventType when record.Mouse.EventFlags is 0 or MouseMoved &&
+                case MouseEventType when record.Mouse.EventFlags == 0 &&
                                          record.Mouse.ButtonState == 0:
                     Queue.Enqueue(new InputEvent(InputKind.MouseUp,
+                        record.Mouse.Position.X, record.Mouse.Position.Y, 0));
+                    break;
+
+                // A move with nothing held is hovering. It used to be reported
+                // as a release, which is still what the wall makes of it; the
+                // rest of the launcher reads it to light what is under it.
+                case MouseEventType when record.Mouse.EventFlags == MouseMoved &&
+                                         record.Mouse.ButtonState == 0:
+                    Queue.Enqueue(new InputEvent(InputKind.MouseMove,
                         record.Mouse.Position.X, record.Mouse.Position.Y, 0));
                     break;
             }

@@ -90,8 +90,14 @@ public sealed class TerminalScreen : IVtSink
     /// <summary>Recorded only; the tile never sends paste markers back.</summary>
     public bool BracketedPaste { get; private set; }
 
-    /// <summary>Recorded only; the tile never sends mouse events back.</summary>
+    /// <summary>True while the program wants mouse reports at all.</summary>
     public bool MouseTracking { get; private set; }
+
+    /// <summary>?1002: also report moves while a button is held.</summary>
+    public bool MouseDrag { get; private set; }
+
+    /// <summary>?1003: report every move, button or not - what a hover needs.</summary>
+    public bool MouseAnyMotion { get; private set; }
 
     /// <summary>
     /// True once the program asked for SGR mouse reports (?1006). It decides how
@@ -559,9 +565,15 @@ public sealed class TerminalScreen : IVtSink
                     BracketedPaste = set;
                     break;
                 case 1000:
+                    MouseTracking = set;
+                    break;
                 case 1002:
+                    MouseTracking = set;
+                    MouseDrag = set;
+                    break;
                 case 1003:
                     MouseTracking = set;
+                    MouseAnyMotion = set;
                     break;
                 case 1006:
                     SgrMouse = set;

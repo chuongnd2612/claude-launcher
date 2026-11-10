@@ -3,6 +3,17 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **Click Claude's own UI inside a tile.** Once a tile has the keyboard, clicks, drags and hovers
+  inside it are passed to Claude as mouse reports (SGR, or the old encoding when that is all it
+  asked for), so its pickers, slash-command menu and buttons answer the mouse as they do in any
+  terminal. The first click on another tile still only focuses it, and the tile's border is still
+  the wall's - drag it to move the tile, triple-click it to close.
+- **Hover highlight.** Anything that can be clicked - footer hints, list rows, buttons, settings,
+  filter rows - lights up under the pointer. Hovering only repaints when what is under the pointer
+  changes.
+
 ## 1.53.0
 
 - **The mouse works on every screen, not just the wall.** Every footer hint is a button that presses

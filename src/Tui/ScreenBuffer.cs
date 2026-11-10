@@ -116,6 +116,19 @@ public sealed class ScreenBuffer
         }
     }
 
+    /// <summary>Repaints the background of a rectangle, keeping what is written on it.</summary>
+    public void Tint(int x, int y, int width, int height, Rgb bg)
+    {
+        for (var row = Math.Max(0, y); row < Math.Min(Height, y + height); row++)
+        {
+            for (var col = Math.Max(0, x); col < Math.Min(Width, x + width); col++)
+            {
+                var index = row * Width + col;
+                _cells[index].Style = _cells[index].Style.OnBg(bg);
+            }
+        }
+    }
+
     public void HLine(int x, int y, int width, char ch, Sty style)
     {
         for (var col = x; col < x + width; col++) Set(col, y, ch, style);
