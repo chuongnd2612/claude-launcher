@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.54.0
 
 - **Click Claude's own UI inside a tile.** Once a tile has the keyboard, clicks, drags and hovers
   inside it are passed to Claude as mouse reports (SGR, or the old encoding when that is all it
