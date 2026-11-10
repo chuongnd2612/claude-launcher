@@ -3,7 +3,7 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
-## Unreleased
+## 1.53.0
 
 - **The mouse works on every screen, not just the wall.** Every footer hint is a button that presses
   its key. A list row selects on the first click and opens on a click once selected (a double click
