@@ -727,7 +727,8 @@ public static class Widgets
         if (pinnedWidth > 0)
         {
             var at = right - pinnedWidth;
-            at = buffer.Write(at, y + 1, pinned!.Value.Key, new Sty(Theme.Amber, Theme.BgSoft, bold: true));
+            Clickable(at, y + 1, pinnedWidth, pinned!.Value);
+            at = buffer.Write(at, y + 1, pinned.Value.Key, new Sty(Theme.Amber, Theme.BgSoft, bold: true));
             at = buffer.Write(at, y + 1, " ", new Sty(Theme.Muted, Theme.BgSoft));
             buffer.Write(at, y + 1, pinned.Value.Label, new Sty(Theme.Muted, Theme.BgSoft));
             right -= pinnedWidth + 2;
@@ -761,11 +762,18 @@ public static class Widgets
         {
             if (x + hint.Key.Length + 1 + hint.Label.Length > limit) break;
 
+            Clickable(x, y + 1, hint.Key.Length + 1 + hint.Label.Length, hint);
             x = buffer.Write(x, y + 1, hint.Key, new Sty(Theme.Blue, Theme.BgSoft, bold: true));
             x = buffer.Write(x, y + 1, " ", new Sty(Theme.Muted, Theme.BgSoft));
             x = buffer.Write(x, y + 1, hint.Label, new Sty(Theme.Muted, Theme.BgSoft));
             x += spacing;
         }
+    }
+
+    /// <summary>A hint that names one key presses it when clicked.</summary>
+    private static void Clickable(int x, int y, int width, KeyHint hint)
+    {
+        if (Clicks.FromHint(hint.Key) is { } key) Clicks.Key(x, y, width, key);
     }
 
     /// <summary>Tips box; returns the height it occupied (0 when it did not fit).</summary>

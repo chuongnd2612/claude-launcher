@@ -107,6 +107,18 @@ public sealed class KeysScreen : ScreenBase
                 continue;
             }
 
+            // Clicking a line closes the list and presses that key on the
+            // screen underneath, which is what puts every command - not just
+            // the few in a footer - within reach of the mouse.
+            if (Clicks.FromHint(key.Key) is { } press)
+            {
+                Clicks.Add(x, row, columnWidth, 1, () =>
+                {
+                    ConsoleInput.Inject(press);
+                    return ScreenAction.Back;
+                });
+            }
+
             buffer.WriteClipped(x + 2, row, key.Key, keyWidth,
                 new Sty(Theme.Blue, Theme.Bg, bold: true));
 
@@ -123,8 +135,8 @@ public sealed class KeysScreen : ScreenBase
         }
 
         Widgets.Footer(buffer, more
-            ? new[] { new KeyHint("↑↓", "Scroll"), new KeyHint("pgup/pgdn", "Page"), new KeyHint("esc", "Close") }
-            : new[] { new KeyHint("esc", "Close") });
+            ? new[] { new KeyHint("↑↓", "Scroll"), new KeyHint("pgup/pgdn", "Page"), new KeyHint("click", "Run that key"), new KeyHint("esc", "Close") }
+            : new[] { new KeyHint("click", "Run that key"), new KeyHint("esc", "Close") });
     }
 
     public override ScreenAction HandleKey(ConsoleKeyInfo key)

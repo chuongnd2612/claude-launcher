@@ -104,6 +104,12 @@ public sealed class ProjectEditor
             var bg = selected ? Theme.PanelSelected : Theme.Panel;
 
             buffer.Fill(x + 1, row, width - 2, 1, bg);
+            var match = i;
+            Clicks.Item(x + 1, row, width - 2, 1, selected, () => _matchIndex = match, () =>
+            {
+                Complete();
+                return ScreenAction.None;
+            });
             buffer.Write(x + 3, row, selected ? "▸ " : "  ", new Sty(Theme.Blue, bg, bold: true));
             buffer.WriteClipped(x + 5, row, Path.GetFileName(_matches[i]), width - 10,
                 new Sty(selected ? Theme.Blue : Theme.TextSoft, bg, bold: selected));

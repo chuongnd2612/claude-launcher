@@ -89,6 +89,7 @@ public sealed class HistorySearchScreen : ScreenBase
         var queryRow = y + 1;
         var queryBg = _typing ? Theme.PanelSelected : Theme.Panel;
         buffer.Fill(margin + 1, queryRow, width - 2, 1, queryBg);
+        if (!_typing) Clicks.Key(margin + 1, queryRow, width - 2, Clicks.Press(ConsoleKey.Oem2, '/'));
 
         var at = buffer.Write(margin + 3, queryRow, "⌕ ", new Sty(_typing ? Theme.Blue : Theme.Dim, queryBg));
         if (_typing)
@@ -131,6 +132,8 @@ public sealed class HistorySearchScreen : ScreenBase
             var bg = selected ? Theme.PanelSelected : Theme.Panel;
 
             buffer.Fill(margin + 1, rowY, width - 2, 1, bg);
+            var picked = i;
+            Clicks.Item(margin + 1, rowY, width - 2, 1, selected, () => _index = picked, () => ScreenAction.None);
             buffer.Write(margin + 2, rowY, selected ? "▸" : " ", new Sty(Theme.Blue, bg, bold: true));
 
             var when = hit.WhenUtc is null ? "" : hit.WhenUtc.Value.ToLocalTime().ToString("HH:mm");

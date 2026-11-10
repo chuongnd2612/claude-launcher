@@ -59,8 +59,28 @@ public abstract class ScreenBase
     /// everything else keeps handling keys and ignores the rest, so adding the
     /// mouse changed no existing screen.
     /// </summary>
-    public virtual ScreenAction HandleInput(InputEvent input) =>
-        input.Kind == InputKind.Key ? HandleKey(input.Key) : ScreenAction.None;
+    public virtual ScreenAction HandleInput(InputEvent input) => input.Kind switch
+    {
+        InputKind.Key => HandleKey(input.Key),
+        InputKind.MouseDown => Clicks.Hit(input.X, input.Y) ?? ScreenAction.None,
+        InputKind.MouseWheel => Wheel(input.Delta),
+        _ => ScreenAction.None
+    };
+
+    /// <summary>
+    /// A notch is an arrow press: every list here already moves on the arrows,
+    /// so the wheel scrolls them all without any of them knowing about it.
+    /// </summary>
+    protected virtual ScreenAction Wheel(int delta)
+    {
+        var key = Clicks.Press(delta > 0 ? ConsoleKey.UpArrow : ConsoleKey.DownArrow);
+        var result = ScreenAction.None;
+
+        for (var i = 0; i < Math.Abs(delta) && result.Kind == ActionKind.None; i++)
+            result = HandleKey(key);
+
+        return result;
+    }
 
     /// <summary>
     /// Non-null for screens whose content changes on its own. Screens that only
@@ -256,6 +276,7 @@ public sealed class App
     {
         _buffer.Resize(width, height);
         _buffer.Clear();
+        Clicks.Begin(screen);
         screen.Render(_buffer);
         return _buffer.ToPlainText();
     }
@@ -376,6 +397,7 @@ public sealed class App
 
             _buffer.PaintBackground = Settings.PaintBackground;
             _buffer.Clear();
+            Clicks.Begin(Current);
             Current.Render(_buffer);
             _buffer.Flush();
 

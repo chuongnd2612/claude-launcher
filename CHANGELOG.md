@@ -3,6 +3,18 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **The mouse works on every screen, not just the wall.** Every footer hint is a button that presses
+  its key. A list row selects on the first click and opens on a click once selected (a double click
+  does the same) - Home, profiles, projects, session modes, resume, every-session browser, new
+  terminal, dashboard projects, usage accounts, history hits, the key editor, the folder dropdown,
+  the slash-command menu, and the wall's split picker. Clicking a line in the `F1` key list closes
+  it and runs that key on the screen underneath, so every command is reachable with the mouse. A
+  setting flips on one click; a filter row starts filtering; the profile and "opens in" lines on the
+  session screen cycle; `Cancel` / `Remove` and a chat permission's `y` / `a` / `n` are buttons. The
+  wheel moves the selection in any list and scrolls the chat transcript.
+
 ## 1.52.0
 
 - **Browse every session, across every profile: `b` on Home.** One screen listing every conversation

@@ -332,6 +332,7 @@ public sealed class HomeScreen : ScreenBase
             var bg = selected ? Theme.PanelSelected : Theme.Panel;
 
             buffer.Fill(margin + 1, rowY, width - 2, 1, bg);
+            Clicks.Item(margin + 1, rowY, width - 2, 1, selected, () => _index = itemIndex);
             buffer.Write(margin + 2, rowY, selected ? "▸" : " ", new Sty(Theme.Blue, bg, bold: true));
 
             buffer.WriteClipped(c.ProjectX, rowY, row.ProjectName, c.ProjectWidth,

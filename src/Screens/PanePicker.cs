@@ -146,6 +146,17 @@ public sealed class PanePicker
     /// draws, where the tile owns the border and the header. The x it is given
     /// is the first column of content, not of a border.
     /// </summary>
+    /// <summary>
+    /// Set by the wall while this pane holds the keyboard. Only then do its rows
+    /// take clicks: an unfocused picker's click focuses it, the way any tile's does.
+    /// </summary>
+    public bool Clickable { get; set; }
+
+    private void Row(int x, int y, int inner, bool selected, Action select)
+    {
+        if (Clickable) Clicks.Item(x + 1, y, inner + 2, 1, selected, select);
+    }
+
     public void Body(ScreenBuffer buffer, int x, int y, int inner, int rows, Rgb fill)
     {
         if (rows <= 0 || inner <= 4) return;
@@ -201,6 +212,7 @@ public sealed class PanePicker
             if (item >= items.Count) break;
 
             var selected = item == _index;
+            Row(x, listY + row, inner, selected, () => _index = item);
             buffer.Write(x + 2, listY + row, selected ? "▸" : " ", new Sty(Theme.Blue, fill, bold: true));
             buffer.WriteClipped(x + 4, listY + row, items[item].Name, Math.Max(0, inner - 2),
                 new Sty(selected ? Theme.Blue : Theme.TextSoft, fill, bold: selected));
@@ -217,6 +229,8 @@ public sealed class PanePicker
         for (var row = 0; row < listRows; row++)
         {
             var selected = row == _mode;
+            var mode = row;
+            Row(x, listY + row, inner, selected, () => _mode = mode);
             buffer.Write(x + 2, listY + row, selected ? "▸" : " ", new Sty(Theme.Blue, fill, bold: true));
             buffer.Write(x + 4, listY + row, Modes[row].Glyph, new Sty(selected ? Theme.Blue : Theme.Muted, fill));
             buffer.WriteClipped(x + 6, listY + row, Modes[row].Title, Math.Max(0, inner - 4),
@@ -236,7 +250,10 @@ public sealed class PanePicker
             new Sty(Theme.TextSoft, fill));
 
         if (_app.State.Profiles.Count > 1)
+        {
             buffer.WriteClipped(cursor + 1, profileY, "←→", inner, new Sty(Theme.Dim, fill));
+            if (Clickable) Clicks.Key(x + 1, profileY, inner + 2, Clicks.Press(ConsoleKey.RightArrow));
+        }
     }
 
     private void RenderSessions(ScreenBuffer buffer, int x, int y, int inner, int rows, Rgb fill)
@@ -265,6 +282,7 @@ public sealed class PanePicker
             SessionReader.Load(session);
 
             var selected = item == _index;
+            Row(x, listY + row, inner, selected, () => _index = item);
             buffer.Write(x + 2, listY + row, selected ? "▸" : " ", new Sty(Theme.Blue, fill, bold: true));
 
             var age = Format.Ago(session.LastActivityUtc);

@@ -11,6 +11,15 @@ only has room for four or five, so it shows the ones worth a permanent line and 
 including the chords that depend on which pane has the keyboard. `?` does the same on screens with
 nothing to type into.
 
+**Everything the keyboard does, the mouse does too.** Every hint in the footer bar is a button that
+presses its key. In a list, the first click on a row selects it and a click on the row that is already
+selected opens it — which is also what a double click comes to. In the `F1` list, clicking a line
+closes the list and presses that key on the screen underneath, so even a command with no footer hint
+is one click away. A setting flips on a single click, and a confirm screen's `Cancel` / `Remove`
+buttons are buttons. The wheel moves the selection in any list, scrolls the transcript in the chat
+view, and scrolls whatever tile is under the pointer on the wall. Hints that describe a gesture
+rather than one key — `↑↓`, `type`, `1-9` — are not clickable.
+
 | Screen  | Keys |
 | ------- | ---- |
 | Everywhere, including a focused terminal tile | `F1` keys · `Alt+U` usage detail · `Alt+R` refresh the usage band, as does clicking its `↻ usage` button · `Alt+K` change these keys |

@@ -292,6 +292,9 @@ public sealed class ChatScreen : ScreenBase
             var bg = selected ? Theme.PanelSelected : Theme.Panel;
 
             buffer.Fill(x + 1, rowY, width - 2, 1, bg);
+            var picked = index;
+            Clicks.Item(x + 1, rowY, width - 2, 1, selected, () => _menuIndex = picked,
+                () => HandleKey(Clicks.Press(ConsoleKey.Tab, '\t')));
             buffer.WriteClipped(x + 3, rowY, "/" + command.Name, 24,
                 new Sty(selected ? Theme.Blue : Theme.Text, bg, bold: selected));
 
@@ -314,12 +317,20 @@ public sealed class ChatScreen : ScreenBase
         buffer.WriteClipped(x + 3, y + 2, "Claude wants to run this tool.", width - 6,
             new Sty(Theme.TextSoft, Theme.Panel));
 
-        var cursor = buffer.Write(x + 3, y + 3, "y", new Sty(Theme.Green, Theme.Panel, bold: true));
+        var start = x + 3;
+        var cursor = buffer.Write(start, y + 3, "y", new Sty(Theme.Green, Theme.Panel, bold: true));
         cursor = buffer.Write(cursor, y + 3, " allow    ", new Sty(Theme.Muted, Theme.Panel));
+        Clicks.Key(start, y + 3, "y allow".Length, Clicks.Press(ConsoleKey.Y, 'y'));
+
+        start = cursor;
         cursor = buffer.Write(cursor, y + 3, "a", new Sty(Theme.Blue, Theme.Panel, bold: true));
         cursor = buffer.Write(cursor, y + 3, " always allow    ", new Sty(Theme.Muted, Theme.Panel));
+        Clicks.Key(start, y + 3, "a always allow".Length, Clicks.Press(ConsoleKey.A, 'a'));
+
+        start = cursor;
         cursor = buffer.Write(cursor, y + 3, "n", new Sty(Theme.Red, Theme.Panel, bold: true));
         buffer.Write(cursor, y + 3, " deny", new Sty(Theme.Muted, Theme.Panel));
+        Clicks.Key(start, y + 3, "n deny".Length, Clicks.Press(ConsoleKey.N, 'n'));
     }
 
     private void InputLine(ScreenBuffer buffer, int x, int y, int width)
@@ -349,6 +360,14 @@ public sealed class ChatScreen : ScreenBase
         var shown = _input.Length <= room ? _input : _input.Substring(_input.Length - room);
         var cursor = buffer.Write(x + 3, y, shown, new Sty(Theme.Text, bg));
         buffer.Write(cursor, y, "▏", new Sty(Theme.Blue, bg, bold: true));
+    }
+
+    /// <summary>The wheel scrolls the transcript, never the command menu or the draft.</summary>
+    protected override ScreenAction Wheel(int delta)
+    {
+        if (delta > 0) _follow = false;
+        _scroll = Math.Max(0, _scroll - delta * 3);
+        return ScreenAction.None;
     }
 
     public override ScreenAction HandleKey(ConsoleKeyInfo key)

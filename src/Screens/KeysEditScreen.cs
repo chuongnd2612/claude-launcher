@@ -55,6 +55,9 @@ public sealed class KeysEditScreen : ScreenBase
 
             if (here) buffer.Fill(margin, y, width, 1, fill);
 
+            var picked = i;
+            if (!_capturing) Clicks.Item(margin, y, width, 1, here, () => _index = picked);
+
             // The scope only appears when it changes, so the list reads as
             // groups without spending a row on a heading for each.
             var scope = row.Scope == lastScope ? string.Empty : Where(row.Scope);
@@ -122,6 +125,9 @@ public sealed class KeysEditScreen : ScreenBase
         KeyScope.History => "history",
         _ => string.Empty
     };
+
+    /// <summary>A notch while waiting for a key would bind an arrow to the command.</summary>
+    protected override ScreenAction Wheel(int delta) => _capturing ? ScreenAction.None : base.Wheel(delta);
 
     public override ScreenAction HandleKey(ConsoleKeyInfo key)
     {
