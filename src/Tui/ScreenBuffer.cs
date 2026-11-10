@@ -116,15 +116,21 @@ public sealed class ScreenBuffer
         }
     }
 
-    /// <summary>Repaints the background of a rectangle, keeping what is written on it.</summary>
-    public void Tint(int x, int y, int width, int height, Rgb bg)
+    /// <summary>
+    /// Lifts the text in a rectangle part of the way to white, leaving the
+    /// background alone - each colour stays itself, only lighter.
+    /// </summary>
+    public void Brighten(int x, int y, int width, int height, double amount)
     {
+        var white = new Rgb(255, 255, 255);
+
         for (var row = Math.Max(0, y); row < Math.Min(Height, y + height); row++)
         {
             for (var col = Math.Max(0, x); col < Math.Min(Width, x + width); col++)
             {
                 var index = row * Width + col;
-                _cells[index].Style = _cells[index].Style.OnBg(bg);
+                var style = _cells[index].Style;
+                _cells[index].Style = style.With(Rgb.Lerp(style.Fg, white, amount));
             }
         }
     }

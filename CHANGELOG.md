@@ -3,6 +3,12 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **Hover lights the text, not the background.** What is under the pointer is lifted toward white
+  in its own colour - an amber key goes pale amber, grey hint text goes near-white - instead of
+  sitting on a highlighted block, which read as selected rather than hovered.
+
 ## 1.54.1
 
 - **Close a tile with `Ctrl`+double-click, not a triple-click.** Since clicks inside a tile reach

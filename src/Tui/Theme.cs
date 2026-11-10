@@ -13,9 +13,6 @@ public static class Theme
     public static readonly Rgb Panel = Rgb.Hex("#0F131B");
     public static readonly Rgb PanelSelected = Rgb.Hex("#111B2E");
 
-    /// <summary>Under the pointer: a step brighter than selected, so the two never read alike.</summary>
-    public static readonly Rgb Hover = Rgb.Hex("#1C2B47");
-
     // Borders
     public static readonly Rgb Border = Rgb.Hex("#232A36");
     public static readonly Rgb BorderMuted = Rgb.Hex("#1B212B");
