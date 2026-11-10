@@ -3,6 +3,14 @@
 Every release, newest first. The tags are on the
 [releases page](https://github.com/chuongnd2612/claude-launcher/releases).
 
+## Unreleased
+
+- **Close a tile with `Ctrl`+double-click, not a triple-click.** Since clicks inside a tile reach
+  Claude, picking from one of its lists with a few quick clicks could close the session. Two presses
+  with `Ctrl` held now close the tile from anywhere in it, border or Claude's screen, since a
+  `Ctrl`+click is never passed on; the minimize tray's entries close the same way. A pinned tile
+  still refuses.
+
 ## 1.54.0
 
 - **Click Claude's own UI inside a tile.** Once a tile has the keyboard, clicks, drags and hovers
