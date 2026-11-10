@@ -60,9 +60,6 @@ public static class Clicks
         return null;
     }
 
-    public static bool Covers(int x, int y) =>
-        Regions.Any(r => x >= r.X && x < r.X + r.W && y >= r.Y && y < r.Y + r.H);
-
     public static ConsoleKeyInfo Press(ConsoleKey key, char ch = '\0', bool shift = false, bool alt = false,
         bool ctrl = false) => new(ch, key, shift, alt, ctrl);
 
