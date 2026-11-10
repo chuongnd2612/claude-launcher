@@ -399,10 +399,20 @@ public sealed class App
             _buffer.Clear();
             Clicks.Begin(Current);
             Current.Render(_buffer);
+            Clicks.PaintHover(_buffer);
             _buffer.Flush();
 
             var input = WaitForInput(width, height, Current, UsageDueUtc);
+
+            // Hovering that changes nothing on screen is not worth a frame: the
+            // whole grid is written each time, and a sweep reports every cell.
+            while (input is { Kind: InputKind.MouseMove } hover && !Hovered(hover))
+                input = WaitForInput(width, height, Current, UsageDueUtc);
+
             if (input is null) continue; // resized, or the band or screen asked for a repaint
+            if (input.Value.Kind == InputKind.MouseMove) continue;
+
+            if (input.Value.Kind != InputKind.Key) Clicks.MoveTo(input.Value.X, input.Value.Y);
 
             // The band is chrome on every screen, so its own commands are read
             // here rather than in nineteen HandleKey methods - and reading them
@@ -412,6 +422,18 @@ public sealed class App
 
             Apply(Current.HandleInput(input.Value));
         }
+    }
+
+    /// <summary>
+    /// Hands a hover to the screen - the wall passes it on to a terminal that
+    /// asked for motion - and says whether the frame needs painting again.
+    /// </summary>
+    private bool Hovered(InputEvent hover)
+    {
+        var moved = Clicks.MoveTo(hover.X, hover.Y);
+        var action = Current.HandleInput(hover);
+        Apply(action);
+        return moved || action.Kind != ActionKind.None;
     }
 
     /// <summary>

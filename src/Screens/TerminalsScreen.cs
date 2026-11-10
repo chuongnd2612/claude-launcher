@@ -765,6 +765,7 @@ public sealed class TerminalsScreen : ScreenBase
 
         _rects.Clear();
         _chips.Clear();
+        _grids.Clear();
 
         if (_focus >= panes.Count) _focus = Math.Max(0, panes.Count - 1);
 
@@ -1475,6 +1476,18 @@ public sealed class TerminalsScreen : ScreenBase
     private readonly List<(int X, int Y, int W, int H, int Index)> _rects = new();
 
     /// <summary>
+    /// Where each terminal's own grid landed this frame, inside its tile's
+    /// border - the origin a mouse report is measured from. Rebuilt every frame.
+    /// </summary>
+    private readonly List<(int X, int Y, int W, int H, int Index, TerminalTile Tile)> _grids = new();
+
+    /// <summary>
+    /// A press handed to a terminal, held until the release so the drag and the
+    /// let-go reach the same program wherever the pointer wanders meanwhile.
+    /// </summary>
+    private (TerminalTile Tile, int X, int Y)? _pressed;
+
+    /// <summary>
     /// Where each project's name sits in the strip, so a click on one can
     /// narrow the wall to it. Rebuilt every frame, like <see cref="_rects"/>.
     /// </summary>
@@ -1751,6 +1764,7 @@ public sealed class TerminalsScreen : ScreenBase
         }
 
         terminal.Resize(inner, innerRows);
+        _grids.Add((x + 2, y + 1, inner, innerRows, index, terminal));
 
         // Re-searching here rather than only on a keystroke is what keeps the
         // highlight on the text it found: the pane below it repaints constantly.
@@ -1980,6 +1994,7 @@ public sealed class TerminalsScreen : ScreenBase
             var searching = focused && _finding;
 
             terminal.Resize(width - 2, height);
+            _grids.Add((x + 1, y, width - 2, height, index, terminal));
             if (searching && _query.Length > 0) Recompute(terminal, keepPlace: true);
 
             var search = searching && _hits.Count > 0 ? new SearchHighlight(_hits, _hit) : (SearchHighlight?)null;
@@ -3101,6 +3116,62 @@ public sealed class TerminalsScreen : ScreenBase
         _notice = $"showing only {name} · click it again for every tile";
     }
 
+    /// <summary>
+    /// Hands the mouse to the terminal that has the keyboard when the program in
+    /// it asked for reports - Claude does, for its pickers and buttons. Only the
+    /// typing pane: the first click on any other still focuses it, so a stray
+    /// click never answers a prompt in a tile you were not looking at. The tile
+    /// border stays the wall's, for dragging and triple-click closing.
+    /// Returns true when the event went to the terminal.
+    /// </summary>
+    private bool Forwarded(InputEvent input)
+    {
+        if (_pressed is { } held)
+        {
+            var col = input.X - held.X;
+            var row = input.Y - held.Y;
+
+            switch (input.Kind)
+            {
+                case InputKind.MouseDrag:
+                    held.Tile.SendMouse(MouseReport.Drag, col, row);
+                    return true;
+
+                // A move with nothing held means the release was lost - the
+                // window lost focus mid-press - so it is let go here instead.
+                case InputKind.MouseUp or InputKind.MouseMove:
+                    held.Tile.SendMouse(MouseReport.Release, col, row);
+                    _pressed = null;
+                    return true;
+
+                case InputKind.MouseDown:
+                    held.Tile.SendMouse(MouseReport.Release, col, row);
+                    _pressed = null;
+                    break;
+            }
+        }
+
+        if (_released || input.Kind is not (InputKind.MouseDown or InputKind.MouseMove)) return false;
+
+        var grid = _grids.FirstOrDefault(g => g.Index == _focus &&
+            input.X >= g.X && input.X < g.X + g.W && input.Y >= g.Y && input.Y < g.Y + g.H);
+
+        if (grid.Tile is null || grid.Tile.HasExited || !grid.Tile.WantsMouse) return false;
+
+        if (input.Kind == InputKind.MouseMove)
+        {
+            grid.Tile.SendMouse(MouseReport.Hover, input.X - grid.X, input.Y - grid.Y);
+
+            // Still a hover to the wall too, which clears a tile left held.
+            return false;
+        }
+
+        _carry = null;
+        grid.Tile.SendMouse(MouseReport.Press, input.X - grid.X, input.Y - grid.Y);
+        _pressed = (grid.Tile, grid.X, grid.Y);
+        return true;
+    }
+
     public override ScreenAction HandleInput(InputEvent input)
     {
         // A press whose release never arrived - the window lost focus mid-drag -
@@ -3110,6 +3181,13 @@ public sealed class TerminalsScreen : ScreenBase
             _carry = null;
             return HandleKey(input.Key);
         }
+
+        if (Forwarded(input)) return ScreenAction.None;
+
+        // Every button-less move used to arrive as a release, and the drag and
+        // drop below is written around that - a lost release is put right by
+        // the next move. Hovering still means exactly that here.
+        if (input.Kind == InputKind.MouseMove) input = new InputEvent(InputKind.MouseUp, input.X, input.Y, 0);
 
         // A divider being dragged owns the mouse until it is let go, so the
         // pointer can cross a tile on the way without focusing it.

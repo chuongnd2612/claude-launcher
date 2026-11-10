@@ -51,13 +51,48 @@ public static class Clicks
     /// <summary>The last region drawn wins, because it is the one painted on top.</summary>
     public static ScreenAction? Hit(int x, int y)
     {
+        var at = IndexAt(x, y);
+        return at < 0 ? null : Regions[at].Act();
+    }
+
+    private static int IndexAt(int x, int y)
+    {
         for (var i = Regions.Count - 1; i >= 0; i--)
         {
             var r = Regions[i];
-            if (x >= r.X && x < r.X + r.W && y >= r.Y && y < r.Y + r.H) return r.Act();
+            if (x >= r.X && x < r.X + r.W && y >= r.Y && y < r.Y + r.H) return i;
         }
 
-        return null;
+        return -1;
+    }
+
+    /// <summary>Where the pointer last was, or off the grid before it has moved.</summary>
+    private static (int X, int Y) _pointer = (-1, -1);
+
+    /// <summary>
+    /// Records where the pointer is. True when that changes what is under it,
+    /// which is the only time a hover is worth a repaint - every frame is
+    /// written whole, and a sweep across a list reports every cell it crosses.
+    /// </summary>
+    public static bool MoveTo(int x, int y)
+    {
+        var before = IndexAt(_pointer.X, _pointer.Y);
+        _pointer = (x, y);
+        return IndexAt(x, y) != before;
+    }
+
+    /// <summary>
+    /// Lights whatever the pointer is over, after the screen has drawn. Done
+    /// here rather than by each screen, so anything that can be clicked shows
+    /// it can be, without any screen knowing about the pointer.
+    /// </summary>
+    public static void PaintHover(ScreenBuffer buffer)
+    {
+        var at = IndexAt(_pointer.X, _pointer.Y);
+        if (at < 0) return;
+
+        var r = Regions[at];
+        buffer.Tint(r.X, r.Y, r.W, r.H, Theme.Hover);
     }
 
     public static ConsoleKeyInfo Press(ConsoleKey key, char ch = '\0', bool shift = false, bool alt = false,

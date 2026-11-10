@@ -11,6 +11,14 @@ namespace ClaudeLauncher.Terminal;
 /// paints. That is the whole trade - it gets /usage, the model picker and plan
 /// mode exactly right, and gives up per-element styling to do it.
 /// </summary>
+public enum MouseReport
+{
+    Press,
+    Release,
+    Drag,
+    Hover
+}
+
 public sealed class TerminalTile : IDisposable
 {
     private static readonly string Esc = ((char)27).ToString();
@@ -160,6 +168,50 @@ public sealed class TerminalTile : IDisposable
         }
 
         Write(text.ToString());
+    }
+
+    /// <summary>
+    /// Forwards a click, a release or a move as a mouse report, so the child's
+    /// own clickable UI - Claude's pickers and buttons - answers the mouse the
+    /// way it does in any terminal. Column and row are tile-local, zero based.
+    /// A move is sent only in the modes that ask for it: with the button held
+    /// under ?1002 or ?1003, and with nothing held only under ?1003.
+    /// </summary>
+    public void SendMouse(MouseReport report, int col, int row)
+    {
+        bool sgr;
+        int cols, rows;
+        lock (_gate)
+        {
+            if (!_screen.MouseTracking) return;
+            if (report == MouseReport.Drag && !_screen.MouseDrag && !_screen.MouseAnyMotion) return;
+            if (report == MouseReport.Hover && !_screen.MouseAnyMotion) return;
+            sgr = _screen.SgrMouse;
+            cols = _screen.Cols;
+            rows = _screen.Rows;
+        }
+
+        var x = Math.Clamp(col, 0, Math.Max(0, cols - 1)) + 1;
+        var y = Math.Clamp(row, 0, Math.Max(0, rows - 1)) + 1;
+
+        // Left button is 0; 32 marks a move; 3 is "no button" for a hover, and
+        // the release in the old encoding, which cannot say which one let go.
+        var button = report switch
+        {
+            MouseReport.Drag => 32,
+            MouseReport.Hover => 35,
+            MouseReport.Release when !sgr => 3,
+            _ => 0
+        };
+
+        if (sgr)
+        {
+            Write($"{Esc}[<{button};{x};{y}{(report == MouseReport.Release ? 'm' : 'M')}");
+        }
+        else
+        {
+            Write($"{Esc}[M{(char)(32 + button)}{(char)(32 + Math.Min(x, 223))}{(char)(32 + Math.Min(y, 223))}");
+        }
     }
 
     public void Send(ConsoleKeyInfo key)
