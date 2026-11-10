@@ -677,7 +677,7 @@ border weight is the one of the three that survives it. In a divided tile the bo
 holds something important and the `★` beside a name says **which half** — pinning is per pane, not per
 tile.
 
-**A pinned pane will not close.** `Ctrl+W`, `w` and a triple-click all refuse it and say so; `Alt+P`
+**A pinned pane will not close.** `Ctrl+W`, `w` and a Ctrl+double-click all refuse it and say so; `Alt+P`
 again unpins. That is the point rather than a side effect — the session you must not lose is exactly
 the one a stray gesture should not be able to end. Pins are remembered in `ui.json` as
 `terminalPinned`.
@@ -711,7 +711,7 @@ opened. It moves into a small tray under the strip instead, one entry per minimi
 project. **Click a tray entry to restore and focus it**; landing on its pane any other way -
 `Alt+1..9`, a search hit - restores it too, since there is nowhere on the wall for the keyboard to
 visibly go otherwise. `Alt+M` again on the tile you are now on minimizes it back. The tray itself
-only appears when something is minimized, and a triple-click on an entry closes it directly, the
+only appears when something is minimized, and a Ctrl+double-click on an entry closes it directly, the
 same as any tile. The set is remembered in `ui.json` as `terminalMinimized`.
 
 **Tiles group by project.** Wherever pinning and the wall's own remembered order leave them, tiles
@@ -738,10 +738,12 @@ another project any other way clears the filter rather than typing into a tile t
 The minimize tray is not filtered, and closing or minimizing the last tile of the project you are
 looking at ends the filter rather than leaving an empty wall.
 
-**Triple-click a tile to close it.** Three presses in the same place within about three quarters of a
-second close that pane, exactly as `Ctrl+W` does — the session is stopped and the conversation stays
-on disk. It is the gesture the wall had left: one press focuses a pane, two belong to whatever is
-inside it, and a press that moves is carrying a tile. On the half of a split tile that is still
+**Ctrl+double-click a tile to close it.** Two presses with `Ctrl` held, in the same place within
+about three quarters of a second, close that pane exactly as `Ctrl+W` does — the session is stopped
+and the conversation stays on disk. It works anywhere in the tile, its border or Claude's own screen:
+a click with `Ctrl` held is never passed to Claude. It used to be a plain triple-click, until clicks
+inside a tile started reaching Claude, where a quick run of clicks on one of its lists closed the
+session by accident. On the half of a split tile that is still
 waiting for a session, it cancels the split instead. A pinned tile refuses, the same as it does from
 the keyboard.
 

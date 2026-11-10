@@ -1088,7 +1088,7 @@ public sealed class TerminalsScreen : ScreenBase
     ///
     /// Each chip gets a rect the same way a tile does, so the wall's own
     /// mouse-down handling restores and focuses it on a click, and closes it
-    /// on a triple one, with nothing special written here for either.
+    /// on a Ctrl+double-click, with nothing special written here for either.
     /// </summary>
     private int Tray(ScreenBuffer buffer, int y, List<SessionRow> panes)
     {
@@ -1506,31 +1506,40 @@ public sealed class TerminalsScreen : ScreenBase
     }
 
     /// <summary>
-    /// Presses in the same place in quick succession: where, when, and how many.
+    /// Ctrl-held presses in the same place in quick succession: where, when,
+    /// and how many.
     ///
-    /// Three closes the tile under the pointer. It is the gesture the wall had
-    /// left - one press focuses a pane, two belong to whatever is inside it, and
-    /// a press that moves is carrying a tile - and it is the one thing you could
-    /// do to a pane with the keyboard but not with the mouse.
+    /// Two close the tile under the pointer. It used to be three plain presses,
+    /// until clicks inside a tile started reaching Claude: picking from one of
+    /// its lists takes a run of quick clicks, and the third one closed the
+    /// session. A Ctrl+click is never sent on, so the gesture is the wall's alone.
     /// </summary>
     private (int X, int Y, DateTime At, int Count) _clicks;
 
     /// <summary>How long a run of clicks stays a run.</summary>
     private const int RunMilliseconds = 700;
 
-    private bool Tripled(int x, int y)
+    private bool CtrlDoubled(InputEvent press)
     {
+        // A plain press breaks the run, so a click then a Ctrl+click is not a pair.
+        if (!press.Ctrl)
+        {
+            _clicks = default;
+            return false;
+        }
+
         var now = DateTime.UtcNow;
 
-        var together = Math.Abs(x - _clicks.X) <= 1 && Math.Abs(y - _clicks.Y) <= 1 &&
+        var together = _clicks.Count > 0 &&
+                       Math.Abs(press.X - _clicks.X) <= 1 && Math.Abs(press.Y - _clicks.Y) <= 1 &&
                        (now - _clicks.At).TotalMilliseconds <= RunMilliseconds;
 
-        _clicks = (x, y, now, together ? _clicks.Count + 1 : 1);
+        _clicks = (press.X, press.Y, now, together ? _clicks.Count + 1 : 1);
 
-        if (_clicks.Count < 3) return false;
+        if (_clicks.Count < 2) return false;
 
-        // Start over, so a fourth press does not close a second pane.
-        _clicks = (x, y, now, 0);
+        // Start over, so a third press does not close a second pane.
+        _clicks = default;
         return true;
     }
 
@@ -3121,7 +3130,8 @@ public sealed class TerminalsScreen : ScreenBase
     /// it asked for reports - Claude does, for its pickers and buttons. Only the
     /// typing pane: the first click on any other still focuses it, so a stray
     /// click never answers a prompt in a tile you were not looking at. The tile
-    /// border stays the wall's, for dragging and triple-click closing.
+    /// border stays the wall's for dragging, and a Ctrl+click is never sent on,
+    /// so Ctrl+double-click closes the tile from anywhere in it.
     /// Returns true when the event went to the terminal.
     /// </summary>
     private bool Forwarded(InputEvent input)
@@ -3152,6 +3162,7 @@ public sealed class TerminalsScreen : ScreenBase
         }
 
         if (_released || input.Kind is not (InputKind.MouseDown or InputKind.MouseMove)) return false;
+        if (input.Ctrl) return false;
 
         var grid = _grids.FirstOrDefault(g => g.Index == _focus &&
             input.X >= g.X && input.X < g.X + g.W && input.Y >= g.Y && input.Y < g.Y + g.H);
@@ -3300,7 +3311,7 @@ public sealed class TerminalsScreen : ScreenBase
 
         if (input.Kind == InputKind.MouseDown)
         {
-            if (Tripled(input.X, input.Y))
+            if (CtrlDoubled(input))
             {
                 _carry = null;
                 Focus(hit.Index);

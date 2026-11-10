@@ -32,20 +32,25 @@ public readonly struct InputEvent
     /// <summary>Wheel notches: positive scrolls back through history.</summary>
     public readonly int Delta;
 
+    /// <summary>Ctrl was held when the mouse did this.</summary>
+    public readonly bool Ctrl;
+
     public InputEvent(ConsoleKeyInfo key)
     {
         Kind = InputKind.Key;
         Key = key;
         X = Y = Delta = 0;
+        Ctrl = false;
     }
 
-    public InputEvent(InputKind kind, int x, int y, int delta)
+    public InputEvent(InputKind kind, int x, int y, int delta, bool ctrl = false)
     {
         Kind = kind;
         Key = default;
         X = x;
         Y = y;
         Delta = delta;
+        Ctrl = ctrl;
     }
 }
 
@@ -75,6 +80,8 @@ public static class ConsoleInput
     private const uint MouseDoubleClick = 0x0002;
     private const uint MouseMoved = 0x0001;
     private const uint LeftmostPressed = 0x0001;
+    private const uint RightCtrlPressed = 0x0004;
+    private const uint LeftCtrlPressed = 0x0008;
 
     private static readonly ConcurrentQueue<InputEvent> Queue = new();
 
@@ -277,7 +284,8 @@ public static class ConsoleInput
                 case MouseEventType when record.Mouse.EventFlags is 0 or MouseDoubleClick &&
                                          (record.Mouse.ButtonState & LeftmostPressed) != 0:
                     Queue.Enqueue(new InputEvent(InputKind.MouseDown,
-                        record.Mouse.Position.X, record.Mouse.Position.Y, 0));
+                        record.Mouse.Position.X, record.Mouse.Position.Y, 0,
+                        (record.Mouse.ControlKeyState & (LeftCtrlPressed | RightCtrlPressed)) != 0));
                     break;
 
                 // Dragging is a move with the button still down, and the release
