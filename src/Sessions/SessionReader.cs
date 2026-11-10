@@ -216,12 +216,15 @@ public static class SessionReader
     /// </summary>
     private static void FoldUser(JsonElement root, TranscriptFacts facts)
     {
+        // Claude writes injected context (the slash-command caveat, skill bodies)
+        // as user lines flagged isMeta; nobody typed them.
+        if (root.TryGetProperty("isMeta", out var meta) && meta.ValueKind == JsonValueKind.True) return;
         if (!root.TryGetProperty("message", out var message)) return;
         if (!message.TryGetProperty("content", out var content)) return;
 
         if (content.ValueKind == JsonValueKind.String)
         {
-            Add(facts, EntryKind.UserPrompt, content.GetString());
+            Add(facts, EntryKind.UserPrompt, SlashCommand(content.GetString()));
             return;
         }
 
@@ -296,6 +299,29 @@ public static class SessionReader
     {
         var parts = path.Split('\\', '/');
         return parts.Length <= 2 ? path : string.Join('/', parts[^2..]);
+    }
+
+    /// <summary>
+    /// A typed slash command lands in the transcript wrapped in XML tags; show it
+    /// the way it was typed. Its captured output is not a prompt at all.
+    /// </summary>
+    private static string? SlashCommand(string? text)
+    {
+        if (text is null) return null;
+        if (text.StartsWith("<local-command-", StringComparison.Ordinal)) return null;
+        if (!text.StartsWith("<command-name>", StringComparison.Ordinal)) return text;
+        var name = Between(text, "<command-name>", "</command-name>");
+        var args = Between(text, "<command-args>", "</command-args>");
+        return string.IsNullOrWhiteSpace(args) ? name : name + " " + args;
+    }
+
+    private static string Between(string text, string open, string close)
+    {
+        var start = text.IndexOf(open, StringComparison.Ordinal);
+        if (start < 0) return string.Empty;
+        start += open.Length;
+        var end = text.IndexOf(close, start, StringComparison.Ordinal);
+        return end < 0 ? string.Empty : text.Substring(start, end - start).Trim();
     }
 
     private static void Add(TranscriptFacts facts, EntryKind kind, string? text)
