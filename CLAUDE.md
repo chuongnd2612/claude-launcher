@@ -77,6 +77,20 @@ $env:CLAUDE_LAUNCHER_PROFILES = "$env:TEMP\profiles-test.json"   # never point a
 
 ## Workflow rules
 
+### New requirements
+
+For every new requirement or feature request:
+
+1. Check the active model ID. Continue only when it contains `gpt-sol` or `opus`; otherwise report the
+   model mismatch and stop.
+2. If scope, behavior, acceptance criteria, or tradeoffs are unclear, invoke the `grilling` skill and
+   resolve them before planning. Skip it when the request is already implementation-ready.
+3. Create the GitHub issue or issues that define the accepted work and verification criteria.
+4. Spawn one Opus agent and one Sonnet agent in parallel. Give them independent implementation slices
+   when the issues can be separated; otherwise give one implementation and the other an unanchored
+   review. Keep ownership explicit so agents never edit the same files concurrently.
+5. Integrate, verify, and finish each issue through the PR workflow below.
+
 ### Finishing a feature — PR, self-review, auto-merge
 
 When a feature or fix is complete and verified, take it all the way to merged without waiting to be
@@ -91,17 +105,17 @@ asked again:
 4. `gh pr create` with a body covering what changed, why, and how it was verified — plus what was
    *not* verified (e.g. interactive key flow). End the body with:
    `🤖 Generated with [Claude Code](https://claude.com/claude-code)`
-5. Self-review before merging: read the PR diff (`gh pr diff`) as a reviewer, not as the author.
-   Post the review with `gh pr review --approve --body "..."` stating what was checked. If the
-   review turns up a real problem, fix it and push before merging — do not merge over a known issue.
-6. Wait for `ci` to pass (`gh pr checks --watch`), then merge and clean up:
+5. Self-review before merging: read the PR diff (`gh pr diff`) as a reviewer, not as the author. Do
+   not submit a GitHub approval; this repository does not require one. If the review turns up a real
+   problem, fix it and push before merging — do not merge over a known issue.
+6. Wait for `ci` to pass (`gh pr checks --watch`), then merge without an approval and clean up:
    `gh pr merge --squash --delete-branch --admin`
 7. Report the PR URL and the merge result. If any step fails, stop and say so — never report a merge
    that did not happen.
 
-### "Release" — tag and publish
+### `/release` — tag and publish
 
-When the user says *release*, cut it end to end:
+When the user says `release` or invokes `/release`, cut it end to end:
 
 1. Confirm `main` is up to date, clean, and green.
 2. Pick the next semver tag from `git tag --list` (tags are `vX.Y.Z`; latest wins). Patch for fixes,
@@ -110,7 +124,8 @@ When the user says *release*, cut it end to end:
 4. `release.yml` does the rest on the tag push: publishes the self-contained exe, smoke-tests it,
    builds the zip + SHA256, and publishes the GitHub release with generated notes. Do **not**
    `gh release create` by hand — that would race the workflow.
-5. Watch it (`gh run watch`) and report the release URL, or the failure if the workflow goes red.
+5. Watch it (`gh run watch`) and report the final status, released version, and release URL. If the
+   workflow goes red, report the failed status and stop.
 
 The version is stamped from the tag via `-p:Version=`; `<Version>` in `ClaudeLauncher.csproj` is
 only a local fallback and does not need bumping per release.
