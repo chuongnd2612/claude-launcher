@@ -501,6 +501,19 @@ public static class StateStore
     public static void WriteResult(ProfileEntry profile, ProjectEntry project, string mode, string openIn,
         string? sessionId = null, bool remoteControl = false)
     {
+        if (string.IsNullOrWhiteSpace(sessionId) && string.Equals(mode, "new", StringComparison.OrdinalIgnoreCase))
+            sessionId = Guid.NewGuid().ToString();
+
+        if (string.IsNullOrWhiteSpace(sessionId) && string.Equals(mode, "continue", StringComparison.OrdinalIgnoreCase))
+        {
+            sessionId = Sessions.SessionReader.ListProjectSessions(ExpandHome(profile.ConfigDir), project.Path)
+                .OrderByDescending(session => session.LastActivityUtc)
+                .Select(session => session.SessionId)
+                .FirstOrDefault();
+        }
+
+        if (!string.IsNullOrWhiteSpace(sessionId)) Sessions.LauncherSessions.Remember(sessionId);
+
         var result = new
         {
             profile = profile.Name,

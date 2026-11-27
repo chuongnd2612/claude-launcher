@@ -87,6 +87,7 @@ public sealed class TerminalTile : IDisposable
         // only works if it can choose the id rather than read it back afterwards.
         var resuming = !string.IsNullOrWhiteSpace(resumeSessionId);
         var sessionId = resuming ? resumeSessionId! : newSessionId ?? Guid.NewGuid().ToString();
+        Sessions.LauncherSessions.Remember(sessionId);
 
         var command = new StringBuilder();
         command.Append('"').Append(Executable()).Append('"');

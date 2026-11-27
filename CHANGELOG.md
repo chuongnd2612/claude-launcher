@@ -5,6 +5,8 @@ Every release, newest first. The tags are on the
 
 ## Unreleased
 
+- **The terminal wall shows only Claude Launcher sessions.** Sessions opened directly in another
+  terminal or tool no longer appear beside sessions launched or resumed through Claude Launcher.
 - **Slash commands read as typed in a tile.** After `/clear` (or any slash command) a session's
   tile showed the raw `<local-command-caveat>` / `<command-name>` tags Claude records in the
   transcript. The injected caveat and the command output are now skipped, and the command shows as
