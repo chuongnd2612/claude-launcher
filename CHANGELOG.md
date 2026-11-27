@@ -5,6 +5,8 @@ Every release, newest first. The tags are on the
 
 ## Unreleased
 
+## 1.54.3
+
 - **The terminal wall shows only Claude Launcher sessions.** Sessions opened directly in another
   terminal or tool no longer appear beside sessions launched or resumed through Claude Launcher.
 - **Slash commands read as typed in a tile.** After `/clear` (or any slash command) a session's
