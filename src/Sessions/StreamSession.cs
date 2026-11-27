@@ -210,6 +210,7 @@ public sealed class StreamSession : IDisposable
             // Known up front when resuming, so handing the conversation back to
             // a terminal works before the first message of this sitting.
             SessionId = resumeSessionId;
+            LauncherSessions.Remember(SessionId);
         }
 
         info.EnvironmentVariables["CLAUDE_CONFIG_DIR"] = StateStore.ExpandHome(Profile.ConfigDir);
@@ -572,7 +573,11 @@ public sealed class StreamSession : IDisposable
         switch (subtype.GetString())
         {
             case "init":
-                if (root.TryGetProperty("session_id", out var id)) SessionId = id.GetString();
+                if (root.TryGetProperty("session_id", out var id))
+                {
+                    SessionId = id.GetString();
+                    if (SessionId is not null) LauncherSessions.Remember(SessionId);
+                }
                 Touch();
                 break;
 

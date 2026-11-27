@@ -48,6 +48,11 @@ public static class Program
                 return 0;
             }
 
+            if (args.Any(a => a == "--selftest-session-ownership"))
+            {
+                return SelfTestSessionOwnership();
+            }
+
             // If the last run installed an update, this run is the new build and
             // the one it replaced is no longer open by anything - so this is the
             // first moment it can be cleared away.
@@ -153,6 +158,7 @@ public static class Program
         Console.WriteLine("  -h, --help                 Show this help");
         Console.WriteLine("  -v, --version              Show the version");
         Console.WriteLine("      --selftest [w] [h]     Render every screen as plain text (layout check)");
+        Console.WriteLine("      --selftest-session-ownership  Check live-session ownership filtering");
         Console.WriteLine();
         Console.WriteLine("Environment:");
         Console.WriteLine("  CLAUDE_LAUNCHER_STATE      state.json prepared by the wrapper");
@@ -164,6 +170,28 @@ public static class Program
         Console.WriteLine("  CLAUDE_LAUNCHER_OPEN_IN    current | tab | right | down");
         Console.WriteLine("  CLAUDE_LAUNCHER_NO_UPDATE_CHECK  skip the update check for this run");
         Console.WriteLine("  CLAUDE_LAUNCHER_REPO       owner/repo to check for newer releases");
+    }
+
+    private static int SelfTestSessionOwnership()
+    {
+        var registry = new[]
+        {
+            new ClaudeSessionFile { Pid = 1, SessionId = "launcher", Entrypoint = "cli" },
+            new ClaudeSessionFile { Pid = 2, SessionId = "outside", Entrypoint = "cli" },
+            new ClaudeSessionFile { Pid = 3, SessionId = "agent", Entrypoint = "sdk-cli" }
+        };
+
+        var visible = SessionService.VisibleRegistry(
+            registry, new[] { "launcher" }, (_, _) => true).Select(entry => entry.SessionId).ToArray();
+
+        if (visible.Length != 1 || visible[0] != "launcher")
+        {
+            Console.Error.WriteLine("session ownership filter failed: " + string.Join(", ", visible));
+            return 1;
+        }
+
+        Console.WriteLine("Session ownership filter passed.");
+        return 0;
     }
 
     /// <summary>

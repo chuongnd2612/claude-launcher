@@ -46,8 +46,8 @@ Home  /  4 sessions running
   web-dash         Fix chart tooltips             idle 4m               41k   haiku-4.5
 ```
 
-The list is read from what Claude Code already records — the launcher does not track sessions itself,
-so sessions started anywhere (another terminal, another tool) show up too. It refreshes once a second.
+The list is read from what Claude Code records, then limited to sessions opened through Claude Launcher.
+Sessions started directly in another terminal or tool stay out of the wall. It refreshes once a second.
 
 | Column | Where it comes from |
 | ------ | ------------------- |

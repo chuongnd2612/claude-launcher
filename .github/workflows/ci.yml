@@ -77,6 +77,9 @@ jobs:
             }
           }
 
+          dotnet $dll --selftest-session-ownership
+          if ($LASTEXITCODE -ne 0) { throw 'session ownership selftest failed' }
+
           Write-Host 'All screens rendered at every size.'
 
       - name: Verify the wrapper parses and keeps its UTF-8 BOM
